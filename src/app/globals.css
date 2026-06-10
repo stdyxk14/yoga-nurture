@@ -129,7 +129,7 @@
     @apply font-sans;
   }
   body {
-    overflow: hidden;
+    overflow-x: hidden;
   }
   ::selection {
     background: #dcebd9;

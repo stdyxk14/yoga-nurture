@@ -102,7 +102,7 @@ export function MentorPanel() {
   const copy = screenCopy[pathname] ?? screenCopy["/dashboard"];
 
   return (
-    <aside className="h-screen overflow-y-auto border-l border-[#e7dfd4] bg-[#fffdf9] px-3 py-2.5 shadow-[-8px_0_32px_rgba(111,92,71,0.06)]">
+    <aside className="sticky top-0 h-screen overflow-y-auto border-l border-[#e7dfd4] bg-[#fffdf9] px-2.5 py-2.5 shadow-[-8px_0_32px_rgba(111,92,71,0.06)]">
       <div className="mb-2 flex items-center gap-2 px-1">
         <Sparkles className="h-6 w-6 text-[#37885a]" strokeWidth={1.7} />
         <div>
@@ -119,12 +119,12 @@ export function MentorPanel() {
           return (
             <section
               key={mentor.title}
-              className={cn("rounded-xl border p-2.5 shadow-[0_10px_20px_rgba(100,83,57,0.05)]", tint.card)}
+              className={cn("rounded-xl border p-2 shadow-[0_10px_20px_rgba(100,83,57,0.05)]", tint.card)}
             >
               <div className="flex gap-2.5">
                 <Icon className={cn("mt-0.5 h-5 w-5 shrink-0", tint.text)} strokeWidth={1.6} />
                 <div>
-                  <h3 className={cn("text-[14px] font-bold leading-5", tint.text)}>{mentor.title}</h3>
+                  <h3 className={cn("text-[13px] font-bold leading-5", tint.text)}>{mentor.title}</h3>
                   <p className="text-[11px] font-medium leading-4 text-[#5c625a]">{mentor.description}</p>
                 </div>
               </div>
