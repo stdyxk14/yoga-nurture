@@ -16,41 +16,41 @@ const screenCopy: Record<string, { target: string; advice: string[] }> = {
   "/students": {
     target: "この生徒について相談",
     advice: [
-      "肩甲骨まわりの可動域が上向いています。猫背になりやすいため、胸を開く意識を継続しましょう。",
-      "変化を実感できるとモチベーションが高まりやすいタイプです。小さな成功体験を積み重ねる声かけを意識しましょう。",
-      "呼吸と姿勢改善をテーマにした構成が効果的です。リラックス要素も取り入れて満足度を高めましょう。",
+      "肩甲骨まわりの変化を次回も確認しましょう。",
+      "小さな成功体験を言葉で返すと継続につながります。",
+      "呼吸と姿勢改善を軸に、リラックス要素も入れましょう。",
     ],
   },
   "/lessons": {
     target: "このレッスンについて相談",
     advice: [
-      "体幹の安定が高まり、バランスポーズが安定してきています。肩甲骨周りの動きもさらに意識してみましょう。",
-      "後半の疲労が見られた生徒さんには、声かけや呼吸のガイドで安心感を届けましょう。",
-      "テーマと実施内容が一致しており、満足度が高いレッスンです。体幹強化に特化したシリーズ化もおすすめです。",
+      "体幹の安定を保ちつつ、肩まわりも観察しましょう。",
+      "後半は呼吸ガイドで安心感を補いましょう。",
+      "体幹強化テーマはシリーズ化に向いています。",
     ],
   },
   "/reports": {
     target: "このレポートについて相談",
     advice: [
-      "肩・首の悩みが全体の約6割を占めています。ケア系クラスを継続参加につなげましょう。",
-      "リピート率が74%に上昇し、習慣化が進行中です。平日午前の強みを活かしていきましょう。",
-      "姿勢改善テーマの満足度とリピート率が高く、シリーズ化や動画コンテンツ化に向いています。",
+      "肩・首ケア需要が高く、継続導線に向いています。",
+      "平日午前の強みを維持し、フォローを丁寧に。",
+      "姿勢改善テーマを発信や講座化につなげましょう。",
     ],
   },
   "/settings": {
     target: "この設定について相談",
     advice: [
-      "背骨データを自然に保つと、より呼吸がしやすくなります。体幹を広く保ちましょう。",
-      "やさしく共感的な声を意識すると、安心感のあるコミュニケーションにつながります。",
-      "実践者層の設定を明確にすると、すぐに使える構成や声かけづくりがしやすくなります。",
+      "学習データは目的別に整理すると精度が上がります。",
+      "接客方針を短く明文化しておくと安定します。",
+      "対象生徒像を絞ると提案が具体化します。",
     ],
   },
   "/dashboard": {
     target: "相談する",
     advice: [
-      "生徒さんの姿勢データを定期的に比較することで、変化のパターンが見えやすくなります。",
-      "レッスン後の一言メッセージが、安心感と継続の力になります。",
-      "季節に合わせたテーマ設定をSNSでも発信すると、共感と予約につながります。",
+      "姿勢データは定期比較すると変化が見えます。",
+      "レッスン後の一言が継続の力になります。",
+      "季節テーマをSNSにも展開しましょう。",
     ],
   },
 };
@@ -60,19 +60,19 @@ const mentors = [
     title: "身体分析メンター",
     icon: Sprout,
     tint: "green",
-    description: "身体の特徴や傾向をデータに基づいて分析し、改善や提案のヒントを整理します。",
+    description: "身体傾向を分析し、改善のヒントを整理します。",
   },
   {
     title: "寄り添い接客コーチ",
     icon: Heart,
     tint: "coral",
-    description: "生徒さん一人ひとりに寄り添う接客やコミュニケーションをサポートします。",
+    description: "声かけや関係づくりをサポートします。",
   },
   {
     title: "レッスン設計＆ブランディング戦略家",
     icon: TrendingUp,
     tint: "lavender",
-    description: "レッスンやクラス運営、発信とブランディングの戦略を整えます。",
+    description: "レッスン設計と発信の方向性を整えます。",
   },
 ] as const;
 
@@ -102,16 +102,16 @@ export function MentorPanel() {
   const copy = screenCopy[pathname] ?? screenCopy["/dashboard"];
 
   return (
-    <aside className="h-screen overflow-y-auto border-l border-[#e7dfd4] bg-[#fffdf9] px-3 py-4 shadow-[-8px_0_32px_rgba(111,92,71,0.06)] 2xl:px-4">
-      <div className="mb-4 flex items-center gap-3 px-1">
-        <Sparkles className="h-8 w-8 text-[#37885a]" strokeWidth={1.7} />
+    <aside className="h-screen overflow-y-auto border-l border-[#e7dfd4] bg-[#fffdf9] px-3 py-2.5 shadow-[-8px_0_32px_rgba(111,92,71,0.06)]">
+      <div className="mb-2 flex items-center gap-2 px-1">
+        <Sparkles className="h-6 w-6 text-[#37885a]" strokeWidth={1.7} />
         <div>
-          <h2 className="text-[20px] font-bold">AIメンター</h2>
-          <p className="text-xs font-medium text-[#7f786d]">いつでも相談できる、あなたの成長パートナー</p>
+          <h2 className="text-[17px] font-bold leading-5">AIメンター</h2>
+          <p className="text-[11px] font-medium text-[#7f786d]">いつでも相談できる成長パートナー</p>
         </div>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         {mentors.map((mentor, index) => {
           const Icon = mentor.icon;
           const tint = tintClass[mentor.tint];
@@ -119,29 +119,29 @@ export function MentorPanel() {
           return (
             <section
               key={mentor.title}
-              className={cn("rounded-2xl border p-4 shadow-[0_12px_24px_rgba(100,83,57,0.06)]", tint.card)}
+              className={cn("rounded-xl border p-2.5 shadow-[0_10px_20px_rgba(100,83,57,0.05)]", tint.card)}
             >
-              <div className="flex gap-3">
-                <Icon className={cn("mt-1 h-8 w-8 shrink-0", tint.text)} strokeWidth={1.6} />
+              <div className="flex gap-2.5">
+                <Icon className={cn("mt-0.5 h-5 w-5 shrink-0", tint.text)} strokeWidth={1.6} />
                 <div>
-                  <h3 className={cn("text-[18px] font-bold", tint.text)}>{mentor.title}</h3>
-                  <p className="mt-2 text-[13px] font-medium leading-6 text-[#5c625a]">{mentor.description}</p>
+                  <h3 className={cn("text-[14px] font-bold leading-5", tint.text)}>{mentor.title}</h3>
+                  <p className="text-[11px] font-medium leading-4 text-[#5c625a]">{mentor.description}</p>
                 </div>
               </div>
-              <div className={cn("mt-4 rounded-xl border p-3", tint.soft)}>
-                <p className={cn("text-sm font-bold", tint.text)}>今日のアドバイス</p>
-                <p className="mt-2 text-[13px] font-medium leading-6 text-[#50564f]">{copy.advice[index]}</p>
+              <div className={cn("mt-2 rounded-lg border p-2", tint.soft)}>
+                <p className={cn("text-[11px] font-bold", tint.text)}>今日のアドバイス</p>
+                <p className="mt-0.5 text-[11px] font-medium leading-4 text-[#50564f]">{copy.advice[index]}</p>
               </div>
-              <Button className={cn("mt-3 h-9 w-full rounded-xl text-white shadow-none", tint.button)}>
-                <MessageCircle className="mr-2 h-4 w-4" />
+              <Button className={cn("mt-2 h-7 w-full rounded-lg text-[11px] text-white shadow-none", tint.button)}>
+                <MessageCircle className="mr-1.5 h-3.5 w-3.5" />
                 {copy.target}
               </Button>
             </section>
           );
         })}
 
-        <Button className="h-12 w-full rounded-xl bg-[#6da07a] text-[16px] font-bold text-white hover:bg-[#5d906c]">
-          <BotMessageSquare className="mr-2 h-5 w-5" />
+        <Button className="h-9 w-full rounded-lg bg-[#6da07a] text-[13px] font-bold text-white hover:bg-[#5d906c]">
+          <BotMessageSquare className="mr-2 h-4 w-4" />
           AIメンターにまとめて相談する
         </Button>
       </div>

@@ -138,6 +138,6 @@
 
 @layer utilities {
   .soft-table-row > * {
-    @apply border-[#ebe4da] py-2 text-[13px] font-medium;
+    @apply border-[#ebe4da] py-1.5 text-[12px] font-medium;
   }
 }

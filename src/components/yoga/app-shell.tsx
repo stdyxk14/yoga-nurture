@@ -27,20 +27,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen min-w-[1180px] bg-[var(--yoga-bg)] text-[#20231e]">
-      <div className="grid h-screen grid-cols-[220px_minmax(620px,1fr)_360px] overflow-hidden 2xl:grid-cols-[236px_minmax(900px,1fr)_410px]">
-        <aside className="relative flex h-screen flex-col overflow-hidden border-r border-[#e7dfd4] bg-[#fbfaf6] px-3 py-7 shadow-[8px_0_30px_rgba(111,92,71,0.06)] 2xl:px-4">
-          <div className="mx-auto mb-8 flex flex-col items-center">
-            <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-[#4f8b62] bg-[#f5faf3] text-[#3f8156] shadow-inner">
-              <Sprout className="h-11 w-11" strokeWidth={1.5} />
+      <div className="grid h-screen grid-cols-[208px_minmax(0,1fr)_320px] overflow-hidden xl:grid-cols-[214px_minmax(0,1fr)_328px]">
+        <aside className="relative flex h-screen flex-col overflow-hidden border-r border-[#e7dfd4] bg-[#fbfaf6] px-3 py-5 shadow-[8px_0_30px_rgba(111,92,71,0.06)]">
+          <div className="mx-auto mb-6 flex flex-col items-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-[#4f8b62] bg-[#f5faf3] text-[#3f8156] shadow-inner">
+              <Sprout className="h-9 w-9" strokeWidth={1.5} />
             </div>
-            <div className="mt-3 text-center font-serif text-[20px] leading-5 tracking-[0.16em] text-[#3e764e]">
+            <div className="mt-2 text-center font-serif text-[18px] leading-5 tracking-[0.14em] text-[#3e764e]">
               YOGA
               <br />
               NURTURE
             </div>
           </div>
 
-          <nav className="space-y-3">
+          <nav className="space-y-2">
             {navItems.map((item) => {
               const active = pathname === item.href;
               const Icon = item.icon;
@@ -50,13 +50,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "flex h-14 items-center gap-4 rounded-xl px-4 text-[16px] font-semibold text-[#4c514b] transition",
+                    "flex h-12 items-center gap-3 rounded-xl px-3 text-[15px] font-semibold text-[#4c514b] transition",
                     active
                       ? "bg-[#5d956d] text-white shadow-[0_10px_22px_rgba(64,113,77,0.24)]"
                       : "hover:bg-[#eef4eb] hover:text-[#386f4a]",
                   )}
                 >
-                  <Icon className="h-6 w-6" strokeWidth={1.7} />
+                  <Icon className="h-5 w-5" strokeWidth={1.7} />
                   <span>{item.label}</span>
                 </Link>
               );
@@ -71,8 +71,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </aside>
 
-        <main className="h-screen overflow-y-auto px-5 py-6 2xl:px-7">
-          <div className="mx-auto max-w-[1220px] 2xl:max-w-[1280px]">{children}</div>
+        <main className="h-screen overflow-y-auto px-4 py-3">
+          <div className="mx-auto max-w-[1240px]">{children}</div>
         </main>
 
         <MentorPanel />

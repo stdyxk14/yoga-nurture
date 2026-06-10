@@ -15,16 +15,16 @@ export function PageHeader({
   greeting?: string;
 }) {
   return (
-    <header className="mb-5 flex items-start justify-between">
+    <header className="mb-3 flex items-start justify-between">
       <div>
-        {greeting ? <p className="mb-1 text-[15px] font-bold">{greeting}</p> : null}
-        <div className="flex items-end gap-5">
-          <h1 className="text-[30px] font-extrabold tracking-normal">{title}</h1>
-          {subtitle ? <p className="pb-1 text-[16px] font-semibold text-[#5d5d58]">{subtitle}</p> : null}
+        {greeting ? <p className="mb-1 text-[14px] font-bold">{greeting}</p> : null}
+        <div className="flex items-end gap-4">
+          <h1 className="text-[23px] font-extrabold leading-tight tracking-normal">{title}</h1>
+          {subtitle ? <p className="pb-1 text-[14px] font-semibold text-[#5d5d58]">{subtitle}</p> : null}
         </div>
       </div>
-      <div className="flex h-10 items-center gap-3 rounded-xl bg-white/70 px-3 text-[14px] font-semibold text-[#30362f]">
-        <CalendarDays className="h-5 w-5" />
+      <div className="flex h-9 items-center gap-2 rounded-xl bg-white/70 px-3 text-[13px] font-semibold text-[#30362f]">
+        <CalendarDays className="h-4 w-4" />
         2025年5月20日（火）
       </div>
     </header>
@@ -38,7 +38,7 @@ export function SoftCard({
 }: React.ComponentProps<typeof Card>) {
   return (
     <Card
-      className={cn("rounded-2xl border-[#e7dfd4] bg-white/78 p-4 shadow-[0_14px_30px_rgba(91,76,53,0.07)]", className)}
+      className={cn("rounded-2xl border-[#e7dfd4] bg-white/78 p-3.5 shadow-[0_10px_24px_rgba(91,76,53,0.06)]", className)}
       {...props}
     >
       {children}
@@ -58,10 +58,10 @@ export function SectionTitle({
   subtitle?: string;
 }) {
   return (
-    <div className="mb-3 flex items-center justify-between gap-4">
+    <div className="mb-2.5 flex items-center justify-between gap-3">
       <div className="flex items-center gap-2">
-        {Icon ? <Icon className="h-5 w-5 text-[#4b845a]" strokeWidth={1.8} /> : null}
-        <h2 className="text-[17px] font-bold">{title}</h2>
+        {Icon ? <Icon className="h-[18px] w-[18px] text-[#4b845a]" strokeWidth={1.8} /> : null}
+        <h2 className="text-[16px] font-bold">{title}</h2>
         {subtitle ? <span className="text-[12px] font-semibold text-[#879080]">{subtitle}</span> : null}
       </div>
       {action ? (
@@ -97,20 +97,20 @@ export function MetricCard({
   };
 
   return (
-    <SoftCard className="min-h-[138px] p-5">
-      <div className="flex items-center gap-4">
-        <div className={cn("flex h-12 w-12 items-center justify-center rounded-full", toneMap[tone])}>
-          <Icon className="h-6 w-6" strokeWidth={1.8} />
+    <SoftCard className="min-h-[120px] p-3">
+      <div className="flex items-start gap-3">
+        <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-full", toneMap[tone])}>
+          <Icon className="h-5 w-5" strokeWidth={1.8} />
         </div>
         <div>
-          <p className="text-[15px] font-bold">{label}</p>
-          <div className="mt-2 flex items-end gap-2">
-            <span className={cn("text-[52px] font-extrabold leading-none", toneMap[tone].split(" ")[0])}>{value}</span>
-            <span className="pb-2 text-sm font-bold">{unit}</span>
+          <p className="text-[14px] font-bold">{label}</p>
+          <div className="mt-1.5 flex items-end gap-2">
+            <span className={cn("text-[40px] font-extrabold leading-none", toneMap[tone].split(" ")[0])}>{value}</span>
+            <span className="pb-1.5 text-[13px] font-bold">{unit}</span>
           </div>
         </div>
       </div>
-      {detail ? <p className="mt-3 text-[13px] font-semibold text-[#677064]">{detail}</p> : null}
+      {detail ? <p className="mt-1.5 text-[12px] font-semibold text-[#677064]">{detail}</p> : null}
     </SoftCard>
   );
 }
