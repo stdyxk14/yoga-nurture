@@ -25,6 +25,39 @@ export type LessonRecord = {
   participants: number;
 };
 
+export type LessonTemplate = {
+  id: string;
+  name: string;
+  theme: string;
+  tags: string[];
+  structure: string;
+  cautions: string;
+};
+
+export type LessonSchedule = {
+  id: string;
+  date: string;
+  time: string;
+  lessonName: string;
+  templateId: string;
+  place: string;
+  format: "パーソナル" | "グループ" | "オンライン";
+  participantCount: number;
+  status: "予定" | "記録待ち" | "記録済み";
+  lessonId?: string;
+};
+
+export type LessonRecordSummary = {
+  id: string;
+  date: string;
+  lessonName: string;
+  participantCount: number;
+  tags: string[];
+  summary: string;
+  reaction: string;
+  improvement: string;
+};
+
 export const students: StudentRecord[] = [
   {
     id: "sato-misaki",
@@ -140,6 +173,114 @@ export const lessons: LessonRecord[] = [
     theme: "深い休息・自律神経の調整",
     tags: ["#リストラティブ", "#呼吸", "#回復"],
     participants: 7,
+  },
+];
+
+export const lessonTemplates: LessonTemplate[] = [
+  {
+    id: "basic-flow",
+    name: "ベーシックフロー",
+    theme: "体幹強化・柔軟性向上・呼吸の安定",
+    tags: ["#ベーシックフロー", "#肩こり改善", "#呼吸", "#体幹強化"],
+    structure: "呼吸法、肩甲骨ウォームアップ、太陽礼拝、立位、バランス、クールダウン",
+    cautions: "膝や腰に違和感がある生徒には後屈と深い前屈を控えめにする",
+  },
+  {
+    id: "shoulder-care",
+    name: "肩こり改善ヨガ",
+    theme: "肩首の緊張緩和・胸を開く意識づけ",
+    tags: ["#肩こり改善", "#姿勢改善", "#呼吸"],
+    structure: "首肩ほぐし、胸を開くポーズ、肩甲骨ワーク、やさしいツイスト",
+    cautions: "首を大きく回しすぎず、しびれが出る動きはすぐに止める",
+  },
+  {
+    id: "relax-yoga",
+    name: "リラックスヨガ",
+    theme: "睡眠の質向上・自律神経の調整",
+    tags: ["#リラックス", "#陰ヨガ", "#睡眠"],
+    structure: "呼吸観察、ゆったりフロー、陰ヨガ、長めのシャバーサナ",
+    cautions: "冷えやすい生徒にはブランケット使用を促し、静かな声かけを中心にする",
+  },
+];
+
+export const lessonSchedules: LessonSchedule[] = [
+  {
+    id: "schedule-20250520-am",
+    date: "2025/5/20（火）",
+    time: "10:00-11:00",
+    lessonName: "ベーシックフロー",
+    templateId: "basic-flow",
+    place: "スタジオA",
+    format: "グループ",
+    participantCount: 9,
+    status: "記録済み",
+    lessonId: "basic-flow-20250520",
+  },
+  {
+    id: "schedule-20250520-pm",
+    date: "2025/5/20（火）",
+    time: "13:30-14:30",
+    lessonName: "肩こり改善ヨガ",
+    templateId: "shoulder-care",
+    place: "スタジオB",
+    format: "グループ",
+    participantCount: 6,
+    status: "記録待ち",
+  },
+  {
+    id: "schedule-20250521-am",
+    date: "2025/5/21（水）",
+    time: "10:00-11:00",
+    lessonName: "リラックスヨガ",
+    templateId: "relax-yoga",
+    place: "オンライン",
+    format: "オンライン",
+    participantCount: 4,
+    status: "予定",
+  },
+  {
+    id: "schedule-20250523-night",
+    date: "2025/5/23（金）",
+    time: "18:30-19:30",
+    lessonName: "ベーシックフロー",
+    templateId: "basic-flow",
+    place: "スタジオA",
+    format: "グループ",
+    participantCount: 8,
+    status: "予定",
+  },
+];
+
+export const lessonRecordSummaries: LessonRecordSummary[] = [
+  {
+    id: "basic-flow-20250520",
+    date: "2025/5/20（火）",
+    lessonName: "ベーシックフロー",
+    participantCount: 9,
+    tags: ["#ベーシックフロー", "#肩こり改善", "#呼吸"],
+    summary: "呼吸法から太陽礼拝、立位、バランス、クールダウンまで実施。",
+    reaction: "集中力が高く、呼吸を意識しながら丁寧に動けていた。",
+    improvement: "後半の疲労を見て休息を増やす。",
+  },
+  {
+    id: "relax-yoga-20250519",
+    date: "2025/5/19（月）",
+    lessonName: "リラックスヨガ",
+    participantCount: 6,
+    tags: ["#リラックス", "#陰ヨガ", "#睡眠"],
+    summary: "肩首の緊張をゆるめ、長めのシャバーサナで回復を促した。",
+    reaction: "終盤は呼吸が深まり、安心感のある表情が増えた。",
+    improvement: "導入の呼吸観察をもう少し長くする。",
+  },
+  {
+    id: "posture-online-20250518",
+    date: "2025/5/18（日）",
+    lessonName: "姿勢改善ヨガ",
+    participantCount: 4,
+    tags: ["#姿勢改善", "#オンライン", "#体幹"],
+    summary: "背中と体幹の安定をテーマに、オンラインで姿勢確認を実施。",
+    reaction: "画面越しでも胸の開きと目線の安定が確認できた。",
+    improvement: "オンライン用に説明を短く区切る。",
   },
 ];
 

@@ -42,7 +42,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <nav className="space-y-2">
             {navItems.map((item) => {
-              const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+              const active =
+                pathname === item.href ||
+                pathname.startsWith(`${item.href}/`) ||
+                (item.href === "/lessons" && (pathname.startsWith("/schedules") || pathname.startsWith("/templates")));
               const Icon = item.icon;
 
               return (
