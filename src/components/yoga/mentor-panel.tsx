@@ -12,67 +12,24 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const screenCopy: Record<string, { target: string; advice: string[] }> = {
-  "/students": {
-    target: "この生徒について相談",
-    advice: [
-      "肩甲骨まわりの変化を次回も確認しましょう。",
-      "小さな成功体験を言葉で返すと継続につながります。",
-      "呼吸と姿勢改善を軸に、リラックス要素も入れましょう。",
-    ],
-  },
-  "/lessons": {
-    target: "このレッスンについて相談",
-    advice: [
-      "体幹の安定を保ちつつ、肩まわりも観察しましょう。",
-      "後半は呼吸ガイドで安心感を補いましょう。",
-      "体幹強化テーマはシリーズ化に向いています。",
-    ],
-  },
-  "/reports": {
-    target: "このレポートについて相談",
-    advice: [
-      "肩・首ケア需要が高く、継続導線に向いています。",
-      "平日午前の強みを維持し、フォローを丁寧に。",
-      "姿勢改善テーマを発信や講座化につなげましょう。",
-    ],
-  },
-  "/settings": {
-    target: "この設定について相談",
-    advice: [
-      "学習データは目的別に整理すると精度が上がります。",
-      "接客方針を短く明文化しておくと安定します。",
-      "対象生徒像を絞ると提案が具体化します。",
-    ],
-  },
-  "/dashboard": {
-    target: "相談する",
-    advice: [
-      "姿勢データは定期比較すると変化が見えます。",
-      "レッスン後の一言が継続の力になります。",
-      "季節テーマをSNSにも展開しましょう。",
-    ],
-  },
-};
-
 const mentors = [
   {
     title: "身体分析メンター",
     icon: Sprout,
     tint: "green",
-    description: "身体傾向を分析し、改善のヒントを整理します。",
+    description: "身体の特徴や傾向を整理し、改善のヒントを提案します。",
   },
   {
     title: "寄り添い接客コーチ",
     icon: Heart,
     tint: "coral",
-    description: "声かけや関係づくりをサポートします。",
+    description: "声かけや関係づくりを、生徒目線でサポートします。",
   },
   {
     title: "レッスン設計＆ブランディング戦略家",
     icon: TrendingUp,
     tint: "lavender",
-    description: "レッスン設計と発信の方向性を整えます。",
+    description: "レッスン設計と発信の方向性を一緒に整えます。",
   },
 ] as const;
 
@@ -97,9 +54,97 @@ const tintClass = {
   },
 };
 
+function resolveCopy(pathname: string) {
+  if (pathname.includes("/record")) {
+    return {
+      target: "振り返りについて相談",
+      advice: [
+        "反応と体の変化を並べると、次回の改善点が見つかります。",
+        "小さな成功体験も記録し、次の声かけにつなげましょう。",
+        "満足度の高い流れは、次の企画や発信にも活かせます。",
+      ],
+    };
+  }
+
+  if (pathname === "/lessons/new" || pathname.includes("/edit") || pathname === "/schedules/new") {
+    return {
+      target: "事前プランについて相談",
+      advice: [
+        "参加生徒の注意点から、代替ポーズを先に用意しましょう。",
+        "安心できる導入文を決めておくと、開始が滑らかになります。",
+        "テーマとタグを揃えると、継続クラスとして育てやすくなります。",
+      ],
+    };
+  }
+
+  if (pathname === "/templates/new") {
+    return {
+      target: "テンプレート設計を相談",
+      advice: [
+        "基本構成は60分の流れで書くと、予定作成に使いやすくなります。",
+        "注意点は禁忌だけでなく、声かけの工夫も残しましょう。",
+        "タグを整えると、似たテーマの振り返りが探しやすくなります。",
+      ],
+    };
+  }
+
+  if (pathname.startsWith("/lessons")) {
+    return {
+      target: "このレッスン管理について相談",
+      advice: [
+        "予定、準備、記録の状態を分けると次の行動が明確になります。",
+        "生徒ごとの配慮を事前に見ると、安心感のあるレッスンになります。",
+        "記録済みの内容は、次回テーマの改善材料になります。",
+      ],
+    };
+  }
+
+  if (pathname.startsWith("/students")) {
+    return {
+      target: "この生徒について相談",
+      advice: [
+        "注意点と最近の変化を一緒に見ると、次回の配慮が決まります。",
+        "小さな成功体験を言葉にすると、継続の後押しになります。",
+        "好みのペースを記録して、無理のない提案につなげましょう。",
+      ],
+    };
+  }
+
+  if (pathname.startsWith("/reports")) {
+    return {
+      target: "このレポートについて相談",
+      advice: [
+        "伸びているテーマと悩みの増減を並べると改善策が見えます。",
+        "参加が多い曜日や時間帯を、次の予定設計に活かしましょう。",
+        "リピート率の高いクラスは発信テーマにも使えます。",
+      ],
+    };
+  }
+
+  if (pathname.startsWith("/settings")) {
+    return {
+      target: "この設定について相談",
+      advice: [
+        "学習データは目的別に整理すると回答精度が上がります。",
+        "通知やリマインドは、運用に合わせて少なめから始めましょう。",
+        "よく使う資料を入れると、相談の土台が安定します。",
+      ],
+    };
+  }
+
+  return {
+    target: "相談する",
+    advice: [
+      "今日の予定と要フォロー生徒を見て、優先順位を決めましょう。",
+      "レッスン後の一言記録が、次回の質を上げる材料になります。",
+      "季節に合うテーマを週ごとに整えると、発信にもつながります。",
+    ],
+  };
+}
+
 export function MentorPanel() {
   const pathname = usePathname();
-  const copy = screenCopy[pathname] ?? screenCopy["/dashboard"];
+  const copy = resolveCopy(pathname);
 
   return (
     <aside className="sticky top-0 h-screen overflow-y-auto border-l border-[#e7dfd4] bg-[#fffdf9] px-2.5 py-2.5 shadow-[-8px_0_32px_rgba(111,92,71,0.06)]">
@@ -107,7 +152,7 @@ export function MentorPanel() {
         <Sparkles className="h-6 w-6 text-[#37885a]" strokeWidth={1.7} />
         <div>
           <h2 className="text-[17px] font-bold leading-5">AIメンター</h2>
-          <p className="text-[11px] font-medium text-[#7f786d]">いつでも相談できる成長パートナー</p>
+          <p className="text-[11px] font-medium text-[#7f786d]">いつでも相談できる、あなたの成長パートナー</p>
         </div>
       </div>
 
