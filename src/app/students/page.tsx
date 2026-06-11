@@ -1,175 +1,95 @@
 import Link from "next/link";
-import {
-  ArrowDownUp,
-  BarChart3,
-  CheckCircle2,
-  Dumbbell,
-  HeartHandshake,
-  NotebookPen,
-  Target,
-  UserRound,
-} from "lucide-react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { PageHeader, SectionTitle, SoftCard, MiniBar } from "@/components/yoga/page-kit";
-import { lessonHistory } from "@/components/yoga/data";
+import { AlertCircle, Edit3, Plus, Search, UserRound } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { PageHeader, Pill, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
+import { students } from "@/components/yoga/records";
 
-const profileItems = [
-  ["ヨガ他経験", "ヨガ約3年、ピラティス経験あり", Dumbbell],
-  ["ケガなどの注意点", "膝に違和感あり。深い後屈は避ける", HeartHandshake],
-  ["その他メモ", "呼吸を重視したゆったりフローが好み。変化を実感すると継続しやすい", NotebookPen],
-] as const;
-
-const observation = [
-  ["2025/5/18", "肩まわりの緊張が緩み、呼吸が深まり、表情も柔らかく。ダウンドッグの安定感UP。"],
-  ["2025/5/11", "長時間デスクワーク後のレッスン。肩・首のこり強め。胸を開くポーズで呼吸が深まる。"],
-  ["2025/5/04", "姿勢改善を意識して取り組めていた。プランクで体幹の安定感が向上。"],
-  ["2025/4/27", "久しぶりの受講。体が硬くなっていたが、終盤はリラックスして動けていた。"],
-];
+const filterItems = ["すべて", "最近受講", "要フォロー", "注意点あり"];
 
 export default function StudentsPage() {
   return (
     <>
-      <PageHeader title="生徒カルテ" subtitle="生徒一人ひとりの状態・目的・受講履歴を管理" />
+      <PageHeader title="生徒カルテ" subtitle="生徒一人ひとりの状態・記録を管理" />
 
-      <SoftCard className="p-4">
-        <div className="grid grid-cols-[160px_minmax(0,1fr)] gap-5">
-          <div className="flex flex-col items-center justify-center">
-            <div className="flex h-32 w-32 items-center justify-center rounded-2xl bg-[#edf4ea] text-[#4f875a] shadow-inner">
-              <UserRound className="h-20 w-20" strokeWidth={1.35} />
-            </div>
-            <p className="mt-3 text-[13px] font-bold text-[#657064]">35歳 / 女性</p>
-          </div>
-          <div className="min-w-0">
-            <div className="mb-3 flex items-end gap-4 border-b border-[#ebe3d8] pb-2">
-              <h1 className="text-[28px] font-extrabold leading-tight">佐藤 美咲</h1>
-              <p className="pb-1 text-[13px] font-semibold">さとう みさき</p>
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              {profileItems.map(([label, value, Icon]) => (
-                <div key={label} className="min-h-[96px] rounded-xl border border-[#eee4d8] bg-white/72 p-3">
-                  <div className="mb-2 flex items-center gap-2">
-                    <Icon className="h-4 w-4 shrink-0 text-[#8b6138]" strokeWidth={1.8} />
-                    <span className="text-[13px] font-bold">{label}</span>
-                  </div>
-                  <p className="text-[13px] font-medium leading-5 text-[#33372f]">{value}</p>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-[#e7dfd4] bg-white/80 px-3 py-2">
+          <Search className="h-4 w-4 shrink-0 text-[#6b7468]" />
+          <Input placeholder="生徒名、経験、注意点で検索" className="h-8 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0" />
+        </div>
+        <Link
+          href="/students/new"
+          className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#5d956d] px-4 text-[13px] font-bold text-white shadow-[0_8px_18px_rgba(64,113,77,0.2)]"
+        >
+          <Plus className="h-4 w-4" />
+          生徒を登録
+        </Link>
+      </div>
+
+      <SoftCard className="p-3.5">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          {filterItems.map((item, index) => (
+            <Pill key={item} active={index === 0}>{item}</Pill>
+          ))}
+        </div>
+
+        <div className="grid gap-2">
+          {students.map((student) => (
+            <div
+              key={student.id}
+              className="grid min-w-0 grid-cols-[158px_42px_minmax(68px,0.85fr)_minmax(78px,0.95fr)_minmax(90px,1fr)_66px_42px_118px] items-center gap-2 rounded-xl border border-[#eee4d8] bg-white/70 px-3 py-3"
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#edf4ea] text-[#4f875a]">
+                  <UserRound className="h-5 w-5" />
                 </div>
-              ))}
+                <div className="min-w-0">
+                  <p className="truncate text-[14px] font-extrabold">{student.name}</p>
+                  <p className="truncate text-[11px] font-semibold text-[#798176]">{student.kana}</p>
+                </div>
+              </div>
+              <p className="text-[13px] font-bold">{student.age}歳</p>
+              <p className="line-clamp-2 text-[12px] font-medium leading-5">{student.experience}</p>
+              <p className="line-clamp-2 text-[12px] font-medium leading-5">{student.caution}</p>
+              <p className="line-clamp-2 text-[12px] font-medium leading-5 text-[#5f665c]">{student.memo}</p>
+              <p className="text-[12px] font-bold">{student.lastLessonDate}</p>
+              <p className="text-[12px] font-bold text-[#4f875a]">{student.linkedLessonCount}件</p>
+              <div className="flex justify-end gap-1.5">
+                <Link
+                  href={`/students/${student.id}`}
+                  className="inline-flex h-8 items-center whitespace-nowrap rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] px-2.5 text-[12px] font-bold text-[#5d956d]"
+                >
+                  詳細を見る
+                </Link>
+                <Link
+                  href={`/students/${student.id}/edit`}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#e7dfd4] bg-white text-[#6b7468]"
+                  aria-label={`${student.name}を編集`}
+                >
+                  <Edit3 className="h-4 w-4" />
+                </Link>
+              </div>
             </div>
-          </div>
+          ))}
         </div>
       </SoftCard>
 
-      <section className="mt-4 grid grid-cols-[1.15fr_1fr] gap-4">
-        <SoftCard>
-          <SectionTitle icon={NotebookPen} title="最近の変化・観察メモ" action="もっと見る" />
-          <div className="relative space-y-0 pl-5">
-            <div className="absolute left-[8px] top-2 h-[calc(100%-16px)] w-px bg-[#d9cab8]" />
-            {observation.map(([date, memo]) => (
-              <div key={date} className="relative grid grid-cols-[96px_1fr] gap-4 border-b border-[#eee8dd] py-3 last:border-b-0">
-                <span className="absolute -left-[18px] top-5 h-2.5 w-2.5 rounded-full bg-[#d8c7ae]" />
-                <span className="text-[13px] font-bold">{date}</span>
-                <p className="text-[13px] font-medium leading-6">{memo}</p>
-              </div>
-            ))}
-          </div>
+      <section className="mt-4 grid grid-cols-3 gap-4">
+        <SoftCard className="p-3.5">
+          <SectionTitle icon={UserRound} title="登録状況" />
+          <p className="text-[34px] font-extrabold leading-none text-[#4f875a]">{students.length}<span className="ml-1 text-sm">名</span></p>
+          <p className="mt-2 text-[12px] font-semibold text-[#697467]">少人数運用を想定した静的データです</p>
         </SoftCard>
-
-        <SoftCard>
-          <SectionTitle icon={Target} title="次回レッスンに向けたポイント" />
-          <div className="space-y-3">
-            {[
-              "肩甲骨まわりをゆるめるウォームアップを丁寧に",
-              "呼吸の質を高める意識づけ（吐く息を長く）",
-              "猫背になりやすいので、胸を開くポーズを多めに",
-              "後屈は無理のない範囲で、腰の様子を確認しながら",
-            ].map((point) => (
-              <div key={point} className="flex items-start gap-2 text-[14px] font-medium">
-                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#629268]" />
-                {point}
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 rounded-full bg-[#edf5ef] px-4 py-2 text-center text-sm font-bold text-[#5d8e67]">
-            おすすめクラス：リラックスフロー / 陰ヨガ
-          </div>
+        <SoftCard className="p-3.5">
+          <SectionTitle icon={AlertCircle} title="要フォロー" />
+          <p className="text-[34px] font-extrabold leading-none text-[#ec6f5d]">2<span className="ml-1 text-sm">名</span></p>
+          <p className="mt-2 text-[12px] font-semibold text-[#697467]">未受講期間やメモから確認</p>
+        </SoftCard>
+        <SoftCard className="p-3.5">
+          <SectionTitle icon={AlertCircle} title="注意点あり" />
+          <p className="text-[34px] font-extrabold leading-none text-[#7a6cc4]">5<span className="ml-1 text-sm">名</span></p>
+          <p className="mt-2 text-[12px] font-semibold text-[#697467]">レッスン前に注意点を確認</p>
         </SoftCard>
       </section>
-
-      <SoftCard className="mt-4">
-        <div className="mb-3 flex items-center justify-between">
-          <SectionTitle icon={ArrowDownUp} title="紐づくレッスン履歴" subtitle="この生徒が受講したレッスンカルテと連携しています" />
-          <Link href="/lessons" className="text-[13px] font-bold text-[#5d956d]">レッスンカルテ一覧へ</Link>
-        </div>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>日付</TableHead>
-              <TableHead>レッスン名</TableHead>
-              <TableHead>場所</TableHead>
-              <TableHead>レッスン概要</TableHead>
-              <TableHead className="text-right">導線</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {lessonHistory.map(([date, lesson, place, memo]) => (
-              <TableRow key={date} className="soft-table-row">
-                <TableCell>{date}</TableCell>
-                <TableCell>{lesson}</TableCell>
-                <TableCell>{place}</TableCell>
-                <TableCell>{memo}</TableCell>
-                <TableCell className="text-right">
-                  <Link
-                    href="/lessons"
-                    className="inline-flex h-8 items-center justify-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] px-3 text-[13px] font-bold text-[#5d956d]"
-                  >
-                    レッスンカルテを見る
-                  </Link>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </SoftCard>
-
-      <SoftCard className="mt-4">
-        <SectionTitle icon={BarChart3} title="この生徒の受講傾向" />
-        <div className="grid grid-cols-[170px_1fr_170px_1.2fr_1fr] gap-4">
-          <div className="border-r border-[#eee3d7] pr-4">
-            <p className="text-sm font-bold">受講頻度</p>
-            <p className="mt-4 text-3xl font-extrabold text-[#4f875a]">3.8<span className="ml-1 text-sm">回</span></p>
-            <p className="mt-2 text-[12px] font-semibold text-[#677064]">月平均。安定して通われています</p>
-          </div>
-          <div className="border-r border-[#eee3d7] pr-4">
-            <p className="mb-3 text-sm font-bold">よく受けるクラス</p>
-            {[
-              ["リラックス系", 60],
-              ["ベーシックフロー", 30],
-              ["陰ヨガ・リストラティブ", 10],
-            ].map(([label, value]) => (
-              <div key={label} className="mb-3 grid grid-cols-[120px_1fr_36px] items-center gap-2 text-[12px] font-semibold">
-                <span>{label}</span>
-                <MiniBar value={Number(value)} />
-                <span>{value}%</span>
-              </div>
-            ))}
-          </div>
-          <div className="border-r border-[#eee3d7] pr-4">
-            <p className="mb-4 text-sm font-bold">時間帯の傾向</p>
-            <div className="space-y-4 text-[13px] font-semibold">
-              <p>平日夜<span className="float-right">60%</span></p>
-              <p>週末午前<span className="float-right">40%</span></p>
-            </div>
-          </div>
-          <div className="border-r border-[#eee3d7] pr-4">
-            <p className="mb-3 text-sm font-bold">反応・傾向</p>
-            <p className="text-[13px] font-medium leading-6">呼吸の意識で変化が出やすいタイプ。フィードバックに対して素直で、継続的に改善が見られます。</p>
-          </div>
-          <div>
-            <p className="mb-3 text-sm font-bold">次のおすすめフォーカス</p>
-            <p className="text-[13px] font-medium leading-6">肩甲骨の可動域UP<br />体幹の安定性をさらに強化</p>
-          </div>
-        </div>
-      </SoftCard>
     </>
   );
 }
