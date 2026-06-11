@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Bell, CalendarDays, Home, Leaf, Menu, Settings, Sprout, UserRound } from "lucide-react";
+import { useState } from "react";
+import { BarChart3, Bell, CalendarDays, Home, Leaf, Menu, Settings, Sprout, UserRound, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MentorPanel } from "@/components/yoga/mentor-panel";
 
@@ -16,11 +17,13 @@ const navItems = [
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const current = navItems.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`) || (item.href === "/lessons" && (pathname.startsWith("/schedules") || pathname.startsWith("/templates") || pathname.startsWith("/blocks"))));
 
   return (
-    <div className="min-h-screen bg-[var(--yoga-bg)] text-[#20231e] md:min-w-[1180px]">
-      <MobileTopBar title={current?.label ?? "YOGA NURTURE"} />
+    <div className="min-h-screen overflow-x-hidden bg-[var(--yoga-bg)] text-[#20231e] md:min-w-[1180px]">
+      <MobileTopBar title={current?.label ?? "YOGA NURTURE"} onMenuClick={() => setMobileMenuOpen(true)} />
+      <MobileMenu open={mobileMenuOpen} pathname={pathname} onClose={() => setMobileMenuOpen(false)} />
       <div className="min-h-screen md:grid md:grid-cols-[190px_minmax(0,1fr)_290px] xl:grid-cols-[196px_minmax(0,1fr)_300px]">
         <aside className="app-sidebar sticky top-0 hidden h-screen flex-col overflow-hidden border-r border-[#e7dfd4] bg-[#fbfaf6] px-3 py-4 shadow-[8px_0_30px_rgba(111,92,71,0.06)] print:hidden md:flex">
           <div className="mx-auto mb-5 flex flex-col items-center">
@@ -68,8 +71,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </aside>
 
-        <main className="min-w-0 px-3 pb-24 pt-3 md:px-3 md:py-3 xl:px-4 print:px-0 print:py-0">
-          <div className="w-full min-w-0">{children}</div>
+        <main className="min-w-0 overflow-x-hidden px-3 pb-28 pt-3 md:px-3 md:py-3 xl:px-4 print:px-0 print:py-0">
+          <div className="w-full min-w-0 max-w-full overflow-x-hidden md:overflow-visible">{children}</div>
         </main>
 
         <div className="mentor-panel hidden print:hidden md:block">
@@ -81,10 +84,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function MobileTopBar({ title }: { title: string }) {
+function MobileTopBar({ title, onMenuClick }: { title: string; onMenuClick: () => void }) {
   return (
     <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-[#e7dfd4] bg-[#fbfaf6]/95 px-4 backdrop-blur md:hidden">
-      <button className="flex h-9 w-9 items-center justify-center rounded-full text-[#5d6b58]" aria-label="メニュー">
+      <button type="button" onClick={onMenuClick} className="flex h-9 w-9 items-center justify-center rounded-full text-[#5d6b58]" aria-label="メニューを開く">
         <Menu className="h-5 w-5" />
       </button>
       <div className="min-w-0 text-center">
@@ -98,6 +101,58 @@ function MobileTopBar({ title }: { title: string }) {
         <Bell className="h-5 w-5" />
       </button>
     </header>
+  );
+}
+
+function MobileMenu({ open, pathname, onClose }: { open: boolean; pathname: string; onClose: () => void }) {
+  return (
+    <div className={cn("fixed inset-0 z-[60] md:hidden", open ? "pointer-events-auto" : "pointer-events-none")}>
+      <button
+        type="button"
+        aria-label="メニューを閉じる"
+        onClick={onClose}
+        className={cn("absolute inset-0 bg-[#1e241c]/28 transition-opacity", open ? "opacity-100" : "opacity-0")}
+      />
+      <aside className={cn("absolute inset-y-0 left-0 w-[286px] max-w-[82vw] border-r border-[#e7dfd4] bg-[#fbfaf6] p-4 shadow-[16px_0_34px_rgba(70,58,42,0.18)] transition-transform duration-200", open ? "translate-x-0" : "-translate-x-full")}>
+        <div className="mb-5 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-[#4f875a]">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full border border-[#b7d7b6] bg-[#f4faf2]">
+              <Sprout className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="font-serif text-[14px] tracking-[0.1em]">YOGA NURTURE</p>
+              <p className="text-[11px] font-bold text-[#6b7468]">メニュー</p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-full border border-[#e4dbcf] bg-white text-[#5d6b58]" aria-label="閉じる">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <nav className="grid gap-2">
+          {navItems.map((item) => {
+            const active =
+              pathname === item.href ||
+              pathname.startsWith(`${item.href}/`) ||
+              (item.href === "/lessons" && (pathname.startsWith("/schedules") || pathname.startsWith("/templates") || pathname.startsWith("/blocks")));
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onClose}
+                className={cn(
+                  "flex h-12 items-center gap-3 rounded-2xl px-3 text-[14px] font-bold",
+                  active ? "bg-[#5d956d] text-white shadow-[0_10px_22px_rgba(64,113,77,0.18)]" : "border border-[#eee4d8] bg-white/74 text-[#4c514b]",
+                )}
+              >
+                <Icon className="h-5 w-5" />
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+      </aside>
+    </div>
   );
 }
 
