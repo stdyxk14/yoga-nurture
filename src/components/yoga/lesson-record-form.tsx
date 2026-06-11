@@ -97,21 +97,18 @@ export function LessonRecordForm({ lesson }: { lesson: LessonRecord }) {
                         <p className="text-[14px] font-extrabold">{student.name} さん</p>
                         <p className="text-[11px] font-medium text-[#6b7468]">{student.caution}</p>
                       </div>
-                      <div className="grid grid-cols-[120px_180px] gap-2">
+                      <div className="grid grid-cols-[140px] gap-2">
                         <select defaultValue={participant?.status ?? "参加"} className="h-9 rounded-md border border-input bg-white/80 px-2 text-[13px]">
                           <option>参加</option>
                           <option>キャンセル</option>
                           <option>無断欠席</option>
                         </select>
-                        <input defaultValue={participant?.cancelReason ?? ""} placeholder="キャンセル理由メモ" className="h-9 rounded-md border border-input bg-white/80 px-2 text-[13px]" />
                       </div>
                     </div>
-                    <div className="grid grid-cols-5 gap-2">
+                    <div className="grid grid-cols-3 gap-2">
                       <Field label="今日の様子"><Textarea defaultValue={participant?.condition} className="min-h-[76px] bg-white/80 text-[12px]" /></Field>
-                      <Field label="身体面の変化"><Textarea defaultValue={participant?.bodyChange} className="min-h-[76px] bg-white/80 text-[12px]" /></Field>
-                      <Field label="気になったこと"><Textarea defaultValue={participant?.concern} className="min-h-[76px] bg-white/80 text-[12px]" /></Field>
-                      <Field label="次回確認したいこと"><Textarea defaultValue={participant?.nextCheck} className="min-h-[76px] bg-white/80 text-[12px]" /></Field>
                       <Field label="個別メモ"><Textarea defaultValue={participant?.memo} className="min-h-[76px] bg-white/80 text-[12px]" /></Field>
+                      <Field label="次回フォロー"><Textarea defaultValue={participant?.nextFollow} className="min-h-[76px] bg-white/80 text-[12px]" /></Field>
                     </div>
                   </div>
                 );
@@ -227,12 +224,9 @@ function MobileLessonRecordForm({
                       <option>無断欠席</option>
                     </select>
                   </Field>
-                  <Field label="キャンセル理由メモ"><input defaultValue={participant?.cancelReason ?? ""} className="h-11 w-full rounded-md border border-input bg-white/90 px-3 text-[15px]" /></Field>
                   <Field label="今日の様子"><Textarea defaultValue={participant?.condition} className="min-h-[86px] bg-white/90 text-[14px]" /></Field>
-                  <Field label="身体面の変化"><Textarea defaultValue={participant?.bodyChange} className="min-h-[86px] bg-white/90 text-[14px]" /></Field>
-                  <Field label="気になったこと"><Textarea defaultValue={participant?.concern} className="min-h-[86px] bg-white/90 text-[14px]" /></Field>
-                  <Field label="次回確認したいこと"><Textarea defaultValue={participant?.nextCheck} className="min-h-[86px] bg-white/90 text-[14px]" /></Field>
                   <Field label="個別メモ"><Textarea defaultValue={participant?.memo} className="min-h-[86px] bg-white/90 text-[14px]" /></Field>
+                  <Field label="次回フォロー"><Textarea defaultValue={participant?.nextFollow} className="min-h-[86px] bg-white/90 text-[14px]" /></Field>
                 </div>
               </article>
             );

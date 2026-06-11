@@ -88,7 +88,7 @@ export default function ReportsPage() {
         <SoftCard className="mt-3 p-3.5">
           <SectionTitle icon={SlidersHorizontal} title="次の改善アクション" />
           <div className="grid grid-cols-5 gap-3">
-            {["完全呼吸法を導入候補に固定", "ハラアーサナの注意文を見直す", "未使用ブロックを棚卸し", "肩こり改善系を増やす", "キャンセル理由を記録"].map((title, index) => (
+            {["完全呼吸法を導入候補に固定", "ハラアーサナの注意文を見直す", "未使用ブロックを棚卸し", "肩こり改善系を増やす", "キャンセル傾向を確認"].map((title, index) => (
               <div key={title} className="border-r border-dashed border-[#d9d1c6] pr-3 last:border-r-0">
                 <CircleBadge className="h-7 w-7 text-[12px]">{index + 1}</CircleBadge>
                 <p className="mt-2 min-h-10 text-[12px] font-bold leading-5">{title}</p>
@@ -176,7 +176,7 @@ function MobileReports() {
       <section className="rounded-[24px] border border-[#eee4d8] bg-[#fbfaf3] p-4">
         <h2 className="text-[16px] font-extrabold">改善ヒント</h2>
         <div className="mt-3 grid gap-2">
-          {["完全呼吸法を導入候補に固定", "ハラアーサナの注意文を見直す", "未使用ブロックを棚卸し", "キャンセル理由を記録"].map((item, index) => (
+          {["完全呼吸法を導入候補に固定", "ハラアーサナの注意文を見直す", "未使用ブロックを棚卸し", "キャンセル傾向を確認"].map((item, index) => (
             <div key={item} className="flex gap-3 rounded-2xl bg-white/74 p-3">
               <CircleBadge className="h-7 w-7 shrink-0 text-[12px]">{index + 1}</CircleBadge>
               <p className="min-w-0 text-[13px] font-bold leading-5">{item}</p>

@@ -71,18 +71,8 @@ export function StudentDetail({ student }: { student: StudentRecord }) {
           <SoftCard>
             <SectionTitle icon={NotebookPen} title="最近の変化・観察メモ" subtitle="レッスン後記録の生徒別コメントから蓄積" />
             <div className="space-y-2">
-              {observations.slice(0, 5).map((memo) => (
-                <div key={`${memo.date}-${memo.lessonTitle}`} className="rounded-xl border border-[#eee4d8] bg-white/70 p-3">
-                  <p className="text-[13px] font-extrabold">{memo.date} {memo.lessonTitle}</p>
-                  <div className="mt-2 grid grid-cols-5 gap-2 text-[12px] font-medium leading-5">
-                    <Info label="今日の様子" value={memo.condition} />
-                    <Info label="身体面の変化" value={memo.bodyChange} />
-                    <Info label="気になったこと" value={memo.concern ?? "特になし"} />
-                    <Info label="次回確認" value={memo.nextCheck} />
-                    <Info label="個別メモ" value={memo.memo ?? "記録なし"} />
-                  </div>
-                  <Link href={`/lessons/${memo.lessonId ?? "basic-flow-20250520"}/record`} className="mt-2 inline-flex h-7 items-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] px-2 text-[11px] font-bold text-[#5d956d]">関連する記録を見る</Link>
-                </div>
+              {observations.slice(0, 3).map((memo) => (
+                <ObservationRow key={`${memo.date}-${memo.lessonTitle}`} memo={memo} />
               ))}
             </div>
             <details className="mt-3 rounded-xl border border-[#d8e3d4] bg-[#f8fcf6] p-3">
@@ -98,7 +88,7 @@ export function StudentDetail({ student }: { student: StudentRecord }) {
           <SoftCard>
             <SectionTitle icon={Target} title="次回レッスンに向けたポイント" />
             <div className="space-y-3">
-              {[student.caution, "ブロック評価で反応が良かった呼吸法を導入に使う", "参加ステータスとキャンセル理由も確認する"].map((point) => (
+              {[student.caution, "ブロック評価で反応が良かった呼吸法を導入に使う", "参加ステータスと次回フォローを確認する"].map((point) => (
                 <div key={point} className="flex items-start gap-2 text-[14px] font-medium">
                   <Target className="mt-0.5 h-5 w-5 shrink-0 text-[#629268]" />
                   {point}
@@ -115,7 +105,7 @@ export function StudentDetail({ student }: { student: StudentRecord }) {
           </div>
           <LessonHistoryTable histories={lessonHistory.slice(0, 5)} />
           <details className="mt-3 rounded-xl border border-[#d8e3d4] bg-[#f8fcf6] p-3">
-            <summary className="cursor-pointer text-[13px] font-bold text-[#4f7b58]">すべての履歴を見る</summary>
+            <summary className="cursor-pointer text-[13px] font-bold text-[#4f7b58]">すべてのレッスン履歴を見る</summary>
             <div className="mt-3">
               <LessonHistoryTable histories={lessonHistory} />
             </div>
@@ -209,18 +199,8 @@ function MobileStudentDetail({
 
       <MobileSection title="最近の変化・観察メモ">
         <div className="grid gap-3">
-          {observations.slice(0, 5).map((memo) => (
-            <div key={`${memo.date}-${memo.lessonTitle}`} className="rounded-2xl border border-[#eee4d8] bg-white/76 p-3">
-              <p className="text-[13px] font-extrabold">{memo.date} {memo.lessonTitle}</p>
-              <div className="mt-2 grid gap-2">
-                <Info label="今日の様子" value={memo.condition} />
-                <Info label="身体面の変化" value={memo.bodyChange} />
-                <Info label="気になったこと" value={memo.concern ?? "特になし"} />
-                <Info label="次回確認" value={memo.nextCheck} />
-                <Info label="個別メモ" value={memo.memo ?? "記録なし"} />
-              </div>
-              <Link href={`/lessons/${memo.lessonId ?? "basic-flow-20250520"}/record`} className="mt-2 inline-flex h-9 items-center justify-center rounded-xl border border-[#cfe1ca] bg-[#f8fcf6] px-3 text-[12px] font-bold text-[#5d956d]">関連する記録を見る</Link>
-            </div>
+          {observations.slice(0, 3).map((memo) => (
+            <ObservationRow key={`${memo.date}-${memo.lessonTitle}`} memo={memo} />
           ))}
         </div>
         <details className="mt-3 rounded-2xl border border-[#d8e3d4] bg-[#f8fcf6] p-3">
@@ -235,7 +215,7 @@ function MobileStudentDetail({
 
       <MobileSection title="次回レッスンに向けたポイント">
         <div className="grid gap-2">
-          {[student.caution, "反応が良かった呼吸法を導入に使う", "参加ステータスとキャンセル理由も確認"].map((point) => (
+          {[student.caution, "反応が良かった呼吸法を導入に使う", "参加ステータスと次回フォローを確認"].map((point) => (
             <div key={point} className="flex gap-2 rounded-2xl border border-[#eee4d8] bg-white/76 p-3 text-[13px] font-semibold leading-5">
               <Target className="mt-0.5 h-4 w-4 shrink-0 text-[#629268]" />
               <p className="min-w-0 break-words">{point}</p>
@@ -251,7 +231,7 @@ function MobileStudentDetail({
           ))}
         </div>
         <details className="mt-3 rounded-2xl border border-[#d8e3d4] bg-[#f8fcf6] p-3">
-          <summary className="cursor-pointer text-[13px] font-bold text-[#4f7b58]">すべての履歴を見る</summary>
+          <summary className="cursor-pointer text-[13px] font-bold text-[#4f7b58]">すべてのレッスン履歴を見る</summary>
           <div className="mt-3 grid gap-2">
             {lessonHistory.map((history) => (
               <LessonHistoryCard key={`all-${history.lessonId}-${history.date}`} history={history} />
@@ -308,8 +288,8 @@ function LessonHistoryTable({ histories }: { histories: StudentLessonHistory[] }
           <TableHead>レッスン名</TableHead>
           <TableHead>レッスンプラン名</TableHead>
           <TableHead>参加</TableHead>
-          <TableHead>講師メモ</TableHead>
-          <TableHead>観察メモ</TableHead>
+          <TableHead>今日の様子</TableHead>
+          <TableHead>個別メモ / 次回フォロー</TableHead>
           <TableHead className="text-right">導線</TableHead>
         </TableRow>
       </TableHeader>
@@ -320,8 +300,8 @@ function LessonHistoryTable({ histories }: { histories: StudentLessonHistory[] }
             <TableCell className="font-bold">{history.lessonTitle}</TableCell>
             <TableCell>{history.planName}</TableCell>
             <TableCell><AttendanceBadge status={history.attendanceStatus} /></TableCell>
-            <TableCell className="max-w-[220px]"><span className="line-clamp-2">{history.teacherMemo}</span></TableCell>
-            <TableCell className="max-w-[260px]"><span className="line-clamp-2">{history.observation} / {history.memo}</span></TableCell>
+            <TableCell className="max-w-[220px]"><span className="line-clamp-2">{history.observation}</span></TableCell>
+            <TableCell className="max-w-[260px]"><span className="line-clamp-2">{history.memo} / {history.nextFollow}</span></TableCell>
             <TableCell className="text-right">
               <div className="flex justify-end gap-1.5">
                 <Link href={`/lessons/${history.lessonId}`} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] px-2 text-[12px] font-bold text-[#5d956d]">詳細</Link>
@@ -346,8 +326,9 @@ function LessonHistoryCard({ history }: { history: StudentLessonHistory }) {
         <AttendanceBadge status={history.attendanceStatus} />
       </div>
       <p className="mt-2 text-[11px] font-bold text-[#8b704c]">プラン：{history.planName}</p>
-      <p className="mt-2 line-clamp-2 text-[12px] font-medium leading-5 text-[#50584e]">講師メモ：{history.teacherMemo}</p>
-      <p className="mt-1 line-clamp-2 text-[12px] font-medium leading-5 text-[#50584e]">観察：{history.observation} / {history.memo}</p>
+      <p className="mt-2 line-clamp-2 text-[12px] font-medium leading-5 text-[#50584e]">今日の様子：{history.observation}</p>
+      <p className="mt-1 line-clamp-2 text-[12px] font-medium leading-5 text-[#50584e]">個別メモ：{history.memo}</p>
+      <p className="mt-1 line-clamp-2 text-[12px] font-medium leading-5 text-[#50584e]">次回フォロー：{history.nextFollow}</p>
       <div className="mt-3 grid grid-cols-2 gap-2">
         <Link href={`/lessons/${history.lessonId}`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#cfe1ca] bg-[#f8fcf6] px-2 text-[12px] font-bold text-[#5d956d]">詳細を見る</Link>
         <Link href={`/lessons/${history.lessonId}/record`} className="inline-flex h-9 items-center justify-center rounded-xl bg-[#5d956d] px-2 text-[12px] font-bold text-white">記録を見る</Link>
@@ -359,15 +340,25 @@ function LessonHistoryCard({ history }: { history: StudentLessonHistory }) {
 function ObservationRow({ memo }: { memo: StudentObservation }) {
   return (
     <div className="rounded-xl border border-[#eee4d8] bg-white/72 p-3">
-      <p className="text-[13px] font-extrabold">{memo.date} {memo.lessonTitle}</p>
-      <div className="mt-2 grid gap-2 md:grid-cols-5">
-        <Info label="今日の様子" value={memo.condition} />
-        <Info label="身体面の変化" value={memo.bodyChange} />
-        <Info label="気になったこと" value={memo.concern ?? "特になし"} />
-        <Info label="次回確認" value={memo.nextCheck} />
-        <Info label="個別メモ" value={memo.memo ?? "記録なし"} />
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-[13px] font-extrabold">{memo.date} {memo.lessonTitle}</p>
+        <AttendanceBadge status={memo.attendanceStatus} />
+      </div>
+      <div className="mt-3 grid gap-2">
+        <PlainMemo label="今日の様子" value={memo.condition} />
+        <PlainMemo label="個別メモ" value={memo.memo ?? "記録なし"} />
+        <PlainMemo label="次回フォロー" value={memo.nextFollow} />
       </div>
       <Link href={`/lessons/${memo.lessonId ?? "basic-flow-20250520"}/record`} className="mt-2 inline-flex h-7 items-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] px-2 text-[11px] font-bold text-[#5d956d]">関連するレッスン記録へ</Link>
+    </div>
+  );
+}
+
+function PlainMemo({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="text-[12px] font-medium leading-5 text-[#50584e]">
+      <span className="font-bold text-[#8b704c]">{label}：</span>
+      <span className="break-words">{value}</span>
     </div>
   );
 }

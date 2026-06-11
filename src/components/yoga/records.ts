@@ -47,12 +47,9 @@ export type LessonTemplate = {
 export type LessonParticipant = {
   studentId: string;
   status: AttendanceStatus;
-  cancelReason?: string;
   condition: string;
-  bodyChange: string;
-  concern: string;
-  nextCheck: string;
   memo: string;
+  nextFollow: string;
 };
 
 export type LessonRecord = {
@@ -115,11 +112,10 @@ export type StudentObservation = {
   date: string;
   lessonTitle: string;
   lessonId?: string;
+  attendanceStatus: AttendanceStatus;
   condition: string;
-  bodyChange: string;
-  concern?: string;
-  nextCheck: string;
   memo?: string;
+  nextFollow: string;
 };
 
 export type StudentLessonHistory = {
@@ -130,10 +126,8 @@ export type StudentLessonHistory = {
   attendanceStatus: AttendanceStatus;
   teacherMemo: string;
   observation: string;
-  bodyChange: string;
-  concern: string;
-  nextCheck: string;
   memo: string;
+  nextFollow: string;
 };
 
 export type StudentAttendanceStats = {
@@ -452,47 +446,36 @@ export const lessons: LessonRecord[] = [
         studentId: "sato-misaki",
         status: "参加",
         condition: "集中して取り組めていた",
-        bodyChange: "肩まわりの動きが少し滑らか",
-        concern: "後屈で膝をかばう様子あり",
-        nextCheck: "膝の違和感の有無",
         memo: "木のポーズで軸が安定",
+        nextFollow: "膝の違和感がないか冒頭で確認",
       },
       {
         studentId: "suzuki-haruna",
         status: "参加",
         condition: "呼吸が深くなり表情が穏やか",
-        bodyChange: "首肩の緊張が後半に緩んだ",
-        concern: "急なツイストは避けたい",
-        nextCheck: "首まわりの可動域",
         memo: "完全呼吸法への反応が良い",
+        nextFollow: "首まわりの可動域を軽く確認",
       },
       {
         studentId: "tanaka-yuko",
         status: "参加",
         condition: "小さな成功体験で笑顔が増えた",
-        bodyChange: "前屈は浅めが安全",
-        concern: "腰の張り",
-        nextCheck: "長い前屈後の違和感",
         memo: "休息を入れると集中が戻る",
+        nextFollow: "前屈は浅めから始める",
       },
       {
         studentId: "yamamoto-kana",
         status: "キャンセル",
-        cancelReason: "体調不良",
         condition: "",
-        bodyChange: "",
-        concern: "",
-        nextCheck: "次回の体調",
         memo: "前日に連絡あり",
+        nextFollow: "次回の体調を確認",
       },
       {
         studentId: "ito-makoto",
         status: "無断欠席",
         condition: "",
-        bodyChange: "",
-        concern: "",
-        nextCheck: "次回予約前に連絡",
         memo: "連絡なし",
+        nextFollow: "次回予約前に参加意思を確認",
       },
     ],
     preFocus: "足裏の土台からバランスポーズへつなげる。首肩に不安がある人には軽減法を先に伝える。",
@@ -805,61 +788,55 @@ export const studentObservations: Record<string, StudentObservation[]> = {
       date: "2025/5/20",
       lessonTitle: "基礎バランスフロー",
       lessonId: "basic-flow-20250520",
+      attendanceStatus: "参加",
       condition: "集中して取り組めていた",
-      bodyChange: "肩まわりの動きが少し滑らか",
-      concern: "後屈で膝をかばう様子あり",
-      nextCheck: "膝の違和感の有無",
       memo: "木のポーズで軸が安定していた",
+      nextFollow: "膝の違和感がないか冒頭で確認",
     },
     {
       date: "2025/5/18",
       lessonTitle: "姿勢改善ヨガ",
       lessonId: "basic-flow-20250520",
+      attendanceStatus: "参加",
       condition: "呼吸が深まり表情が柔らかい",
-      bodyChange: "ダウンドッグの安定感UP",
-      concern: "膝まわりの違和感",
-      nextCheck: "後屈時の膝の反応",
       memo: "無理のない範囲で継続できている",
+      nextFollow: "後屈は浅めにして膝の反応を見る",
     },
     {
       date: "2025/5/11",
       lessonTitle: "リストラティブヨガ",
       lessonId: "restorative-20250511",
+      attendanceStatus: "参加",
       condition: "静かな誘導に集中できていた",
-      bodyChange: "肩の力みが抜けやすくなった",
-      concern: "冷えやすさ",
-      nextCheck: "膝下サポートの有無",
       memo: "長めのシャヴァーサナへの反応が良い",
+      nextFollow: "膝下サポートを用意する",
     },
     {
       date: "2025/5/04",
       lessonTitle: "陰ヨガ",
       lessonId: "relax-yoga-20250519",
+      attendanceStatus: "参加",
       condition: "股関節まわりを慎重に動かしていた",
-      bodyChange: "前屈は浅めが安心",
-      concern: "腰の張り",
-      nextCheck: "深い前屈後の違和感",
       memo: "ボルスターを使うと安定した",
+      nextFollow: "深い前屈は無理に進めない",
     },
     {
       date: "2025/4/27",
       lessonTitle: "ベーシックフロー",
       lessonId: "basic-flow-20250520",
+      attendanceStatus: "参加",
       condition: "久しぶりの受講でも落ち着いて参加",
-      bodyChange: "肩まわりの可動域が少し広がった",
-      concern: "疲労感",
-      nextCheck: "翌日の膝の状態",
       memo: "呼吸法から入ると動きやすい",
+      nextFollow: "翌日の膝の状態を聞く",
     },
     {
       date: "2025/4/20",
       lessonTitle: "肩こり改善ヨガ",
       lessonId: "relax-yoga-20250519",
+      attendanceStatus: "参加",
       condition: "首肩の力みを自覚できていた",
-      bodyChange: "首の左右差が少し軽減",
-      concern: "深い後屈",
-      nextCheck: "首のストレッチ後の感覚",
       memo: "軽減法を選べると安心して動ける",
+      nextFollow: "首のストレッチは小さく始める",
     },
   ],
   "suzuki-haruna": [
@@ -867,11 +844,10 @@ export const studentObservations: Record<string, StudentObservation[]> = {
       date: "2025/5/20",
       lessonTitle: "基礎バランスフロー",
       lessonId: "basic-flow-20250520",
+      attendanceStatus: "参加",
       condition: "安心した様子で動けていた",
-      bodyChange: "首肩の緊張が後半に緩んだ",
-      concern: "急なツイスト",
-      nextCheck: "首まわりの可動域",
       memo: "完全呼吸法への反応が良い",
+      nextFollow: "首まわりの可動域を軽く確認",
     },
   ],
 };
@@ -952,7 +928,7 @@ export function getStudentLessonHistory(studentId: string): StudentLessonHistory
       participant?.memo ||
       (status === "参加"
         ? lesson.reaction || "レッスン後の講師メモを追記予定です。"
-        : participant?.cancelReason || "参加ステータスの確認が必要です。");
+        : "参加ステータスの確認が必要です。");
 
     return [
       {
@@ -963,10 +939,8 @@ export function getStudentLessonHistory(studentId: string): StudentLessonHistory
         attendanceStatus: status,
         teacherMemo,
         observation,
-        bodyChange: participant?.bodyChange || "記録待ち",
-        concern: participant?.concern || (studentId === "sato-misaki" ? getStudent(studentId).caution : "次回確認"),
-        nextCheck: participant?.nextCheck || "次回レッスン前に確認",
         memo: participant?.memo || "個別メモはレッスン後記録から蓄積されます。",
+        nextFollow: participant?.nextFollow || "次回レッスン前に確認",
       },
     ];
   });
@@ -979,13 +953,11 @@ export function getStudentLessonHistory(studentId: string): StudentLessonHistory
         date: memo.date,
         lessonTitle: memo.lessonTitle,
         planName: "過去レッスンプラン",
-        attendanceStatus: "参加" as AttendanceStatus,
+        attendanceStatus: memo.attendanceStatus,
         teacherMemo: memo.memo ?? "過去の観察メモから移行",
         observation: memo.condition,
-        bodyChange: memo.bodyChange,
-        concern: memo.concern ?? "特になし",
-        nextCheck: memo.nextCheck,
         memo: memo.memo ?? "観察メモとして蓄積",
+        nextFollow: memo.nextFollow,
       },
     ];
   });
@@ -998,11 +970,10 @@ export function getStudentObservationHistory(studentId: string) {
     date: history.date.replace(/（.+）/, ""),
     lessonTitle: history.lessonTitle,
     lessonId: history.lessonId,
+    attendanceStatus: history.attendanceStatus,
     condition: history.observation,
-    bodyChange: history.bodyChange,
-    concern: history.concern,
-    nextCheck: history.nextCheck,
     memo: history.memo,
+    nextFollow: history.nextFollow,
   }));
 }
 
