@@ -1,10 +1,17 @@
+import type { LucideIcon } from "lucide-react";
 import {
+  Archive,
+  ArrowDown,
+  ArrowUp,
   CloudUpload,
   Download,
   FileText,
+  FolderTree,
   Heart,
   LockKeyhole,
+  Palette,
   Pencil,
+  Plus,
   Settings2,
   ShieldCheck,
   Sprout,
@@ -21,11 +28,11 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PageHeader, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
 
-const mentorSettings = [
-  ["身体分析メンター", "身体の状態や傾向をデータに基づいて分析し、適切なコンディショニング提案をサポートします。", Sprout],
-  ["寄り添い接客コーチ", "生徒さんへの心の寄り添いや接客・サポートの工夫をアドバイスし、関係性づくりを支援します。", Heart],
-  ["レッスン設計＆ブランディング戦略家", "レッスン設計やクラス運営、発信・ブランディングの戦略をサポートします。", TrendingUp],
-] as const;
+const mentorSettings: [string, string, LucideIcon][] = [
+  ["身体分析メンター", "身体の状態を分析し、改善や提案のヒントを整理します。", Sprout],
+  ["寄り添い接客コーチ", "声かけや関係づくりを、生徒目線でサポートします。", Heart],
+  ["レッスン設計＆ブランディング戦略家", "レッスン設計と発信の方向性を一緒に整えます。", TrendingUp],
+];
 
 const learningRows = [
   ["体調記録と傾向のつながりまとめ", "身体分析", "身体・寄り添い", "OCR済み", "2025/5/18"],
@@ -34,13 +41,43 @@ const learningRows = [
   ["生徒さまからの質問まとめ.xlsx", "Q&A", "寄り添い", "OCR済み", "2025/5/6"],
 ];
 
+const majorCategories = [
+  { name: "事前準備", color: "#8fbf9a", icon: "clipboard", count: 8, archived: false },
+  { name: "雑談", color: "#d9b98f", icon: "message", count: 5, archived: false },
+  { name: "導入", color: "#7fb18a", icon: "leaf", count: 16, archived: false },
+  { name: "呼吸法", color: "#92a7d8", icon: "wind", count: 21, archived: false },
+  { name: "ウォーミングアップ", color: "#e0aa8f", icon: "sun", count: 18, archived: false },
+  { name: "スーリャナマスカーラ", color: "#c99b6a", icon: "sunrise", count: 9, archived: false },
+  { name: "立位", color: "#90b47b", icon: "standing", count: 32, archived: false },
+  { name: "立位以外", color: "#a6a0d3", icon: "mat", count: 24, archived: false },
+  { name: "ターゲットアーサナ", color: "#dd8d78", icon: "target", count: 14, archived: false },
+  { name: "クールダウン", color: "#96b8bb", icon: "moon", count: 28, archived: false },
+  { name: "クロージング", color: "#b8a68c", icon: "sparkles", count: 7, archived: false },
+  { name: "その他", color: "#b7b7ae", icon: "more", count: 3, archived: true },
+];
+
+const minorGroups = [
+  {
+    major: "導入",
+    minors: ["足指体操", "今日のテーマ説明", "怪我確認", "グラウンディング"],
+  },
+  {
+    major: "呼吸法",
+    minors: ["完全呼吸法", "片鼻呼吸", "胸式呼吸", "腹式呼吸"],
+  },
+  {
+    major: "クールダウン",
+    minors: ["首のストレッチ", "セツヴァンダサルヴァンガ", "ハラアーサナ", "ジャタラパリブルッタアーサナ", "シャヴァーサナ"],
+  },
+];
+
 export default function SettingsPage() {
   return (
     <>
-      <PageHeader title="設定" subtitle="利用環境・AIメンター設定をまとめて管理" />
+      <PageHeader title="設定" subtitle="利用環境・AIメンター・ブロックカテゴリーをまとめて管理" />
 
-      <SoftCard className="p-6">
-        <div className="grid grid-cols-[130px_1fr] gap-6">
+      <SoftCard className="p-5">
+        <div className="grid grid-cols-[120px_1fr] gap-6">
           <div className="flex h-28 w-28 items-center justify-center rounded-full bg-[#e9f2e5] text-[#4f875a]">
             <UserRound className="h-16 w-16" strokeWidth={1.4} />
           </div>
@@ -86,7 +123,7 @@ export default function SettingsPage() {
 
         <SoftCard>
           <h2 className="mb-2 text-xl font-bold">AIメンター学習管理</h2>
-          <p className="mb-4 text-[13px] font-medium text-[#696d66]">あなたの記録や資料をAIメンターに学習させ、回答の精度を高めます。</p>
+          <p className="mb-4 text-[13px] font-medium text-[#696d66]">手書きメモ、PDF、画像を読み込み、回答の精度を高める想定です。</p>
           <div className="mb-4 grid grid-cols-[1fr_210px] gap-4">
             <div className="flex h-28 flex-col items-center justify-center rounded-xl border border-[#e4dbcf] bg-white/65">
               <CloudUpload className="mb-2 h-10 w-10 text-[#5d956d]" strokeWidth={1.5} />
@@ -97,7 +134,7 @@ export default function SettingsPage() {
             <div className="rounded-xl border border-[#e4dbcf] bg-white/65 p-4">
               <p className="mb-2 text-[13px] font-bold">おすすめファイル</p>
               <ul className="space-y-1 text-[12px] font-medium leading-5">
-                <li>・生徒の傾向まとめ</li>
+                <li>・生徒傾向まとめ</li>
                 <li>・レッスン記録 / アンケート</li>
                 <li>・身体測定記録 / テストなど</li>
               </ul>
@@ -145,18 +182,14 @@ export default function SettingsPage() {
             </SettingRow>
             <SettingRow label="レッスン時間の基本単位">
               <Select defaultValue="60">
-                <SelectTrigger className="h-9 w-full rounded-lg bg-white/80">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="60">60分（1レッスン＝60分）</SelectItem>
-                </SelectContent>
+                <SelectTrigger className="h-9 w-full rounded-lg bg-white/80"><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="60">60分（1レッスン＝60分）</SelectItem></SelectContent>
               </Select>
             </SettingRow>
             <SettingRow label="カレンダー表示">
-              <Select defaultValue="week">
+              <Select defaultValue="month">
                 <SelectTrigger className="h-9 w-full rounded-lg bg-white/80"><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="week">週表示（時間帯グリッド）</SelectItem></SelectContent>
+                <SelectContent><SelectItem value="month">月表示</SelectItem></SelectContent>
               </Select>
             </SettingRow>
             <SettingRow label="週の開始日">
@@ -184,6 +217,103 @@ export default function SettingsPage() {
             <SecurityRow icon={ShieldCheck} title="バックアップ状況" detail="最終バックアップ：2025/5/19 23:18" button="正常" />
             <SecurityRow icon={LockKeyhole} title="パスワード変更" detail="アカウントのパスワードを変更します" button="パスワードを変更" />
             <SecurityRow icon={FileText} title="アカウント情報" detail="アカウントの基本情報を確認・管理します" button="詳細を確認" />
+          </div>
+        </SoftCard>
+      </section>
+
+      <section id="block-categories" className="mt-4 grid grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] gap-4">
+        <SoftCard className="p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <SectionTitle icon={FolderTree} title="ブロックカテゴリー管理" subtitle="大カテゴリーは固定ではなく、変更できる想定" />
+            <Button className="h-9 rounded-lg bg-[#5d956d] text-white hover:bg-[#4f835d]">
+              <Plus className="mr-1.5 h-4 w-4" />
+              大カテゴリーを追加
+            </Button>
+          </div>
+
+          <div className="overflow-hidden rounded-xl border border-[#eee4d8] bg-white/72">
+            <div className="grid grid-cols-[28px_1fr_92px_78px_68px_126px] gap-2 border-b border-[#eee4d8] bg-[#faf7ef] px-3 py-2 text-[11px] font-bold text-[#6b7468]">
+              <span>色</span>
+              <span>大カテゴリー名</span>
+              <span>アイコン</span>
+              <span>使用数</span>
+              <span>表示順</span>
+              <span className="text-right">操作</span>
+            </div>
+            {majorCategories.map((category) => (
+              <div key={category.name} className="grid grid-cols-[28px_1fr_92px_78px_68px_126px] items-center gap-2 border-b border-[#eee4d8] px-3 py-2 last:border-b-0">
+                <span className="h-5 w-5 rounded-full border border-white shadow-sm" style={{ backgroundColor: category.color }} />
+                <div className="min-w-0">
+                  <Input defaultValue={category.name} className="h-8 bg-white/80 text-[13px] font-bold" />
+                  {category.archived ? <Badge className="mt-1 rounded-full bg-[#f0eee8] text-[#7c756b] shadow-none">アーカイブ中</Badge> : null}
+                </div>
+                <div className="flex items-center gap-1 rounded-lg border border-[#e3dbcf] bg-white/80 px-2 py-1 text-[11px] font-bold text-[#5f665c]">
+                  <Palette className="h-3.5 w-3.5" />
+                  {category.icon}
+                </div>
+                <span className="text-[12px] font-bold text-[#4f7b58]">{category.count}個</span>
+                <div className="flex gap-1">
+                  <button className="h-7 w-7 rounded-lg border border-[#d8e3d4] bg-white text-[#4f7b58]" aria-label="上へ"><ArrowUp className="mx-auto h-3.5 w-3.5" /></button>
+                  <button className="h-7 w-7 rounded-lg border border-[#d8e3d4] bg-white text-[#4f7b58]" aria-label="下へ"><ArrowDown className="mx-auto h-3.5 w-3.5" /></button>
+                </div>
+                <div className="flex justify-end gap-1 text-[#6d716a]">
+                  <button className="h-7 w-7 rounded-lg border border-[#e3dbcf] bg-white" aria-label="編集"><Pencil className="mx-auto h-3.5 w-3.5" /></button>
+                  <button className="h-7 w-7 rounded-lg border border-[#e3dbcf] bg-white" aria-label="アーカイブ"><Archive className="mx-auto h-3.5 w-3.5" /></button>
+                  <button className="h-7 w-7 rounded-lg border border-[#f0c7b4] bg-[#fff3ec] text-[#e46b50]" aria-label="削除"><Trash2 className="mx-auto h-3.5 w-3.5" /></button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <p className="mt-3 rounded-xl bg-[#fff7e8] px-3 py-2 text-[12px] font-medium leading-5 text-[#80633c]">
+            すでにブロックに使われている大カテゴリーは、完全削除ではなく「アーカイブ」または「別カテゴリーへ付け替えてから削除」する想定です。
+          </p>
+        </SoftCard>
+
+        <SoftCard className="p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <SectionTitle icon={FolderTree} title="小カテゴリー管理" subtitle="大カテゴリーごとに追加・編集・並び替え" />
+            <Button variant="outline" className="h-9 rounded-lg border-[#cfe1ca] bg-[#f8fcf6] text-[#5d956d]">
+              <Plus className="mr-1.5 h-4 w-4" />
+              小カテゴリーを追加
+            </Button>
+          </div>
+
+          <div className="grid gap-3">
+            {minorGroups.map((group) => (
+              <div key={group.major} className="rounded-xl border border-[#eee4d8] bg-white/70 p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-[14px] font-extrabold text-[#4f7b58]">{group.major}</p>
+                  <Select defaultValue={group.major}>
+                    <SelectTrigger className="h-8 w-40 rounded-lg bg-white/80 text-[12px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {majorCategories.slice(0, 10).map((category) => (
+                        <SelectItem key={category.name} value={category.name}>{category.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  {group.minors.map((minor, index) => (
+                    <div key={minor} className="grid grid-cols-[1fr_68px_112px] items-center gap-2 rounded-lg border border-[#eee4d8] bg-white/78 px-2 py-2">
+                      <Input defaultValue={minor} className="h-8 bg-white/80 text-[13px] font-bold" />
+                      <div className="flex gap-1">
+                        <button className="h-7 w-7 rounded-lg border border-[#d8e3d4] bg-white text-[#4f7b58]" aria-label="上へ"><ArrowUp className="mx-auto h-3.5 w-3.5" /></button>
+                        <button className="h-7 w-7 rounded-lg border border-[#d8e3d4] bg-white text-[#4f7b58]" aria-label="下へ"><ArrowDown className="mx-auto h-3.5 w-3.5" /></button>
+                      </div>
+                      <div className="flex justify-end gap-1">
+                        <button className="h-7 w-7 rounded-lg border border-[#e3dbcf] bg-white text-[#6d716a]" aria-label="編集"><Pencil className="mx-auto h-3.5 w-3.5" /></button>
+                        <button className="h-7 w-7 rounded-lg border border-[#e3dbcf] bg-white text-[#6d716a]" aria-label="アーカイブ"><Archive className="mx-auto h-3.5 w-3.5" /></button>
+                        <button className="h-7 w-7 rounded-lg border border-[#f0c7b4] bg-[#fff3ec] text-[#e46b50]" aria-label="削除"><Trash2 className="mx-auto h-3.5 w-3.5" /></button>
+                      </div>
+                      {index === group.minors.length - 1 ? (
+                        <p className="col-span-3 text-[11px] font-medium text-[#7c8476]">使用中の場合はアーカイブ、または付け替え後に削除します。</p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </SoftCard>
       </section>
@@ -220,7 +350,7 @@ function SecurityRow({
   detail,
   button,
 }: {
-  icon: typeof Download;
+  icon: LucideIcon;
   title: string;
   detail: string;
   button: string;

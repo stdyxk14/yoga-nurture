@@ -3,14 +3,15 @@
 import Link from "next/link";
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { Plus, Save, Tag, X } from "lucide-react";
+import { FolderPlus, Plus, Save, Settings2, Tag, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PageHeader, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
 
 const tagCandidates = ["#呼吸", "#肩こり改善", "#バランス", "#体幹強化", "#クールダウン", "#初心者向け", "#リラックス"];
-const categories = ["事前準備", "雑談", "導入", "呼吸法", "ウォーミングアップ", "スーリャナマスカーラ", "立位", "立位以外", "ターゲットアーサナ", "クールダウン", "クロージング", "その他"];
+const majorCategories = ["事前準備", "雑談", "導入", "呼吸法", "ウォーミングアップ", "スーリャナマスカーラ", "立位", "立位以外", "ターゲットアーサナ", "クールダウン", "クロージング", "その他"];
+const minorCategories = ["足指体操", "完全呼吸法", "キャットカウ", "首のストレッチ", "ハラアーサナ", "シャヴァーサナ"];
 
 export function BlockForm() {
   const [selectedTags, setSelectedTags] = useState(["#呼吸", "#初心者向け"]);
@@ -32,20 +33,37 @@ export function BlockForm() {
       <PageHeader title="ブロックテンプレート登録" subtitle="誘導セリフをブロックとして登録し、レッスンプランに再利用" />
 
       <SoftCard className="p-4">
-        <div className="grid grid-cols-[minmax(0,1fr)_300px] gap-5">
+        <div className="grid grid-cols-[minmax(0,1fr)_310px] gap-5">
           <div className="min-w-0">
-            <div className="grid grid-cols-[1fr_170px_170px] gap-3">
+            <div className="grid grid-cols-[1fr_180px_180px] gap-3">
               <Field label="ブロック名">
                 <Input defaultValue="完全呼吸法" className="h-10 bg-white/80 text-[14px]" />
               </Field>
               <Field label="大カテゴリー">
                 <select className="h-10 w-full rounded-md border border-input bg-white/80 px-3 text-[14px]">
-                  {categories.map((category) => <option key={category}>{category}</option>)}
+                  {majorCategories.map((category) => <option key={category}>{category}</option>)}
                 </select>
               </Field>
               <Field label="小カテゴリー">
-                <Input defaultValue="完全呼吸法" className="h-10 bg-white/80 text-[14px]" />
+                <select className="h-10 w-full rounded-md border border-input bg-white/80 px-3 text-[14px]">
+                  {minorCategories.map((category) => <option key={category}>{category}</option>)}
+                </select>
               </Field>
+            </div>
+
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button type="button" className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
+                <FolderPlus className="h-3.5 w-3.5" />
+                新しい大カテゴリーを追加
+              </button>
+              <button type="button" className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
+                <FolderPlus className="h-3.5 w-3.5" />
+                新しい小カテゴリーを追加
+              </button>
+              <Link href="/settings#block-categories" className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#d8e3d4] bg-[#f8fcf6] px-3 text-[12px] font-bold text-[#4f7b58]">
+                <Settings2 className="h-3.5 w-3.5" />
+                カテゴリー管理へ移動
+              </Link>
             </div>
 
             <div className="mt-4 grid grid-cols-[120px_1fr_160px] gap-3">
@@ -65,16 +83,16 @@ export function BlockForm() {
             <div className="mt-4 grid grid-cols-[minmax(0,1fr)_260px] gap-4">
               <Field label="誘導セリフ / レッスン原稿">
                 <Textarea
-                  defaultValue={"では完全呼吸法から行いましょう。お腹、胸、鎖骨のあたりの呼吸筋を使って呼吸を深めます。\n仰向けになり、鼻から深く吸って、鼻から深く吐いてリラックスしていきましょう。\n吸う息で下からお腹、胸、鎖骨。吐く息も下からお腹、胸、鎖骨を意識しましょう。"}
-                  className="min-h-[300px] bg-white/80 text-[14px]"
+                  defaultValue={"では完全呼吸法から行いましょう。お腹、胸、鎖骨のあたりの呼吸筋を使って呼吸を深めます。\n吸う息で下から深く吸って、吐く息でゆっくりリラックスしましょう。\nご自身の呼吸のペースで、無理なく続けていきます。"}
+                  className="min-h-[320px] bg-white/80 text-[14px]"
                 />
               </Field>
               <div className="grid gap-4">
                 <Field label="注意点">
-                  <Textarea defaultValue="息苦しさがある人は自然呼吸に戻す" className="min-h-[126px] bg-white/80 text-[14px]" />
+                  <Textarea defaultValue="息苦しさがある人は自然呼吸に戻す。首や肩に力が入りすぎないように声かけする。" className="min-h-[136px] bg-white/80 text-[14px]" />
                 </Field>
                 <Field label="メモ">
-                  <Textarea defaultValue="説明が長くなりやすいので、最初は短く区切る" className="min-h-[126px] bg-white/80 text-[14px]" />
+                  <Textarea defaultValue="説明が長くなりやすいので、最初は短く区切る。反応が良かった言い回しを残す。" className="min-h-[136px] bg-white/80 text-[14px]" />
                 </Field>
               </div>
             </div>
@@ -121,8 +139,9 @@ export function BlockForm() {
             </div>
 
             <div className="mt-3 rounded-xl border border-[#eee4d8] bg-white/62 p-3">
-              <p className="text-[12px] font-medium leading-5 text-[#5f665c]">
-                保存後はブロックテンプレート一覧から検索・絞り込みでき、レッスンプラン作成時に追加できます。
+              <p className="text-[12px] font-bold text-[#4f7b58]">カテゴリーについて</p>
+              <p className="mt-1 text-[12px] font-medium leading-5 text-[#5f665c]">
+                大カテゴリー・小カテゴリーは設定画面で追加、編集、並び替え、アーカイブできる想定です。既存ブロックに使われているカテゴリーは、付け替え後に削除します。
               </p>
               <div className="mt-4 grid gap-2">
                 <Link href="/lessons?tab=blocks" className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#5d956d] px-5 text-[13px] font-bold text-white">

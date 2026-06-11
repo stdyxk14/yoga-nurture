@@ -1,12 +1,12 @@
 import { ScheduleForm } from "@/components/yoga/schedule-form";
-import { lessonTemplates, students } from "@/components/yoga/records";
+import { lessons, students } from "@/components/yoga/records";
 
 export default async function NewSchedulePage({
   searchParams,
 }: {
-  searchParams: Promise<{ template?: string }>;
+  searchParams: Promise<{ plan?: string }>;
 }) {
-  const { template } = await searchParams;
+  const { plan } = await searchParams;
 
-  return <ScheduleForm templates={lessonTemplates} students={students} initialTemplateId={template} />;
+  return <ScheduleForm plans={lessons} students={students} initialPlanId={plan} />;
 }
