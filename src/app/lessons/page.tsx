@@ -19,6 +19,17 @@ import { lessonStudents, relatedLessons } from "@/components/yoga/data";
 
 const tags = ["#ベーシックフロー", "#肩こり改善", "#呼吸", "#リラックス", "#体幹強化"];
 
+const lessonFlow = [
+  ["5分", "センタリング・呼吸法", "座位で呼吸を観察し、吐く息を長くする意識づけ。"],
+  ["8分", "肩甲骨まわりのウォームアップ", "肩・首・胸まわりをほどき、背中の緊張をゆるめる。"],
+  ["10分", "太陽礼拝A（2周）", "呼吸と動きの連動を確認しながら、全身を温める。"],
+  ["12分", "立位ポーズ", "戦士II、三角のポーズ、椅子のポーズで土台と姿勢を調整。"],
+  ["8分", "バランスポーズ", "木のポーズ、戦士III。体幹の安定と目線の置き方を確認。"],
+  ["7分", "ツイスト・前屈・開脚系", "背骨を長く保ち、無理なく股関節まわりをゆるめる。"],
+  ["5分", "クールダウン", "仰向けで腰まわりを解放し、呼吸を落ち着かせる。"],
+  ["5分", "シャバーサナ・呼吸の観察", "余韻を味わい、レッスン後の心身の変化を確認。"],
+];
+
 export default function LessonsPage() {
   return (
     <>
@@ -72,47 +83,48 @@ export default function LessonsPage() {
         </div>
       </SoftCard>
 
-      <section className="mt-3 grid grid-cols-3 gap-3">
-        <SoftCard className="p-3.5">
+      <section className="mt-3 grid grid-cols-[minmax(0,1.45fr)_minmax(270px,0.8fr)] gap-3">
+        <SoftCard className="p-4">
           <SectionTitle icon={ListChecks} title="実施内容" />
-          <ul className="space-y-1 text-[13px] font-medium leading-5">
-            {[
-              "センタリング・呼吸法（5分）",
-              "太陽礼拝A（2周）",
-              "立位：戦士II・三角・椅子のポーズ",
-              "バランス：木のポーズ・戦士III",
-              "ツイスト・前屈・開脚系",
-              "シャバーサナ・呼吸の観察",
-            ].map((text) => (
-              <li key={text}>・ {text}</li>
-            ))}
-          </ul>
-        </SoftCard>
-
-        <SoftCard className="p-3.5">
-          <SectionTitle icon={MessageSquareText} title="生徒の反応・観察" />
-          <div className="space-y-2 text-[13px] font-medium leading-5">
-            <p><span className="font-bold">全体の反応</span><br />集中力が高く、呼吸を意識しながら丁寧に動けていた。</p>
-            <p><span className="font-bold">印象的な様子</span><br />佐藤さんは戦士IIIで安定感が向上。軸がぶれにくい。</p>
-          </div>
-        </SoftCard>
-
-        <SoftCard className="p-3.5">
-          <SectionTitle icon={CheckCircle2} title="次回への改善ポイント" />
-          <div className="space-y-2">
-            {[
-              "バランスポーズを少し短くし、休息を増やす",
-              "ツイスト前に肩周りのほぐしを追加",
-              "後半の疲労を見てシャバーサナを延長",
-              "体幹安定のコアワークを導入検討",
-            ].map((text) => (
-              <div key={text} className="flex gap-2 text-[13px] font-medium leading-5">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#629268]" />
-                {text}
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+            {lessonFlow.map(([time, title, note]) => (
+              <div key={title} className="grid min-w-0 grid-cols-[42px_minmax(0,1fr)] gap-2 rounded-xl border border-[#eee4d8] bg-white/66 px-3 py-2">
+                <span className="text-[12px] font-extrabold text-[#5d8e67]">{time}</span>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-bold leading-5">{title}</p>
+                  <p className="mt-0.5 line-clamp-2 text-[12px] font-medium leading-5 text-[#5f665c]">{note}</p>
+                </div>
               </div>
             ))}
           </div>
         </SoftCard>
+
+        <div className="grid gap-3">
+          <SoftCard className="p-3.5">
+            <SectionTitle icon={MessageSquareText} title="生徒の反応・観察" />
+            <div className="space-y-2 text-[13px] font-medium leading-5">
+              <p><span className="font-bold">全体の反応</span><br />集中力が高く、呼吸を意識しながら丁寧に動けていた。</p>
+              <p><span className="font-bold">特に印象的だった様子</span><br />佐藤さんは戦士IIIで軸が安定。鈴木さんは前屈の柔軟性が向上。</p>
+            </div>
+          </SoftCard>
+
+          <SoftCard className="p-3.5">
+            <SectionTitle icon={CheckCircle2} title="次回への改善ポイント" />
+            <div className="space-y-2">
+              {[
+                "バランスポーズの時間配分を少し短くし、休息を増やす",
+                "ツイスト前に肩まわりのほぐしを追加する",
+                "後半の疲労を見てシャバーサナを5分に延長",
+                "体幹安定を高めるコアワークを導入検討",
+              ].map((text) => (
+                <div key={text} className="flex gap-2 text-[13px] font-medium leading-5">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#629268]" />
+                  {text}
+                </div>
+              ))}
+            </div>
+          </SoftCard>
+        </div>
       </section>
 
       <SoftCard id="participants" className="mt-3 p-3.5">
@@ -193,7 +205,7 @@ function Info({
         <Icon className="h-4 w-4 shrink-0 text-[#56605a]" strokeWidth={1.8} />
         {label}
       </div>
-      <p className="truncate pl-5 text-[13px] font-medium leading-5">{value}</p>
+      <p className="pl-5 text-[13px] font-medium leading-5 [word-break:keep-all]">{value}</p>
     </div>
   );
 }

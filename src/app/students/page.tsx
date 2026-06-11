@@ -6,8 +6,6 @@ import {
   Dumbbell,
   HeartHandshake,
   NotebookPen,
-  Sparkles,
-  Star,
   Target,
   UserRound,
 } from "lucide-react";
@@ -16,16 +14,13 @@ import { PageHeader, SectionTitle, SoftCard, MiniBar } from "@/components/yoga/p
 import { lessonHistory } from "@/components/yoga/data";
 
 const profileItems = [
-  ["ヨガ経験", "約3年", Dumbbell],
-  ["主な目標", "肩こり改善・姿勢改善", Target],
-  ["注意事項", "膝に違和感あり（無理な後屈は避ける）", HeartHandshake],
-  ["性格・傾向", "真面目で努力家。変化を実感するとモチベーションUP", Sparkles],
-  ["好みのスタイル", "呼吸を重視したゆったりフロー・陰ヨガ", Star],
-  ["現在の課題", "肩のこり・呼吸が浅くなりやすい・姿勢の崩れ", CheckCircle2],
+  ["ヨガ他経験", "ヨガ約3年、ピラティス経験あり", Dumbbell],
+  ["ケガなどの注意点", "膝に違和感あり。深い後屈は避ける", HeartHandshake],
+  ["その他メモ", "呼吸を重視したゆったりフローが好み。変化を実感すると継続しやすい", NotebookPen],
 ] as const;
 
 const observation = [
-  ["2025/5/18", "肩まわりの緊張が緩減。呼吸が深まり、表情も柔らかく。ダウンドッグの安定感UP。"],
+  ["2025/5/18", "肩まわりの緊張が緩み、呼吸が深まり、表情も柔らかく。ダウンドッグの安定感UP。"],
   ["2025/5/11", "長時間デスクワーク後のレッスン。肩・首のこり強め。胸を開くポーズで呼吸が深まる。"],
   ["2025/5/04", "姿勢改善を意識して取り組めていた。プランクで体幹の安定感が向上。"],
   ["2025/4/27", "久しぶりの受講。体が硬くなっていたが、終盤はリラックスして動けていた。"],
@@ -36,24 +31,27 @@ export default function StudentsPage() {
     <>
       <PageHeader title="生徒カルテ" subtitle="生徒一人ひとりの状態・目的・受講履歴を管理" />
 
-      <SoftCard className="p-6">
-        <div className="grid grid-cols-[210px_1fr] gap-7">
-          <div className="flex flex-col items-center">
-            <div className="flex h-44 w-44 items-center justify-center rounded-2xl bg-[#edf4ea] text-[#4f875a] shadow-inner">
-              <UserRound className="h-24 w-24" strokeWidth={1.35} />
+      <SoftCard className="p-4">
+        <div className="grid grid-cols-[160px_minmax(0,1fr)] gap-5">
+          <div className="flex flex-col items-center justify-center">
+            <div className="flex h-32 w-32 items-center justify-center rounded-2xl bg-[#edf4ea] text-[#4f875a] shadow-inner">
+              <UserRound className="h-20 w-20" strokeWidth={1.35} />
             </div>
+            <p className="mt-3 text-[13px] font-bold text-[#657064]">35歳 / 女性</p>
           </div>
-          <div>
-            <div className="mb-4 flex items-end gap-4 border-b border-[#ebe3d8] pb-3">
-              <h1 className="text-[32px] font-extrabold">佐藤 美咲</h1>
-              <p className="pb-1 text-sm font-semibold">さとう みさき　・　35歳</p>
+          <div className="min-w-0">
+            <div className="mb-3 flex items-end gap-4 border-b border-[#ebe3d8] pb-2">
+              <h1 className="text-[28px] font-extrabold leading-tight">佐藤 美咲</h1>
+              <p className="pb-1 text-[13px] font-semibold">さとう みさき</p>
             </div>
-            <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+            <div className="grid grid-cols-3 gap-3">
               {profileItems.map(([label, value, Icon]) => (
-                <div key={label} className="grid min-h-[56px] grid-cols-[34px_96px_1fr] items-start border-b border-[#eee8dd] pb-3">
-                  <Icon className="mt-1 h-5 w-5 text-[#8b6138]" strokeWidth={1.8} />
-                  <span className="text-[14px] font-bold">{label}</span>
-                  <span className="text-[14px] font-medium leading-6">{value}</span>
+                <div key={label} className="min-h-[96px] rounded-xl border border-[#eee4d8] bg-white/72 p-3">
+                  <div className="mb-2 flex items-center gap-2">
+                    <Icon className="h-4 w-4 shrink-0 text-[#8b6138]" strokeWidth={1.8} />
+                    <span className="text-[13px] font-bold">{label}</span>
+                  </div>
+                  <p className="text-[13px] font-medium leading-5 text-[#33372f]">{value}</p>
                 </div>
               ))}
             </div>
@@ -83,7 +81,7 @@ export default function StudentsPage() {
               "肩甲骨まわりをゆるめるウォームアップを丁寧に",
               "呼吸の質を高める意識づけ（吐く息を長く）",
               "猫背になりやすいので、胸を開くポーズを多めに",
-              "後屈は無理のない範囲で。腰の様子を確認しながら",
+              "後屈は無理のない範囲で、腰の様子を確認しながら",
             ].map((point) => (
               <div key={point} className="flex items-start gap-2 text-[14px] font-medium">
                 <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#629268]" />
@@ -139,7 +137,7 @@ export default function StudentsPage() {
           <div className="border-r border-[#eee3d7] pr-4">
             <p className="text-sm font-bold">受講頻度</p>
             <p className="mt-4 text-3xl font-extrabold text-[#4f875a]">3.8<span className="ml-1 text-sm">回</span></p>
-            <p className="mt-2 text-[12px] font-semibold text-[#677064]">月平均・安定して通われています</p>
+            <p className="mt-2 text-[12px] font-semibold text-[#677064]">月平均。安定して通われています</p>
           </div>
           <div className="border-r border-[#eee3d7] pr-4">
             <p className="mb-3 text-sm font-bold">よく受けるクラス</p>
@@ -158,8 +156,8 @@ export default function StudentsPage() {
           <div className="border-r border-[#eee3d7] pr-4">
             <p className="mb-4 text-sm font-bold">時間帯の傾向</p>
             <div className="space-y-4 text-[13px] font-semibold">
-              <p>平日夜　<span className="float-right">60%</span></p>
-              <p>週末午前　<span className="float-right">40%</span></p>
+              <p>平日夜<span className="float-right">60%</span></p>
+              <p>週末午前<span className="float-right">40%</span></p>
             </div>
           </div>
           <div className="border-r border-[#eee3d7] pr-4">
