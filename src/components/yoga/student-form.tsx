@@ -7,6 +7,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { PageHeader, SoftCard } from "@/components/yoga/page-kit";
 import type { StudentRecord } from "@/components/yoga/records";
 
+const ageGroups = ["10代", "20前半", "20半ば", "20後半", "30前半", "30半ば", "30後半", "40前半", "40半ば", "40後半", "50前半", "50半ば", "50後半", "60代以上"];
+const genders = ["女性", "男性", "その他", "回答しない"];
+
 export function StudentForm({ mode, student }: { mode: "new" | "edit"; student?: StudentRecord }) {
   const isEdit = mode === "edit";
   const returnHref = isEdit && student ? `/students/${student.id}` : "/students";
@@ -15,68 +18,53 @@ export function StudentForm({ mode, student }: { mode: "new" | "edit"; student?:
     <>
       <PageHeader
         title={isEdit ? "生徒カルテ編集" : "生徒カルテ新規登録"}
-        subtitle={isEdit ? "基本情報とメモを更新" : "生徒をすぐ登録できるシンプルな入力画面"}
+        subtitle={isEdit ? "基本情報とメモを更新" : "年代・性別・注意点を最小項目で登録"}
       />
 
       <SoftCard className="p-4">
         <div className="grid grid-cols-[180px_minmax(0,1fr)] gap-6">
           <div className="flex flex-col items-center justify-center rounded-2xl bg-[#edf4ea] p-5 text-[#4f875a]">
             <UserRound className="h-20 w-20" strokeWidth={1.35} />
-            <p className="mt-3 text-center text-[13px] font-bold text-[#607463]">
-              生徒の基本情報を
-              <br />
-              最小項目で管理
-            </p>
+            <p className="mt-3 text-center text-[13px] font-bold text-[#607463]">生徒の基本情報を<br />最小項目で管理</p>
           </div>
 
           <div className="min-w-0">
-            <div className="grid grid-cols-[1.4fr_120px] gap-4">
+            <div className="grid grid-cols-[1.4fr_150px_150px] gap-4">
               <Field label="名前">
                 <Input defaultValue={student?.name ?? ""} placeholder="佐藤 美咲" className="h-10 bg-white/80 text-[14px]" />
               </Field>
-              <Field label="年齢">
-                <Input defaultValue={student?.age ?? ""} type="number" placeholder="35" className="h-10 bg-white/80 text-[14px]" />
+              <Field label="年代">
+                <select defaultValue={student?.ageGroup ?? "30半ば"} className="h-10 w-full rounded-md border border-input bg-white/80 px-3 text-[14px]">
+                  {ageGroups.map((ageGroup) => <option key={ageGroup}>{ageGroup}</option>)}
+                </select>
+              </Field>
+              <Field label="性別">
+                <select defaultValue={student?.gender ?? "回答しない"} className="h-10 w-full rounded-md border border-input bg-white/80 px-3 text-[14px]">
+                  {genders.map((gender) => <option key={gender}>{gender}</option>)}
+                </select>
               </Field>
             </div>
 
             <div className="mt-4 grid grid-cols-2 gap-4">
               <Field label="ヨガ他経験">
-                <Textarea
-                  defaultValue={student?.experience ?? ""}
-                  placeholder="ヨガ約3年、ピラティス経験あり"
-                  className="min-h-[92px] bg-white/80 text-[14px]"
-                />
+                <Textarea defaultValue={student?.experience ?? ""} placeholder="ヨガ約3年、ピラティス経験あり" className="min-h-[92px] bg-white/80 text-[14px]" />
               </Field>
               <Field label="ケガなどの注意点">
-                <Textarea
-                  defaultValue={student?.caution ?? ""}
-                  placeholder="膝に違和感あり。深い後屈は避ける"
-                  className="min-h-[92px] bg-white/80 text-[14px]"
-                />
+                <Textarea defaultValue={student?.caution ?? ""} placeholder="膝に違和感あり。深い後屈は避ける" className="min-h-[92px] bg-white/80 text-[14px]" />
               </Field>
             </div>
 
             <div className="mt-4">
               <Field label="その他メモ">
-                <Textarea
-                  defaultValue={student?.memo ?? ""}
-                  placeholder="呼吸を重視したゆったりフローが好み。変化を実感すると継続しやすい"
-                  className="min-h-[120px] bg-white/80 text-[14px]"
-                />
+                <Textarea defaultValue={student?.memo ?? ""} placeholder="呼吸を重視したゆったりフローが好み" className="min-h-[120px] bg-white/80 text-[14px]" />
               </Field>
             </div>
 
             <div className="mt-5 flex justify-end gap-2">
-              <Link
-                href={returnHref}
-                className="inline-flex h-9 items-center rounded-lg border border-[#d8e3d4] bg-white px-4 text-[13px] font-bold text-[#4f7b58]"
-              >
+              <Link href={returnHref} className="inline-flex h-9 items-center rounded-lg border border-[#d8e3d4] bg-white px-4 text-[13px] font-bold text-[#4f7b58]">
                 キャンセル
               </Link>
-              <Link
-                href={returnHref}
-                className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#5d956d] px-5 text-[13px] font-bold text-white shadow-[0_8px_18px_rgba(64,113,77,0.2)]"
-              >
+              <Link href={returnHref} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#5d956d] px-5 text-[13px] font-bold text-white">
                 <Save className="h-4 w-4" />
                 {isEdit ? "更新する" : "保存する"}
               </Link>

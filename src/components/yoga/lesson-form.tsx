@@ -1,172 +1,124 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { CalendarDays, Layers3, Save, Sparkles, Tag, UsersRound } from "lucide-react";
+import { ArrowDown, ArrowUp, CalendarDays, GripVertical, Plus, Save, Search, Tag, Trash2, UsersRound } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PageHeader, Pill, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
-import { lessonTemplates, students } from "@/components/yoga/records";
+import { blockTemplates, getLessonBlocks, students } from "@/components/yoga/records";
 import type { LessonRecord } from "@/components/yoga/records";
-
-const defaultTags = ["#ベーシックフロー", "#肩こり改善", "#呼吸", "#体幹強化"];
 
 export function LessonForm({ mode, lesson }: { mode: "new" | "edit"; lesson?: LessonRecord }) {
   const isEdit = mode === "edit";
-  const returnHref = isEdit && lesson ? `/lessons/${lesson.id}` : "/lessons";
-  const selectedTemplate = lessonTemplates.find((template) => template.id === lesson?.templateId) ?? lessonTemplates[0];
-  const tags = lesson?.tags ?? selectedTemplate.tags ?? defaultTags;
+  const returnHref = isEdit && lesson ? `/lessons/${lesson.id}` : "/lessons?tab=plans";
+  const selectedBlocks = lesson ? getLessonBlocks(lesson) : blockTemplates.slice(0, 7);
+  const totalMinutes = selectedBlocks.reduce((sum, block) => sum + Number.parseInt(block.duration, 10), 0);
 
   return (
     <>
       <PageHeader
-        title={isEdit ? "レッスンカルテ編集" : "レッスンカルテを準備"}
-        subtitle={isEdit ? "事前準備と実施後記録を整理" : "レッスン前のプランを作成"}
+        title={isEdit ? "レッスンプラン編集" : "レッスンプランを作成"}
+        subtitle="ブロックを組み合わせて、原稿付きの60分レッスンを準備"
       />
 
       <SoftCard className="p-4">
-        <div className="grid grid-cols-[minmax(0,1fr)_300px] gap-5">
+        <div className="grid grid-cols-[minmax(0,1fr)_310px] gap-5">
           <div className="min-w-0">
-            <SectionTitle icon={CalendarDays} title="レッスン前の準備" subtitle="事前プラン" />
-            <div className="grid grid-cols-[minmax(0,1fr)_140px] gap-3">
-              <Field label="レッスン名">
-                <Input
-                  defaultValue={lesson?.title ?? selectedTemplate.name}
-                  placeholder="ベーシックフロー"
-                  className="h-10 bg-white/80 text-[14px]"
-                />
+            <SectionTitle icon={CalendarDays} title="基本情報" subtitle="予定とプランの土台" />
+            <div className="grid grid-cols-[1fr_140px_120px_120px] gap-3">
+              <Field label="レッスンプラン名">
+                <Input defaultValue={lesson?.title ?? "基礎バランスフロー"} className="h-10 bg-white/80 text-[14px]" />
               </Field>
-              <Field label="日付">
-                <Input defaultValue={lesson?.date.replace(/（.*）/, "") ?? "2025/5/23"} className="h-10 bg-white/80 text-[14px]" />
+              <Field label="レッスン日">
+                <Input defaultValue={lesson?.date.replace(/（.*）/, "") ?? "2025/6/13"} className="h-10 bg-white/80 text-[14px]" />
               </Field>
-            </div>
-
-            <div className="mt-4 grid grid-cols-3 gap-3">
               <Field label="開始時間">
                 <Input defaultValue={lesson?.startTime ?? "10:00"} className="h-10 bg-white/80 text-[14px]" />
               </Field>
               <Field label="終了時間">
                 <Input defaultValue={lesson?.endTime ?? "11:00"} className="h-10 bg-white/80 text-[14px]" />
               </Field>
-              <Field label="レッスン時間">
-                <Input defaultValue={lesson?.duration ?? "60分"} className="h-10 bg-white/80 text-[14px]" />
-              </Field>
             </div>
 
-            <div className="mt-4 grid grid-cols-[1fr_210px] gap-3">
+            <div className="mt-4 grid grid-cols-[120px_1fr_180px] gap-3">
+              <Field label="合計時間">
+                <Input value={`${totalMinutes}分`} readOnly className="h-10 bg-[#f8fcf6] text-[14px] font-bold text-[#4f875a]" />
+              </Field>
               <Field label="場所">
                 <Input defaultValue={lesson?.place ?? "スタジオA"} className="h-10 bg-white/80 text-[14px]" />
               </Field>
               <Field label="形式">
-                <div className="grid grid-cols-3 gap-1.5">
-                  {["パーソナル", "グループ", "オンライン"].map((format) => (
-                    <label
-                      key={format}
-                      className="flex h-10 cursor-pointer items-center justify-center rounded-lg border border-[#d8e3d4] bg-white/80 text-[12px] font-bold text-[#4f7b58]"
-                    >
-                      <input className="sr-only" name="format" type="radio" defaultChecked={(lesson?.format ?? "グループ") === format} />
-                      {format}
-                    </label>
-                  ))}
-                </div>
-              </Field>
-            </div>
-
-            <div className="mt-4 grid grid-cols-[250px_minmax(0,1fr)] gap-3">
-              <Field label="使用テンプレート">
-                <select
-                  defaultValue={selectedTemplate.id}
-                  className="h-10 w-full rounded-md border border-input bg-white/80 px-3 text-[14px] shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-[#9fc2a6]"
-                >
-                  {lessonTemplates.map((template) => (
-                    <option key={template.id} value={template.id}>
-                      {template.name}
-                    </option>
-                  ))}
+                <select className="h-10 w-full rounded-md border border-input bg-white/80 px-3 text-[14px]">
+                  {["パーソナル", "グループ", "オンライン"].map((format) => <option key={format}>{format}</option>)}
                 </select>
-              </Field>
-              <Field label="目的・テーマ">
-                <Input defaultValue={lesson?.theme ?? selectedTemplate.theme} className="h-10 bg-white/80 text-[14px]" />
               </Field>
             </div>
 
             <div className="mt-4 grid grid-cols-[1fr_260px] gap-4">
-              <Field label="事前のレッスン構成">
+              <Field label="テーマ">
                 <Textarea
-                  defaultValue={lesson?.prePlan ?? selectedTemplate.structure}
-                  placeholder="導入、呼吸法、ウォームアップ、メインポーズ、クールダウン、シャバーサナまで"
-                  className="min-h-[210px] bg-white/80 text-[14px]"
+                  defaultValue={lesson?.theme ?? "片足立ちの安定と呼吸の深まり"}
+                  className="min-h-[84px] bg-white/80 text-[14px]"
                 />
               </Field>
               <div>
                 <SectionTitle icon={Tag} title="タグ" />
                 <div className="flex flex-wrap gap-2">
-                  {tags.map((tag) => (
-                    <Pill key={tag}>{tag}</Pill>
-                  ))}
+                  {(lesson?.tags ?? ["#バランス", "#呼吸", "#初心者向け"]).map((tag) => <Pill key={tag}>{tag}</Pill>)}
                 </div>
                 <Input placeholder="#タグを追加" className="mt-2 h-9 bg-white/80 text-[13px]" />
-                <div className="mt-4 rounded-xl border border-[#eee4d8] bg-white/62 p-3">
-                  <SectionTitle icon={Layers3} title="テンプレートから反映" />
-                  <p className="text-[12px] font-medium leading-5 text-[#5f665c]">
-                    テンプレートを選ぶと、レッスン名・目的・タグ・基本構成・注意点を下書きに使えます。
-                  </p>
-                </div>
               </div>
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-4">
-              <Field label="事前に意識したいこと">
-                <Textarea
-                  defaultValue={lesson?.preFocus ?? "呼吸と動きの連動を丁寧に確認し、無理な可動域に入らないよう声かけする。"}
-                  className="min-h-[120px] bg-white/80 text-[14px]"
-                />
-              </Field>
-              <Field label="生徒ごとの配慮ポイント">
-                <Textarea
-                  defaultValue={lesson?.studentCare ?? "膝・腰・首に注意点がある生徒は、代替ポーズと休息の選択肢を先に伝える。"}
-                  className="min-h-[120px] bg-white/80 text-[14px]"
-                />
-              </Field>
+            <div className="mt-5">
+              <SectionTitle icon={GripVertical} title="使用ブロック一覧" subtitle="上へ / 下へ で順番変更する想定" />
+              <div className="grid gap-2">
+                {selectedBlocks.map((block, index) => (
+                  <div key={block.id} className="rounded-xl border border-[#eee4d8] bg-white/72 p-3">
+                    <div className="grid grid-cols-[36px_minmax(0,1fr)_96px_180px] gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#edf5ef] text-[13px] font-extrabold text-[#4f875a]">
+                        {index + 1}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="mb-1 flex flex-wrap items-center gap-2">
+                          <h3 className="text-[15px] font-extrabold">{block.name}</h3>
+                          <span className="rounded-full bg-[#fff7e8] px-2 py-0.5 text-[11px] font-bold text-[#9b7338]">{block.majorCategory}</span>
+                          <span className="text-[12px] font-bold text-[#5d956d]">{block.minorCategory}</span>
+                        </div>
+                        <p className="line-clamp-2 text-[12px] font-medium leading-5 text-[#50584e]">{block.script}</p>
+                        <p className="mt-1 line-clamp-1 text-[11px] font-bold text-[#d96c55]">注意：{block.cautions}</p>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {block.tags.slice(0, 4).map((tag) => <Pill key={tag}>{tag}</Pill>)}
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[11px] font-bold text-[#7c8476]">目安時間</p>
+                        <p className="text-[22px] font-extrabold text-[#4f875a]">{block.duration}</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <button className="inline-flex h-8 items-center justify-center gap-1 rounded-lg border border-[#d8e3d4] bg-white text-[11px] font-bold text-[#4f7b58]">
+                          <ArrowUp className="h-3.5 w-3.5" />上へ
+                        </button>
+                        <button className="inline-flex h-8 items-center justify-center gap-1 rounded-lg border border-[#d8e3d4] bg-white text-[11px] font-bold text-[#4f7b58]">
+                          <ArrowDown className="h-3.5 w-3.5" />下へ
+                        </button>
+                        <Link href="/lessons/blocks/new" className="inline-flex h-8 items-center justify-center rounded-lg border border-[#d8e3d4] bg-[#f8fcf6] text-[11px] font-bold text-[#5d956d]">編集</Link>
+                        <button className="inline-flex h-8 items-center justify-center gap-1 rounded-lg border border-[#f0c7b4] bg-[#fff3ec] text-[11px] font-bold text-[#e46b50]">
+                          <Trash2 className="h-3.5 w-3.5" />削除
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-
-            <button className="mt-4 inline-flex h-9 items-center gap-2 rounded-lg bg-[#5d956d] px-4 text-[13px] font-bold text-white">
-              <Sparkles className="h-4 w-4" />
-              この事前プランについてAIメンターに相談
-            </button>
-
-            {isEdit ? (
-              <div className="mt-5 rounded-xl border border-[#eee4d8] bg-[#fffdf9]/80 p-3">
-                <SectionTitle icon={Save} title="レッスン後の記録" subtitle="必要に応じて追記" />
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="実際に行った内容">
-                    <Textarea defaultValue={lesson?.actualContent} className="min-h-[96px] bg-white/80 text-[14px]" />
-                  </Field>
-                  <Field label="生徒の反応・観察">
-                    <Textarea defaultValue={lesson?.reaction} className="min-h-[96px] bg-white/80 text-[14px]" />
-                  </Field>
-                  <Field label="参加生徒ごとの個別メモ">
-                    <Textarea defaultValue={lesson?.individualMemos} className="min-h-[96px] bg-white/80 text-[14px]" />
-                  </Field>
-                  <Field label="次回への改善ポイント">
-                    <Textarea defaultValue={lesson?.improvement} className="min-h-[96px] bg-white/80 text-[14px]" />
-                  </Field>
-                </div>
-              </div>
-            ) : (
-              <div className="mt-5 rounded-xl border border-[#f0d1c6] bg-[#fff4ef] p-3">
-                <p className="text-[13px] font-bold text-[#d96c55]">レッスン後に追記できます</p>
-                <p className="mt-1 text-[12px] font-medium leading-5 text-[#6f5d55]">
-                  実施内容、生徒の反応、個別メモ、次回への改善ポイントは、レッスン後に専用画面から記録します。
-                </p>
-              </div>
-            )}
           </div>
 
           <div className="min-w-0">
-            <div className="rounded-xl border border-[#eee4d8] bg-white/62 p-3">
+            <SoftCard className="p-3">
               <SectionTitle icon={UsersRound} title="参加予定生徒" />
               <div className="grid gap-2">
-                {students.map((student, index) => (
+                {students.slice(0, 5).map((student, index) => (
                   <label key={student.id} className="flex cursor-pointer items-center gap-2 rounded-lg border border-[#eee4d8] bg-white/70 px-3 py-2">
                     <input type="checkbox" defaultChecked={index < 4} className="h-4 w-4 accent-[#5d956d]" />
                     <span className="min-w-0">
@@ -176,29 +128,47 @@ export function LessonForm({ mode, lesson }: { mode: "new" | "edit"; lesson?: Le
                   </label>
                 ))}
               </div>
-            </div>
+            </SoftCard>
 
-            <div className="mt-3 rounded-xl border border-[#eee4d8] bg-white/62 p-3">
-              <SectionTitle icon={CalendarDays} title="保存先" />
+            <SoftCard className="mt-3 p-3">
+              <SectionTitle icon={Plus} title="ブロックを追加" />
+              <div className="mb-2 flex items-center gap-2 rounded-lg border border-[#e7dfd4] bg-white/80 px-2">
+                <Search className="h-4 w-4 text-[#6b7468]" />
+                <Input placeholder="ブロック検索" className="h-8 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0" />
+              </div>
+              <div className="mb-2 flex flex-wrap gap-1">
+                {["すべて", "呼吸法", "クールダウン", "#肩こり改善", "#バランス"].map((item, index) => <Pill key={item} active={index === 0}>{item}</Pill>)}
+              </div>
+              <div className="grid gap-2">
+                {blockTemplates.slice(0, 4).map((block) => (
+                  <div key={block.id} className="rounded-lg border border-[#eee4d8] bg-white/70 p-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-[13px] font-extrabold">{block.name}</p>
+                        <p className="text-[11px] font-bold text-[#5d956d]">{block.majorCategory} / {block.duration}</p>
+                        <p className="text-[11px] font-medium text-[#6b7468]">使用{block.usageCount}回 / 評価{block.averageRating}</p>
+                      </div>
+                      <button className="shrink-0 rounded-lg bg-[#5d956d] px-2 py-1 text-[11px] font-bold text-white">追加</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </SoftCard>
+
+            <SoftCard className="mt-3 p-3">
               <p className="text-[12px] font-medium leading-5 text-[#5f665c]">
-                まだDB接続前の静的UIです。保存・更新ボタンは仮動作として一覧または詳細へ戻ります。
+                保存後、原稿表示画面から印刷用HTMLを開けます。PDF出力は次フェーズで接続予定です。
               </p>
               <div className="mt-4 grid gap-2">
-                <Link
-                  href={returnHref}
-                  className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#5d956d] px-5 text-[13px] font-bold text-white shadow-[0_8px_18px_rgba(64,113,77,0.2)]"
-                >
+                <Link href={returnHref} className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#5d956d] px-5 text-[13px] font-bold text-white">
                   <Save className="h-4 w-4" />
                   {isEdit ? "更新する" : "保存する"}
                 </Link>
-                <Link
-                  href={returnHref}
-                  className="inline-flex h-9 items-center justify-center rounded-lg border border-[#d8e3d4] bg-white px-4 text-[13px] font-bold text-[#4f7b58]"
-                >
+                <Link href={returnHref} className="inline-flex h-9 items-center justify-center rounded-lg border border-[#d8e3d4] bg-white px-4 text-[13px] font-bold text-[#4f7b58]">
                   キャンセル
                 </Link>
               </div>
-            </div>
+            </SoftCard>
           </div>
         </div>
       </SoftCard>

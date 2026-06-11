@@ -1,8 +1,15 @@
+export type Gender = "女性" | "男性" | "その他" | "回答しない";
+export type AttendanceStatus = "参加" | "キャンセル" | "無断欠席";
+export type LessonStatus = "予定" | "事前準備中" | "事前準備済み" | "記録待ち" | "記録済み";
+export type LessonFormat = "パーソナル" | "グループ" | "オンライン";
+export type BlockReaction = "良かった" | "普通" | "いまいち";
+
 export type StudentRecord = {
   id: string;
   name: string;
   kana: string;
-  age: number;
+  ageGroup: string;
+  gender: Gender;
   experience: string;
   caution: string;
   memo: string;
@@ -11,8 +18,22 @@ export type StudentRecord = {
   status: "recent" | "follow" | "caution";
 };
 
-export type LessonStatus = "予定" | "事前準備中" | "事前準備済み" | "記録待ち" | "記録済み";
-export type LessonFormat = "パーソナル" | "グループ" | "オンライン";
+export type BlockTemplate = {
+  id: string;
+  name: string;
+  majorCategory: string;
+  minorCategory: string;
+  duration: string;
+  purpose: string;
+  level: string;
+  cautions: string;
+  script: string;
+  tags: string[];
+  memo: string;
+  usageCount: number;
+  averageRating: number;
+  lastUsed: string;
+};
 
 export type LessonTemplate = {
   id: string;
@@ -21,6 +42,17 @@ export type LessonTemplate = {
   tags: string[];
   structure: string;
   cautions: string;
+};
+
+export type LessonParticipant = {
+  studentId: string;
+  status: AttendanceStatus;
+  cancelReason?: string;
+  condition: string;
+  bodyChange: string;
+  concern: string;
+  nextCheck: string;
+  memo: string;
 };
 
 export type LessonRecord = {
@@ -34,16 +66,15 @@ export type LessonRecord = {
   format: LessonFormat;
   theme: string;
   tags: string[];
-  participants: number;
-  templateId: string;
-  templateName: string;
   status: LessonStatus;
-  prePlan: string;
+  templateName: string;
+  blockIds: string[];
+  plannedStudentIds: string[];
+  participants: LessonParticipant[];
   preFocus: string;
   studentCare: string;
   actualContent: string;
   reaction: string;
-  individualMemos: string;
   improvement: string;
 };
 
@@ -52,7 +83,7 @@ export type LessonSchedule = {
   date: string;
   time: string;
   lessonName: string;
-  templateId: string;
+  planId?: string;
   place: string;
   format: LessonFormat;
   participantCount: number;
@@ -61,16 +92,23 @@ export type LessonSchedule = {
   lessonId?: string;
 };
 
-export type LessonRecordSummary = {
-  id: string;
+export type BlockResult = {
+  blockId: string;
+  done: boolean;
+  actualDuration: string;
+  reaction: BlockReaction;
+  teacherMemo: string;
+  improvementMemo: string;
+  useAgain: boolean;
+  scriptRevision: string;
+};
+
+export type StudentObservation = {
   date: string;
-  lessonName: string;
-  participantCount: number;
-  tags: string[];
-  status: LessonStatus;
-  summary: string;
-  reaction: string;
-  improvement: string;
+  lessonTitle: string;
+  condition: string;
+  bodyChange: string;
+  nextCheck: string;
 };
 
 export const students: StudentRecord[] = [
@@ -78,11 +116,12 @@ export const students: StudentRecord[] = [
     id: "sato-misaki",
     name: "佐藤 美咲",
     kana: "さとう みさき",
-    age: 35,
+    ageGroup: "30半ば",
+    gender: "女性",
     experience: "ヨガ約3年、ピラティス経験あり",
     caution: "膝に違和感あり。深い後屈は避ける",
     memo: "呼吸を重視したゆったりフローが好み。変化を実感すると継続しやすい",
-    lastLessonDate: "2025/5/18",
+    lastLessonDate: "2025/5/20",
     linkedLessonCount: 18,
     status: "recent",
   },
@@ -90,7 +129,8 @@ export const students: StudentRecord[] = [
     id: "suzuki-haruna",
     name: "鈴木 陽菜",
     kana: "すずき はるな",
-    age: 42,
+    ageGroup: "40前半",
+    gender: "女性",
     experience: "ヨガ約1年。デスクワーク後のケア目的",
     caution: "首まわりの緊張が強い。急なツイストは控えめ",
     memo: "安心できる声かけがあると集中しやすい。夜クラスの参加が多い",
@@ -102,11 +142,12 @@ export const students: StudentRecord[] = [
     id: "tanaka-yuko",
     name: "田中 優子",
     kana: "たなか ゆうこ",
-    age: 29,
+    ageGroup: "20後半",
+    gender: "女性",
     experience: "初心者。ストレッチ経験あり",
     caution: "腰に張りが出やすい。長い前屈の様子を見る",
     memo: "小さな達成感を言葉で返すと継続意欲が高まりやすい",
-    lastLessonDate: "2025/5/12",
+    lastLessonDate: "2025/5/18",
     linkedLessonCount: 7,
     status: "follow",
   },
@@ -114,7 +155,8 @@ export const students: StudentRecord[] = [
     id: "yamamoto-kana",
     name: "山本 香織",
     kana: "やまもと かおり",
-    age: 51,
+    ageGroup: "50前半",
+    gender: "女性",
     experience: "陰ヨガ中心に約2年",
     caution: "肩の可動域に左右差あり",
     memo: "静かな誘導と長めのホールドを好む。疲労回復目的で参加",
@@ -126,7 +168,8 @@ export const students: StudentRecord[] = [
     id: "takahashi-rina",
     name: "高橋 里奈",
     kana: "たかはし りな",
-    age: 38,
+    ageGroup: "30後半",
+    gender: "女性",
     experience: "ランニング経験あり。ヨガは約6か月",
     caution: "股関節まわりに詰まり感あり",
     memo: "体幹強化への関心が高い。テンポのあるフローも楽しめる",
@@ -134,73 +177,295 @@ export const students: StudentRecord[] = [
     linkedLessonCount: 5,
     status: "follow",
   },
+  {
+    id: "ito-makoto",
+    name: "伊藤 真",
+    kana: "いとう まこと",
+    ageGroup: "40半ば",
+    gender: "男性",
+    experience: "ジム経験あり。ヨガは初心者",
+    caution: "肩関節が硬く、無理な挙上は避ける",
+    memo: "説明が具体的だと安心して動ける",
+    lastLessonDate: "2025/5/18",
+    linkedLessonCount: 3,
+    status: "caution",
+  },
+];
+
+export const blockTemplates: BlockTemplate[] = [
+  {
+    id: "intro-grounding",
+    name: "基礎クラス導入",
+    majorCategory: "導入",
+    minorCategory: "テーマ説明",
+    duration: "5分",
+    purpose: "安全に動くための心構えと今日のテーマを共有する",
+    level: "全レベル",
+    cautions: "痛みが出る動きは避け、途中でも休んでよいことを伝える",
+    script:
+      "本日は貴重なお時間をいただきありがとうございます。このクラスでは、基礎的なヨガのポーズの手足の土台の作り方や、安全にヨガを深めていくポイントをお伝えします。無理をせず、どこまで伸ばすと心地よいのか、体の声を聞く60分にしていきましょう。",
+    tags: ["#導入", "#初心者向け", "#安全"],
+    memo: "最初に空調と怪我の有無を確認すると安心感が出る",
+    usageCount: 18,
+    averageRating: 4.7,
+    lastUsed: "2025/5/20",
+  },
+  {
+    id: "toe-exercise",
+    name: "足指体操",
+    majorCategory: "導入",
+    minorCategory: "足指体操",
+    duration: "5分",
+    purpose: "足裏の筋肉を目覚めさせ、片足立ちの土台を作る",
+    level: "初心者向け",
+    cautions: "足裏や足指に痛みがある場合は小さく動かす",
+    script:
+      "足指でグー、パー、チョキ、逆チョキを作りましょう。足裏の筋肉を鍛えると、とっさに踏ん張る力が出て、転倒予防にもつながります。土踏まずのアーチを感じながら、足の裏で床を吸い上げるようなイメージで動かします。",
+    tags: ["#足裏", "#バランス", "#初心者向け"],
+    memo: "バランス月間の導入に使いやすい",
+    usageCount: 12,
+    averageRating: 4.5,
+    lastUsed: "2025/5/20",
+  },
+  {
+    id: "complete-breath",
+    name: "完全呼吸法",
+    majorCategory: "呼吸法",
+    minorCategory: "完全呼吸法",
+    duration: "8分",
+    purpose: "お腹・胸・鎖骨の呼吸をつなげて呼吸を深める",
+    level: "全レベル",
+    cautions: "息苦しさがある人は自然呼吸に戻す",
+    script:
+      "完全呼吸法から行いましょう。お腹、胸、鎖骨のあたりの呼吸筋を使って呼吸を深めます。仰向けになり、鼻から深く吸って、鼻から深く吐いてリラックスしましょう。吸う息で下からお腹を膨らませ、胸を開き、鎖骨を引き上げます。吐く息も下から、お腹をへこませ、胸を閉じ、鎖骨を下げます。ご自身の呼吸のペースで深めていきましょう。",
+    tags: ["#呼吸", "#リラックス", "#基礎"],
+    memo: "説明が長くなりやすいので、最初は短く区切る",
+    usageCount: 21,
+    averageRating: 4.8,
+    lastUsed: "2025/5/20",
+  },
+  {
+    id: "cat-cow",
+    name: "キャットカウ",
+    majorCategory: "ウォーミングアップ",
+    minorCategory: "キャットカウ",
+    duration: "6分",
+    purpose: "背骨を動かし、呼吸と動きを連動させる",
+    level: "全レベル",
+    cautions: "手首がつらい場合は拳やブロックを使う",
+    script:
+      "四つん這いになりましょう。手は肩幅、手首を肩の真下、膝を腰の真下に置きます。吸いながらお腹を下げて胸を広げ、顎を反らせます。吐く息でお腹を引き上げ、肩甲骨の間を天井に押し上げ、目線をお腹に向けましょう。ご自身のペースで繰り返します。",
+    tags: ["#ウォーミングアップ", "#背骨", "#呼吸"],
+    memo: "オンラインでも見せやすい",
+    usageCount: 17,
+    averageRating: 4.6,
+    lastUsed: "2025/5/18",
+  },
+  {
+    id: "sun-salutation-a",
+    name: "スーリャナマスカーラA",
+    majorCategory: "スーリャナマスカーラ",
+    minorCategory: "太陽礼拝A",
+    duration: "10分",
+    purpose: "全身を温め、呼吸と動きの流れを作る",
+    level: "中級者向け",
+    cautions: "手首・肩・腰に違和感がある人は軽減法を案内する",
+    script:
+      "胸の前で合掌し、一度息を吐き切ります。吸いながら両手を天井へ、吐きながら腿の付け根から前屈。吸いながら両足を後方に引いてプランク、吐きながら膝・胸・顎を下ろし、吸ってコブラ、吐いてダウンドッグ。呼吸を深め、次の吐く息で目線前方、両手の間に足を戻します。",
+    tags: ["#フロー", "#体幹強化", "#太陽礼拝"],
+    memo: "初心者クラスでは回数を2回に調整",
+    usageCount: 9,
+    averageRating: 4.3,
+    lastUsed: "2025/5/20",
+  },
+  {
+    id: "tree-pose",
+    name: "ブルクシャアーサナ",
+    majorCategory: "ターゲットアーサナ",
+    minorCategory: "木のポーズ",
+    duration: "7分",
+    purpose: "片足立ちの安定と集中力を高める",
+    level: "全レベル",
+    cautions: "足裏を膝に当てない。壁の近くで行ってもよい",
+    script:
+      "右膝を胸に引き寄せ、左足裏で床を押します。右足裏を左腿の内側、またはふくらはぎに添えましょう。安定していれば吸う息で両手を上に上げます。肩を下げ、首を長く保ち、視線を一点に集中します。呼吸をゆったり続けましょう。",
+    tags: ["#バランス", "#集中", "#体幹強化"],
+    memo: "足指体操と組み合わせると反応が良い",
+    usageCount: 11,
+    averageRating: 4.7,
+    lastUsed: "2025/5/20",
+  },
+  {
+    id: "neck-stretch",
+    name: "首のストレッチ",
+    majorCategory: "クールダウン",
+    minorCategory: "首のストレッチ",
+    duration: "4分",
+    purpose: "首まわりをゆるめ、緊張をほどく",
+    level: "全レベル",
+    cautions: "首に違和感がある人は押さずに小さく行う",
+    script:
+      "両手を頭の後ろで組み、後頭部を包みます。吸いながら手と頭で軽く押し合い、吐いて脱力して軽く顎を引きましょう。もう一度、吸って押し合い、吐いて脱力。首の後ろをゆるめます。",
+    tags: ["#肩こり改善", "#クールダウン", "#首"],
+    memo: "肩こり改善ヨガでよく使う",
+    usageCount: 15,
+    averageRating: 4.6,
+    lastUsed: "2025/5/20",
+  },
+  {
+    id: "halasana",
+    name: "ハラアーサナ",
+    majorCategory: "クールダウン",
+    minorCategory: "ハラアーサナ",
+    duration: "5分",
+    purpose: "背面を伸ばし、内側への集中を促す",
+    level: "中級者向け",
+    cautions: "腰や首に違和感がある人、逆転を避けたい人は足を天井に上げたまま",
+    script:
+      "仰向けで足を天井に引き上げます。これ以上の逆転を避けたい方、腰や首に違和感がある方はこのままキープしましょう。可能な方は反動をつけず、足先を頭の先へ伸ばします。首は絶対に動かさないでください。",
+    tags: ["#クールダウン", "#逆転", "#背面"],
+    memo: "注意喚起を先に入れる",
+    usageCount: 5,
+    averageRating: 4.1,
+    lastUsed: "2025/4/12",
+  },
+  {
+    id: "savasana",
+    name: "シャヴァーサナ",
+    majorCategory: "クールダウン",
+    minorCategory: "シャヴァーサナ",
+    duration: "6分",
+    purpose: "レッスンの余韻を感じ、心身を休める",
+    level: "全レベル",
+    cautions: "腰がつらい方は膝を立てる",
+    script:
+      "仰向けで全身を軽くゆすって力を抜きましょう。両手を軽く広げ、脇の下にこぶし一つ分のスペースを作ります。足は腰幅に開きます。ご自身の呼吸に意識を戻し、体の重さを床へ預けましょう。",
+    tags: ["#リラックス", "#クールダウン", "#回復"],
+    memo: "長めに取ると満足度が高い",
+    usageCount: 24,
+    averageRating: 4.9,
+    lastUsed: "2025/5/20",
+  },
+  {
+    id: "closing",
+    name: "クロージング",
+    majorCategory: "クロージング",
+    minorCategory: "締めの挨拶",
+    duration: "3分",
+    purpose: "レッスンの体験を言葉にして終える",
+    level: "全レベル",
+    cautions: "余韻を急がせない",
+    script:
+      "お疲れ様でした。60分間、体と心に向き合えたでしょうか。基礎のクラスでは基本的なポーズを中心に、初心に戻ることも、深めることもできます。また体と心のバランスを整えたい時に受けてみてください。",
+    tags: ["#クロージング", "#余韻", "#声かけ"],
+    memo: "感想を聞く前に余白を作る",
+    usageCount: 16,
+    averageRating: 4.5,
+    lastUsed: "2025/5/20",
+  },
 ];
 
 export const lessonTemplates: LessonTemplate[] = [
   {
-    id: "basic-flow",
-    name: "ベーシックフロー",
-    theme: "体幹強化・柔軟性向上・呼吸の安定",
-    tags: ["#ベーシックフロー", "#肩こり改善", "#呼吸", "#体幹強化"],
-    structure:
-      "センタリング、肩甲骨ウォームアップ、太陽礼拝、立位、バランス、ツイスト、クールダウン、シャバーサナ",
-    cautions: "膝や腰に違和感がある生徒には後屈と深い前屈を控えめにする",
+    id: "block-balance-flow",
+    name: "基礎バランスフロー",
+    theme: "片足立ちの安定と呼吸の深まり",
+    tags: ["#バランス", "#呼吸", "#初心者向け"],
+    structure: "導入、足指体操、完全呼吸法、キャットカウ、太陽礼拝A、木のポーズ、クールダウン",
+    cautions: "膝・首・腰に不安がある生徒へ軽減法を案内する",
   },
   {
-    id: "shoulder-care",
-    name: "肩こり改善ヨガ",
-    theme: "肩首の緊張緩和・胸を開く意識づけ",
-    tags: ["#肩こり改善", "#姿勢改善", "#呼吸", "#柔軟性向上"],
-    structure: "首肩ほぐし、胸を開くポーズ、肩甲骨ワーク、やさしいツイスト、長めの呼吸観察",
-    cautions: "首を大きく回しすぎず、しびれが出る動きはすぐに止める",
-  },
-  {
-    id: "relax-yoga",
+    id: "block-relax-flow",
     name: "リラックスヨガ",
-    theme: "睡眠の質向上・自律神経の調整",
-    tags: ["#リラックス", "#陰ヨガ", "#睡眠", "#リストラティブ"],
-    structure: "呼吸観察、ゆったりフロー、陰ヨガ、プロップスを使った休息、長めのシャバーサナ",
-    cautions: "冷えやすい生徒にはブランケット使用を促し、静かな声かけを中心にする",
+    theme: "肩首の緊張緩和と休息",
+    tags: ["#リラックス", "#肩こり改善", "#クールダウン"],
+    structure: "導入、完全呼吸法、キャットカウ、首のストレッチ、シャヴァーサナ、クロージング",
+    cautions: "冷えやすい生徒にブランケットを案内する",
   },
-  {
-    id: "yin-yoga",
-    name: "陰ヨガ",
-    theme: "股関節・背骨まわりの解放と深い休息",
-    tags: ["#陰ヨガ", "#柔軟性向上", "#骨盤調整", "#リラックス"],
-    structure: "呼吸観察、股関節をゆるめるポーズ、前屈、ツイスト、静かな休息",
-    cautions: "ホールド時間を長くしすぎず、痛みと伸び感の違いを丁寧に伝える",
-  },
+];
+
+const planBlockIds = [
+  "intro-grounding",
+  "toe-exercise",
+  "complete-breath",
+  "cat-cow",
+  "sun-salutation-a",
+  "tree-pose",
+  "neck-stretch",
+  "halasana",
+  "savasana",
+  "closing",
 ];
 
 export const lessons: LessonRecord[] = [
   {
     id: "basic-flow-20250520",
-    title: "ベーシックフロー",
+    title: "基礎バランスフロー",
     date: "2025/5/20（火）",
     startTime: "10:00",
     endTime: "11:00",
     duration: "60分",
     place: "スタジオA",
     format: "グループ",
-    theme: "体幹強化・柔軟性向上・呼吸の安定",
-    tags: ["#ベーシックフロー", "#肩こり改善", "#呼吸", "#体幹強化"],
-    participants: 9,
-    templateId: "basic-flow",
-    templateName: "ベーシックフロー",
+    theme: "片足立ちの安定と呼吸の深まり",
+    tags: ["#バランス", "#呼吸", "#初心者向け", "#体幹強化"],
     status: "記録済み",
-    prePlan:
-      "センタリング・呼吸法、肩甲骨まわりのウォームアップ、太陽礼拝A、立位ポーズ、バランスポーズ、ツイスト、クールダウン、シャバーサナ。",
-    preFocus:
-      "呼吸と動きの連動を丁寧に確認する。後半のバランスポーズでは休息を挟み、焦らず安定感を作る。",
-    studentCare:
-      "佐藤さんは膝の違和感に配慮し深い後屈を避ける。鈴木さんは首まわりを急に動かさない。",
-    actualContent:
-      "事前プラン通り実施。太陽礼拝Aを2周、戦士II・三角のポーズ・椅子のポーズ、木のポーズ、戦士IIIまで行った。",
-    reaction:
-      "集中力が高く、呼吸を意識しながら丁寧に動けていた。後半は疲労が見えたが表情は安定。",
-    individualMemos:
-      "佐藤さん：戦士IIIで軸が安定。鈴木さん：前屈の柔軟性が向上。田中さん：休息を入れると集中が戻る。",
-    improvement: "次回はバランスポーズの時間配分を短くし、シャバーサナを5分に延長する。",
+    templateName: "ブロック組み合わせプラン",
+    blockIds: planBlockIds,
+    plannedStudentIds: ["sato-misaki", "suzuki-haruna", "tanaka-yuko", "yamamoto-kana", "takahashi-rina", "ito-makoto"],
+    participants: [
+      {
+        studentId: "sato-misaki",
+        status: "参加",
+        condition: "集中して取り組めていた",
+        bodyChange: "肩まわりの動きが少し滑らか",
+        concern: "後屈で膝をかばう様子あり",
+        nextCheck: "膝の違和感の有無",
+        memo: "木のポーズで軸が安定",
+      },
+      {
+        studentId: "suzuki-haruna",
+        status: "参加",
+        condition: "呼吸が深くなり表情が穏やか",
+        bodyChange: "首肩の緊張が後半に緩んだ",
+        concern: "急なツイストは避けたい",
+        nextCheck: "首まわりの可動域",
+        memo: "完全呼吸法への反応が良い",
+      },
+      {
+        studentId: "tanaka-yuko",
+        status: "参加",
+        condition: "小さな成功体験で笑顔が増えた",
+        bodyChange: "前屈は浅めが安全",
+        concern: "腰の張り",
+        nextCheck: "長い前屈後の違和感",
+        memo: "休息を入れると集中が戻る",
+      },
+      {
+        studentId: "yamamoto-kana",
+        status: "キャンセル",
+        cancelReason: "体調不良",
+        condition: "",
+        bodyChange: "",
+        concern: "",
+        nextCheck: "次回の体調",
+        memo: "前日に連絡あり",
+      },
+      {
+        studentId: "ito-makoto",
+        status: "無断欠席",
+        condition: "",
+        bodyChange: "",
+        concern: "",
+        nextCheck: "次回予約前に連絡",
+        memo: "連絡なし",
+      },
+    ],
+    preFocus: "足裏の土台からバランスポーズへつなげる。首肩に不安がある人には軽減法を先に伝える。",
+    studentCare: "佐藤さんは膝、鈴木さんは首、田中さんは腰に注意。伊藤さんは肩の挙上を無理しない。",
+    actualContent: "足指体操、完全呼吸法、キャットカウ、太陽礼拝A、木のポーズ、首のストレッチ、シャヴァーサナまで実施。",
+    reaction: "足指体操と完全呼吸法の反応が良く、後半のバランスは集中度が高かった。",
+    improvement: "ハラアーサナは説明を短くし、首の注意を先に伝える。シャヴァーサナを1分長くしたい。",
   },
   {
     id: "relax-yoga-20250519",
@@ -211,42 +476,18 @@ export const lessons: LessonRecord[] = [
     duration: "60分",
     place: "スタジオB",
     format: "グループ",
-    theme: "肩首の緊張緩和・睡眠の質向上",
-    tags: ["#リラックス", "#陰ヨガ", "#睡眠"],
-    participants: 6,
-    templateId: "relax-yoga",
-    templateName: "リラックスヨガ",
-    status: "記録済み",
-    prePlan: "呼吸観察、ゆったりフロー、陰ヨガ、長めのシャバーサナで構成。",
-    preFocus: "声のトーンを穏やかにし、安心してゆるめられる間をつくる。",
-    studentCare: "冷えやすい生徒にはブランケットを案内。首こりが強い人には仰向けで調整。",
-    actualContent: "肩首の緊張をゆるめ、陰ヨガと長めのシャバーサナで回復を促した。",
-    reaction: "終盤は呼吸が深まり、安心感のある表情が増えた。",
-    individualMemos: "山本さん：長めのホールドで表情が穏やかに。高橋さん：股関節まわりに詰まり感あり。",
-    improvement: "導入の呼吸観察をもう少し長くする。",
-  },
-  {
-    id: "posture-online-20250518",
-    title: "姿勢改善ヨガ",
-    date: "2025/5/18（日）",
-    startTime: "18:30",
-    endTime: "19:30",
-    duration: "60分",
-    place: "オンライン",
-    format: "オンライン",
-    theme: "背中と体幹の安定・姿勢改善",
-    tags: ["#姿勢改善", "#オンライン", "#体幹"],
-    participants: 4,
-    templateId: "shoulder-care",
-    templateName: "肩こり改善ヨガ",
-    status: "記録済み",
-    prePlan: "画面越しでも確認しやすい姿勢改善ワークを中心に構成。",
-    preFocus: "説明を短く区切り、目線・肩・骨盤の位置を確認する。",
-    studentCare: "腰に張りがある生徒には前屈を浅く。首まわりはゆっくり動かす。",
-    actualContent: "背中と体幹の安定をテーマに、オンラインで姿勢確認を実施。",
-    reaction: "画面越しでも胸の開きと目線の安定が確認できた。",
-    individualMemos: "田中さん：腰の張りが出やすく前屈は浅め。高橋さん：体幹ワークへの反応がよい。",
-    improvement: "オンライン用に説明を短く区切る。",
+    theme: "肩首の緊張緩和と休息",
+    tags: ["#リラックス", "#肩こり改善", "#クールダウン"],
+    status: "事前準備済み",
+    templateName: "リラックス系ブロックプラン",
+    blockIds: ["intro-grounding", "complete-breath", "cat-cow", "neck-stretch", "savasana", "closing"],
+    plannedStudentIds: ["sato-misaki", "yamamoto-kana", "takahashi-rina"],
+    participants: [],
+    preFocus: "声のトーンを穏やかにし、休息の選択肢を多めに用意する。",
+    studentCare: "冷えやすい生徒にはブランケットを案内。",
+    actualContent: "",
+    reaction: "",
+    improvement: "",
   },
   {
     id: "restorative-20250511",
@@ -257,18 +498,17 @@ export const lessons: LessonRecord[] = [
     duration: "60分",
     place: "スタジオA",
     format: "グループ",
-    theme: "深い休息・自律神経の調整",
+    theme: "深い休息と呼吸観察",
     tags: ["#リストラティブ", "#呼吸", "#回復"],
-    participants: 7,
-    templateId: "relax-yoga",
-    templateName: "リラックスヨガ",
     status: "記録待ち",
-    prePlan: "プロップスを使い、胸を開く休息ポーズと仰向けの呼吸観察を中心にする。",
-    preFocus: "説明を少なくし、静かな体験をつくる。寒さへの配慮を先に伝える。",
-    studentCare: "山本さんは長めのホールドが合う。鈴木さんは首の角度に注意。",
+    templateName: "休息ブロックプラン",
+    blockIds: ["intro-grounding", "complete-breath", "neck-stretch", "savasana", "closing"],
+    plannedStudentIds: ["sato-misaki", "suzuki-haruna", "yamamoto-kana"],
+    participants: [],
+    preFocus: "説明を少なくし、静かな体験をつくる。",
+    studentCare: "首の角度と冷えに配慮。",
     actualContent: "",
     reaction: "",
-    individualMemos: "",
     improvement: "",
   },
 ];
@@ -278,13 +518,13 @@ export const lessonSchedules: LessonSchedule[] = [
     id: "schedule-20250520-am",
     date: "2025/5/20（火）",
     time: "10:00-11:00",
-    lessonName: "ベーシックフロー",
-    templateId: "basic-flow",
+    lessonName: "基礎バランスフロー",
+    planId: "basic-flow-20250520",
     place: "スタジオA",
     format: "グループ",
-    participantCount: 9,
+    participantCount: 6,
     status: "記録済み",
-    nextAction: "実施後記録まで完了。詳細を確認できます。",
+    nextAction: "ブロック別記録まで完了。原稿と反応を確認できます。",
     lessonId: "basic-flow-20250520",
   },
   {
@@ -292,12 +532,12 @@ export const lessonSchedules: LessonSchedule[] = [
     date: "2025/5/20（火）",
     time: "13:30-14:30",
     lessonName: "肩こり改善ヨガ",
-    templateId: "shoulder-care",
+    planId: "relax-yoga-20250519",
     place: "スタジオB",
     format: "グループ",
     participantCount: 6,
     status: "記録待ち",
-    nextAction: "レッスン後の実施内容と反応を追記します。",
+    nextAction: "レッスン後のブロック評価と生徒コメントを追記します。",
     lessonId: "restorative-20250511",
   },
   {
@@ -305,12 +545,12 @@ export const lessonSchedules: LessonSchedule[] = [
     date: "2025/5/21（水）",
     time: "10:00-11:00",
     lessonName: "リラックスヨガ",
-    templateId: "relax-yoga",
+    planId: "relax-yoga-20250519",
     place: "オンライン",
     format: "オンライン",
     participantCount: 4,
     status: "事前準備済み",
-    nextAction: "レッスン前に事前プランを確認します。",
+    nextAction: "原稿を印刷してレッスン前に確認します。",
     lessonId: "relax-yoga-20250519",
   },
   {
@@ -318,59 +558,105 @@ export const lessonSchedules: LessonSchedule[] = [
     date: "2025/5/23（金）",
     time: "18:30-19:30",
     lessonName: "陰ヨガ",
-    templateId: "yin-yoga",
     place: "スタジオA",
     format: "グループ",
     participantCount: 8,
     status: "予定",
-    nextAction: "テンプレートからレッスンカルテを準備します。",
-  },
-  {
-    id: "schedule-20250524-am",
-    date: "2025/5/24（土）",
-    time: "10:00-11:00",
-    lessonName: "ベーシックフロー",
-    templateId: "basic-flow",
-    place: "スタジオA",
-    format: "グループ",
-    participantCount: 5,
-    status: "事前準備中",
-    nextAction: "事前プランを仕上げ、AIメンターに相談します。",
-    lessonId: "basic-flow-20250520",
+    nextAction: "ブロックを組み合わせてレッスンプランを作成します。",
   },
 ];
 
-export const lessonRecordSummaries: LessonRecordSummary[] = lessons
-  .filter((lesson) => lesson.status === "記録済み" || lesson.status === "記録待ち")
-  .map((lesson) => ({
-    id: lesson.id,
-    date: lesson.date,
-    lessonName: lesson.title,
-    participantCount: lesson.participants,
-    tags: lesson.tags,
-    status: lesson.status,
-    summary: lesson.actualContent || "事前プランは作成済み。実施後記録はこれから追記します。",
-    reaction: lesson.reaction || "レッスン後に生徒の反応を記録します。",
-    improvement: lesson.improvement || "次回への改善ポイントを追記します。",
-  }));
+export const blockResults: Record<string, BlockResult[]> = {
+  "basic-flow-20250520": [
+    {
+      blockId: "intro-grounding",
+      done: true,
+      actualDuration: "5分",
+      reaction: "良かった",
+      teacherMemo: "導入で安心感が出た",
+      improvementMemo: "空調確認をもう少し早く入れる",
+      useAgain: true,
+      scriptRevision: "怪我の確認を一文追加",
+    },
+    {
+      blockId: "toe-exercise",
+      done: true,
+      actualDuration: "6分",
+      reaction: "良かった",
+      teacherMemo: "片足立ちとのつながりが伝わった",
+      improvementMemo: "タオルなしの説明を短くする",
+      useAgain: true,
+      scriptRevision: "足裏で床を吸い上げる比喩は残す",
+    },
+    {
+      blockId: "complete-breath",
+      done: true,
+      actualDuration: "8分",
+      reaction: "良かった",
+      teacherMemo: "呼吸が深まった",
+      improvementMemo: "鎖骨式の説明をゆっくり",
+      useAgain: true,
+      scriptRevision: "下から上へ、の言い方が良い",
+    },
+    {
+      blockId: "halasana",
+      done: true,
+      actualDuration: "4分",
+      reaction: "普通",
+      teacherMemo: "首の注意に時間を使った",
+      improvementMemo: "初心者が多い時は代替を長めに",
+      useAgain: false,
+      scriptRevision: "逆転を避けたい方への案内を冒頭へ",
+    },
+  ],
+};
 
-export const lessonFlow = [
-  ["5分", "センタリング・呼吸法", "座位で呼吸を観察し、胸を開く意識づけ。"],
-  ["8分", "肩甲骨ウォームアップ", "肩・首・背中まわりをほどき、胸中の緊張をゆるめる。"],
-  ["10分", "太陽礼拝A（2周）", "呼吸と動きの連動を確認しながら、全身を温める。"],
-  ["12分", "立位ポーズ", "戦士II、三角のポーズ、椅子のポーズで土台と姿勢を調整。"],
-  ["8分", "バランスポーズ", "木のポーズ、戦士III。体幹の安定と目線の置き方を確認。"],
-  ["7分", "ツイスト・前屈・開脚系", "背骨を開き保ち、無理なく股関節まわりをゆるめる。"],
-  ["5分", "クールダウン", "仰向けで腰まわりを解放し、呼吸を落ち着かせる。"],
-  ["5分", "シャバーサナ・呼吸の観察", "体感を味わい、レッスン後の心身の変化を確認。"],
-] as const;
+export const studentObservations: Record<string, StudentObservation[]> = {
+  "sato-misaki": [
+    {
+      date: "2025/5/20",
+      lessonTitle: "基礎バランスフロー",
+      condition: "集中して取り組めていた",
+      bodyChange: "肩まわりの動きが少し滑らか",
+      nextCheck: "膝の違和感の有無",
+    },
+    {
+      date: "2025/5/18",
+      lessonTitle: "姿勢改善ヨガ",
+      condition: "呼吸が深まり表情が柔らかい",
+      bodyChange: "ダウンドッグの安定感UP",
+      nextCheck: "後屈時の膝の反応",
+    },
+  ],
+  "suzuki-haruna": [
+    {
+      date: "2025/5/20",
+      lessonTitle: "基礎バランスフロー",
+      condition: "安心した様子で動けていた",
+      bodyChange: "首肩の緊張が後半に緩んだ",
+      nextCheck: "首まわりの可動域",
+    },
+  ],
+};
 
-export const observationMemos = [
-  ["2025/5/18", "肩まわりの緊張が緩み、呼吸が深まった。ダウンドッグの安定感UP。"],
-  ["2025/5/11", "長時間デスクワーク後のレッスン。胸を開くポーズで呼吸が深まる。"],
-  ["2025/5/04", "姿勢改善を意識して取り組めていた。プランクで体幹の安定感が向上。"],
-  ["2025/4/27", "久しぶりの受講。体が硬くなっていたが、終盤はリラックスして動けていた。"],
-] as const;
+export const lessonRecordSummaries = lessons.map((lesson) => ({
+  id: lesson.id,
+  date: lesson.date,
+  lessonName: lesson.title,
+  participantCount: lesson.plannedStudentIds.length,
+  tags: lesson.tags,
+  status: lesson.status,
+  summary: lesson.actualContent || "ブロックプランは作成済み。実施後記録はこれから追記します。",
+  reaction: lesson.reaction || "レッスン後にブロック別の反応を記録します。",
+  improvement: lesson.improvement || "改善メモを次回のプランに反映します。",
+}));
+
+export const blockAnalysis = [
+  ["完全呼吸法", "21回", "4.8", "反応が良い"],
+  ["シャヴァーサナ", "24回", "4.9", "満足度が高い"],
+  ["ハラアーサナ", "5回", "4.1", "改善メモ多め"],
+  ["スーリャナマスカーラA", "9回", "4.3", "最近少なめ"],
+];
 
 export function getStudent(id: string) {
   return students.find((student) => student.id === id) ?? students[0];
@@ -378,6 +664,14 @@ export function getStudent(id: string) {
 
 export function getLesson(id: string) {
   return lessons.find((lesson) => lesson.id === id) ?? lessons[0];
+}
+
+export function getBlock(id: string) {
+  return blockTemplates.find((block) => block.id === id) ?? blockTemplates[0];
+}
+
+export function getLessonBlocks(lesson: LessonRecord) {
+  return lesson.blockIds.map(getBlock);
 }
 
 export function getLessonTemplate(id: string) {

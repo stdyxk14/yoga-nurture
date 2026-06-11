@@ -1,26 +1,9 @@
 import Link from "next/link";
-import {
-  ArrowDownUp,
-  BarChart3,
-  CheckCircle2,
-  Dumbbell,
-  HeartHandshake,
-  NotebookPen,
-  Target,
-  UserRound,
-} from "lucide-react";
+import { ArrowDownUp, BarChart3, Dumbbell, HeartHandshake, NotebookPen, Target, UserRound } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MiniBar, PageHeader, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
-import { lessons } from "@/components/yoga/records";
+import { lessons, studentObservations } from "@/components/yoga/records";
 import type { StudentRecord } from "@/components/yoga/records";
-import { observationMemos } from "@/components/yoga/records";
-
-const points = [
-  "肩甲骨まわりをゆるめるウォームアップを丁寧に",
-  "呼吸の質を高める意識づけ（吐く息を長く）",
-  "猫背になりやすいので、胸を開くポーズを多めに",
-  "後屈は無理のない範囲で、腰の様子を確認しながら",
-];
 
 export function StudentDetail({ student }: { student: StudentRecord }) {
   const profileItems = [
@@ -28,24 +11,15 @@ export function StudentDetail({ student }: { student: StudentRecord }) {
     ["ケガなどの注意点", student.caution, HeartHandshake],
     ["その他メモ", student.memo, NotebookPen],
   ] as const;
+  const observations = studentObservations[student.id] ?? [];
 
   return (
     <>
-      <PageHeader title="生徒カルテ詳細" subtitle="生徒一人ひとりの状態・記録を管理" />
+      <PageHeader title="生徒カルテ詳細" subtitle="レッスン後コメントと連動して生徒の変化を確認" />
 
       <div className="mb-3 flex justify-end gap-2">
-        <Link
-          href="/students"
-          className="inline-flex h-8 items-center rounded-lg border border-[#d8e3d4] bg-white px-3 text-[13px] font-bold text-[#4f7b58]"
-        >
-          一覧に戻る
-        </Link>
-        <Link
-          href={`/students/${student.id}/edit`}
-          className="inline-flex h-8 items-center rounded-lg bg-[#5d956d] px-4 text-[13px] font-bold text-white shadow-[0_8px_18px_rgba(64,113,77,0.2)]"
-        >
-          編集する
-        </Link>
+        <Link href="/students" className="inline-flex h-8 items-center rounded-lg border border-[#d8e3d4] bg-white px-3 text-[13px] font-bold text-[#4f7b58]">一覧に戻る</Link>
+        <Link href={`/students/${student.id}/edit`} className="inline-flex h-8 items-center rounded-lg bg-[#5d956d] px-4 text-[13px] font-bold text-white">編集する</Link>
       </div>
 
       <SoftCard className="p-4">
@@ -54,7 +28,7 @@ export function StudentDetail({ student }: { student: StudentRecord }) {
             <div className="flex h-32 w-32 items-center justify-center rounded-2xl bg-[#edf4ea] text-[#4f875a] shadow-inner">
               <UserRound className="h-20 w-20" strokeWidth={1.35} />
             </div>
-            <p className="mt-3 text-[13px] font-bold text-[#657064]">{student.age}歳 / 女性</p>
+            <p className="mt-3 text-[13px] font-bold text-[#657064]">{student.ageGroup} / {student.gender}</p>
           </div>
           <div className="min-w-0">
             <div className="mb-3 flex items-end gap-4 border-b border-[#ebe3d8] pb-2">
@@ -78,14 +52,16 @@ export function StudentDetail({ student }: { student: StudentRecord }) {
 
       <section className="mt-4 grid grid-cols-[1.15fr_1fr] gap-4">
         <SoftCard>
-          <SectionTitle icon={NotebookPen} title="最近の変化・観察メモ" action="もっと見る" />
-          <div className="relative space-y-0 pl-5">
-            <div className="absolute left-[8px] top-2 h-[calc(100%-16px)] w-px bg-[#d9cab8]" />
-            {observationMemos.map(([date, memo]) => (
-              <div key={date} className="relative grid grid-cols-[96px_1fr] gap-4 border-b border-[#eee8dd] py-3 last:border-b-0">
-                <span className="absolute -left-[18px] top-5 h-2.5 w-2.5 rounded-full bg-[#d8c7ae]" />
-                <span className="text-[13px] font-bold">{date}</span>
-                <p className="text-[13px] font-medium leading-6">{memo}</p>
+          <SectionTitle icon={NotebookPen} title="最近の変化・観察メモ" subtitle="レッスン後記録の生徒別コメントから蓄積" />
+          <div className="space-y-2">
+            {observations.map((memo) => (
+              <div key={`${memo.date}-${memo.lessonTitle}`} className="rounded-xl border border-[#eee4d8] bg-white/70 p-3">
+                <p className="text-[13px] font-extrabold">{memo.date} {memo.lessonTitle}</p>
+                <div className="mt-2 grid grid-cols-3 gap-2 text-[12px] font-medium leading-5">
+                  <Info label="今日の様子" value={memo.condition} />
+                  <Info label="身体面の変化" value={memo.bodyChange} />
+                  <Info label="次回確認" value={memo.nextCheck} />
+                </div>
               </div>
             ))}
           </div>
@@ -94,22 +70,19 @@ export function StudentDetail({ student }: { student: StudentRecord }) {
         <SoftCard>
           <SectionTitle icon={Target} title="次回レッスンに向けたポイント" />
           <div className="space-y-3">
-            {points.map((point) => (
+            {[student.caution, "ブロック評価で反応が良かった呼吸法を導入に使う", "参加ステータスとキャンセル理由も確認する"].map((point) => (
               <div key={point} className="flex items-start gap-2 text-[14px] font-medium">
-                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#629268]" />
+                <Target className="mt-0.5 h-5 w-5 shrink-0 text-[#629268]" />
                 {point}
               </div>
             ))}
-          </div>
-          <div className="mt-4 rounded-full bg-[#edf5ef] px-4 py-2 text-center text-sm font-bold text-[#5d8e67]">
-            おすすめクラス：リラックスフロー / 陰ヨガ
           </div>
         </SoftCard>
       </section>
 
       <SoftCard className="mt-4">
         <div className="mb-3 flex items-center justify-between">
-          <SectionTitle icon={ArrowDownUp} title="紐づくレッスン履歴" subtitle="この生徒が受講したレッスンカルテと連携しています" />
+          <SectionTitle icon={ArrowDownUp} title="紐づくレッスン履歴" subtitle="この生徒が参加予定または参加したレッスン" />
           <Link href="/lessons" className="text-[13px] font-bold text-[#5d956d]">レッスンカルテ一覧へ</Link>
         </div>
         <Table>
@@ -118,7 +91,7 @@ export function StudentDetail({ student }: { student: StudentRecord }) {
               <TableHead>日付</TableHead>
               <TableHead>レッスン名</TableHead>
               <TableHead>場所</TableHead>
-              <TableHead>レッスン概要</TableHead>
+              <TableHead>テーマ</TableHead>
               <TableHead className="text-right">導線</TableHead>
             </TableRow>
           </TableHeader>
@@ -130,10 +103,7 @@ export function StudentDetail({ student }: { student: StudentRecord }) {
                 <TableCell>{lesson.place}</TableCell>
                 <TableCell>{lesson.theme}</TableCell>
                 <TableCell className="text-right">
-                  <Link
-                    href={`/lessons/${lesson.id}`}
-                    className="inline-flex h-8 items-center justify-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] px-3 text-[13px] font-bold text-[#5d956d]"
-                  >
+                  <Link href={`/lessons/${lesson.id}`} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] px-3 text-[13px] font-bold text-[#5d956d]">
                     レッスンカルテを見る
                   </Link>
                 </TableCell>
@@ -153,35 +123,28 @@ export function StudentDetail({ student }: { student: StudentRecord }) {
           </div>
           <div className="border-r border-[#eee3d7] pr-4">
             <p className="mb-3 text-sm font-bold">よく受けるクラス</p>
-            {[
-              ["リラックス系", 60],
-              ["ベーシックフロー", 30],
-              ["陰ヨガ・リストラティブ", 10],
-            ].map(([label, value]) => (
-              <div key={label} className="mb-3 grid grid-cols-[120px_1fr_36px] items-center gap-2 text-[12px] font-semibold">
+            {[["リラックス系", 60], ["ベーシックフロー", 30], ["陰ヨガ", 10]].map(([label, value]) => (
+              <div key={label} className="mb-3 grid grid-cols-[110px_1fr_36px] items-center gap-2 text-[12px] font-semibold">
                 <span>{label}</span>
                 <MiniBar value={Number(value)} />
                 <span>{value}%</span>
               </div>
             ))}
           </div>
-          <div className="border-r border-[#eee3d7] pr-4">
-            <p className="mb-4 text-sm font-bold">時間帯の傾向</p>
-            <div className="space-y-4 text-[13px] font-semibold">
-              <p>平日夜<span className="float-right">60%</span></p>
-              <p>週末午前<span className="float-right">40%</span></p>
-            </div>
-          </div>
-          <div className="border-r border-[#eee3d7] pr-4">
-            <p className="mb-3 text-sm font-bold">反応・傾向</p>
-            <p className="text-[13px] font-medium leading-6">呼吸の意識で変化が出やすいタイプ。フィードバックに対して素直で、継続的に改善が見られます。</p>
-          </div>
-          <div>
-            <p className="mb-3 text-sm font-bold">次のおすすめフォーカス</p>
-            <p className="text-[13px] font-medium leading-6">肩甲骨の可動域UP<br />体幹の安定性をさらに強化</p>
-          </div>
+          <Info label="属性" value={`${student.ageGroup} / ${student.gender}`} />
+          <Info label="反応の傾向" value="呼吸法とゆったりした誘導で変化が出やすいタイプ。" />
+          <Info label="次のフォーカス" value={student.caution} />
         </div>
       </SoftCard>
     </>
+  );
+}
+
+function Info({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-[#eee4d8] bg-white/68 p-2">
+      <p className="text-[11px] font-bold text-[#8b704c]">{label}</p>
+      <p className="mt-1 text-[12px] font-medium leading-5">{value}</p>
+    </div>
   );
 }

@@ -48,6 +48,21 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+@media print {
+  aside,
+  .mentor-panel {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+  }
+
+  main {
+    padding: 0 !important;
+  }
+}
+
 :root {
   --background: #fbfaf6;
   --foreground: #20231e;

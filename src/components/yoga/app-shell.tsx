@@ -2,15 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  BarChart3,
-  CalendarDays,
-  Home,
-  Leaf,
-  Settings,
-  Sprout,
-  UserRound,
-} from "lucide-react";
+import { BarChart3, CalendarDays, Home, Leaf, Settings, Sprout, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MentorPanel } from "@/components/yoga/mentor-panel";
 
@@ -28,7 +20,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen min-w-[1180px] bg-[var(--yoga-bg)] text-[#20231e]">
       <div className="grid min-h-screen grid-cols-[190px_minmax(0,1fr)_290px] xl:grid-cols-[196px_minmax(0,1fr)_300px]">
-        <aside className="sticky top-0 flex h-screen flex-col overflow-hidden border-r border-[#e7dfd4] bg-[#fbfaf6] px-3 py-4 shadow-[8px_0_30px_rgba(111,92,71,0.06)]">
+        <aside className="app-sidebar sticky top-0 flex h-screen flex-col overflow-hidden border-r border-[#e7dfd4] bg-[#fbfaf6] px-3 py-4 shadow-[8px_0_30px_rgba(111,92,71,0.06)] print:hidden">
           <div className="mx-auto mb-5 flex flex-col items-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-[#4f8b62] bg-[#f5faf3] text-[#3f8156] shadow-inner">
               <Sprout className="h-8 w-8" strokeWidth={1.5} />
@@ -74,11 +66,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </aside>
 
-        <main className="min-w-0 px-3 py-3 xl:px-4">
+        <main className="min-w-0 px-3 py-3 xl:px-4 print:px-0 print:py-0">
           <div className="w-full min-w-0">{children}</div>
         </main>
 
-        <MentorPanel />
+        <div className="mentor-panel print:hidden">
+          <MentorPanel />
+        </div>
       </div>
     </div>
   );
