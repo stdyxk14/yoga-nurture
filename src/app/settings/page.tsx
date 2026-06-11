@@ -74,6 +74,11 @@ const minorGroups = [
 export default function SettingsPage() {
   return (
     <>
+      <div className="md:hidden">
+        <MobileSettings />
+      </div>
+
+      <div className="hidden md:block">
       <PageHeader title="設定" subtitle="利用環境・AIメンター・ブロックカテゴリーをまとめて管理" />
 
       <SoftCard className="p-5">
@@ -317,7 +322,135 @@ export default function SettingsPage() {
           </div>
         </SoftCard>
       </section>
+      </div>
     </>
+  );
+}
+
+function MobileSettings() {
+  return (
+    <div className="mx-auto max-w-[430px] space-y-4 overflow-x-hidden">
+      <div className="rounded-[24px] border border-[#eee4d8] bg-white/84 p-4 shadow-[0_12px_26px_rgba(122,104,80,0.08)]">
+        <h1 className="text-[22px] font-extrabold tracking-normal">設定</h1>
+        <p className="mt-1 text-[12px] font-semibold text-[#6d7469]">利用環境とカテゴリーを管理</p>
+      </div>
+
+      <MobileSettingCard title="基本アカウント設定" icon={UserRound}>
+        <div className="space-y-3">
+          <label className="grid gap-1 text-[12px] font-bold text-[#5f665c]">
+            表示名
+            <Input defaultValue="松島 菜梨" className="h-10 rounded-xl border-[#ded7cb] bg-white/90 text-[13px]" />
+          </label>
+          <label className="grid gap-1 text-[12px] font-bold text-[#5f665c]">
+            メールアドレス
+            <Input defaultValue="maizaki.satomi@yoganurture.jp" className="h-10 rounded-xl border-[#ded7cb] bg-white/90 text-[13px]" />
+          </label>
+          <Button className="h-10 w-full rounded-xl bg-[#5d956d] text-white hover:bg-[#4f835d]">保存する</Button>
+        </div>
+      </MobileSettingCard>
+
+      <MobileSettingCard title="AIメンター設定" icon={Sprout}>
+        <div className="space-y-3">
+          {mentorSettings.map(([title, description, Icon]) => (
+            <div key={title} className="flex items-center gap-3 rounded-2xl border border-[#eee4d8] bg-white/72 p-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#edf6ea] text-[#5d956d]">
+                <Icon className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13px] font-extrabold">{title}</p>
+                <p className="line-clamp-1 text-[11px] font-semibold text-[#6d7469]">{description}</p>
+              </div>
+              <Switch defaultChecked />
+            </div>
+          ))}
+        </div>
+      </MobileSettingCard>
+
+      <MobileSettingCard title="アプリ基本設定" icon={Settings2}>
+        <div className="grid gap-3 text-[13px] font-bold text-[#4b5148]">
+          <MobileSelectRow label="レッスン時間" value="60分（1レッスン＝60分）" />
+          <MobileSelectRow label="カレンダー表示" value="月表示" />
+          <MobileSelectRow label="週の開始日" value="月曜日" />
+          <MobileSelectRow label="タイムゾーン" value="東京（GMT+09:00）" />
+          <div className="flex items-center justify-between rounded-2xl border border-[#eee4d8] bg-white/74 px-3 py-2.5">
+            <span>自動リマインド</span>
+            <Switch defaultChecked />
+          </div>
+        </div>
+      </MobileSettingCard>
+
+      <MobileSettingCard title="ブロックカテゴリー管理" icon={FolderTree}>
+        <div className="mb-3 grid grid-cols-2 gap-2">
+          <Button className="h-10 rounded-xl bg-[#5d956d] text-[12px] text-white hover:bg-[#4f835d]">
+            <Plus className="mr-1 h-4 w-4" />
+            大カテゴリー追加
+          </Button>
+          <Button variant="outline" className="h-10 rounded-xl border-[#cfe1ca] bg-[#f8fcf6] text-[12px] text-[#5d956d]">
+            <Plus className="mr-1 h-4 w-4" />
+            小カテゴリー追加
+          </Button>
+        </div>
+        <div className="space-y-2">
+          {majorCategories.slice(0, 6).map((category) => (
+            <div key={category.name} className="flex items-center gap-2 rounded-2xl border border-[#eee4d8] bg-white/74 p-2.5">
+              <span className="h-4 w-4 shrink-0 rounded-full border border-white shadow-sm" style={{ backgroundColor: category.color }} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13px] font-extrabold">{category.name}</p>
+                <p className="text-[11px] font-semibold text-[#6d7469]">{category.count}個のブロック</p>
+              </div>
+              <div className="flex gap-1">
+                <button className="h-8 w-8 rounded-lg border border-[#d8e3d4] bg-white text-[#4f7b58]" aria-label="上へ"><ArrowUp className="mx-auto h-3.5 w-3.5" /></button>
+                <button className="h-8 w-8 rounded-lg border border-[#e3dbcf] bg-white text-[#6d716a]" aria-label="編集"><Pencil className="mx-auto h-3.5 w-3.5" /></button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 rounded-2xl bg-[#fff7e8] px-3 py-2 text-[11px] font-semibold leading-5 text-[#80633c]">
+          使用中のカテゴリーは、アーカイブまたは別カテゴリーへ付け替えてから削除する想定です。
+        </p>
+      </MobileSettingCard>
+
+      <MobileSettingCard title="データ管理" icon={ShieldCheck}>
+        <div className="grid gap-2">
+          {[
+            ["データ出力", "生徒・レッスン・レポートを出力"],
+            ["バックアップ状況", "最終バックアップ：2025/5/19 23:18"],
+            ["パスワード変更", "アカウントのパスワードを変更"],
+          ].map(([title, detail]) => (
+            <button key={title} className="flex items-center justify-between rounded-2xl border border-[#eee4d8] bg-white/74 px-3 py-3 text-left">
+              <span>
+                <span className="block text-[13px] font-extrabold">{title}</span>
+                <span className="line-clamp-1 text-[11px] font-semibold text-[#6d7469]">{detail}</span>
+              </span>
+              <span className="text-[18px] text-[#8aa17d]">›</span>
+            </button>
+          ))}
+        </div>
+      </MobileSettingCard>
+    </div>
+  );
+}
+
+function MobileSettingCard({ title, icon: Icon, children }: { title: string; icon: LucideIcon; children: React.ReactNode }) {
+  return (
+    <section className="rounded-[24px] border border-[#eee4d8] bg-white/84 p-4 shadow-[0_10px_24px_rgba(122,104,80,0.07)]">
+      <div className="mb-3 flex items-center gap-2">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#edf6ea] text-[#5d956d]">
+          <Icon className="h-5 w-5" />
+        </div>
+        <h2 className="text-[16px] font-extrabold">{title}</h2>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function MobileSelectRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#eee4d8] bg-white/74 px-3 py-2.5">
+      <span className="shrink-0">{label}</span>
+      <span className="truncate text-[12px] text-[#6d7469]">{value}</span>
+    </div>
   );
 }
 

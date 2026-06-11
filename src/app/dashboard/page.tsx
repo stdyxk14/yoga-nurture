@@ -33,6 +33,10 @@ const aiSuggestions = [
 export default function DashboardPage() {
   return (
     <>
+      <div className="md:hidden">
+        <MobileDashboard />
+      </div>
+      <div className="hidden md:block">
       <header className="mb-3 flex items-start justify-between gap-4">
         <div>
           <p className="mb-1 text-[14px] font-bold text-[#4f7b58]">おはようございます</p>
@@ -136,7 +140,104 @@ export default function DashboardPage() {
           </SoftCard>
         </div>
       </section>
+      </div>
     </>
+  );
+}
+
+function MobileDashboard() {
+  const mobileTasks = [
+    { time: "10:00", title: "グループレッスン", note: "基礎バランスフロー（60分）", status: "準備済み", href: "/lessons/basic-flow-20250520/script", action: "見る" },
+    { time: "14:00", title: "プライベートセッション", note: "肩こり改善プラン", status: "準備する", href: "/lessons/new", action: "準備" },
+    { time: "16:00", title: "レッスンプランを作成", note: "6/15 グループレッスン", status: "作成する", href: "/lessons/new", action: "作成" },
+  ];
+  const plannedDays = new Set([11, 19, 20, 23, 24]);
+  const days = Array.from({ length: 35 }, (_, index) => index - 2);
+
+  return (
+    <div className="mx-auto max-w-[430px] space-y-4 px-1">
+      <section className="rounded-3xl bg-white/70 p-4 shadow-[0_10px_24px_rgba(91,76,53,0.06)]">
+        <p className="text-[13px] font-bold text-[#5d956d]">おはようございます</p>
+        <h1 className="mt-1 text-[22px] font-extrabold leading-tight">今日も素敵な一日をつくりましょう</h1>
+        <p className="mt-2 text-[12px] font-medium text-[#6b7468]">レッスン準備と記録待ちを、ゆっくり確認します。</p>
+      </section>
+
+      <section className="rounded-3xl border border-[#eee4d8] bg-white/78 p-4 shadow-[0_10px_24px_rgba(91,76,53,0.06)]">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-[16px] font-extrabold">2025年5月</h2>
+          <div className="flex gap-2 text-[#8b704c]">
+            <ChevronRight className="h-4 w-4 rotate-180" />
+            <ChevronRight className="h-4 w-4" />
+          </div>
+        </div>
+        <div className="grid grid-cols-7 gap-1 text-center">
+          {["日", "月", "火", "水", "木", "金", "土"].map((day) => (
+            <p key={day} className="py-1 text-[11px] font-bold text-[#9a8f82]">{day}</p>
+          ))}
+          {days.map((day, index) => {
+            const inMonth = day > 0 && day <= 31;
+            const today = day === 20;
+            return (
+              <div key={index} className="flex h-10 flex-col items-center justify-center">
+                <span className={today ? "flex h-7 w-7 items-center justify-center rounded-full bg-[#7ea06f] text-[12px] font-extrabold text-white" : "text-[12px] font-bold text-[#4c514b]"}>
+                  {inMonth ? day : ""}
+                </span>
+                {inMonth && plannedDays.has(day) ? <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-[#d6a16f]" /> : <span className="mt-0.5 h-1.5 w-1.5" />}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-[#eee4d8] bg-white/78 p-4 shadow-[0_10px_24px_rgba(91,76,53,0.06)]">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-[16px] font-extrabold">今日やること</h2>
+          <span className="text-[11px] font-bold text-[#9a8f82]">5月20日（火）</span>
+        </div>
+        <div className="grid gap-3">
+          {mobileTasks.map((task) => (
+            <Link key={`${task.time}-${task.title}`} href={task.href} className="grid grid-cols-[54px_1fr_64px] items-center gap-3 rounded-2xl border border-[#eee4d8] bg-white/72 p-3">
+              <span className="text-[13px] font-extrabold text-[#5d956d]">{task.time}</span>
+              <span className="min-w-0">
+                <span className="block truncate text-[14px] font-extrabold">{task.title}</span>
+                <span className="block truncate text-[11px] font-medium text-[#6b7468]">{task.note}</span>
+              </span>
+              <span className="rounded-full bg-[#edf5ef] px-2 py-1 text-center text-[11px] font-bold text-[#5d956d]">{task.action}</span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-[#e6dff2] bg-[#faf7ff] p-4 shadow-[0_10px_24px_rgba(91,76,53,0.05)]">
+        <div className="mb-2 flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-[#9b7bc7]" />
+          <h2 className="text-[16px] font-extrabold">AIからの提案</h2>
+        </div>
+        <p className="text-[13px] font-medium leading-6 text-[#56505f]">午後の肩こり改善ヨガは、首まわりの可動域確認を最初に入れると安心です。</p>
+        <Link href="/lessons/new" className="mt-3 inline-flex h-9 items-center justify-center rounded-xl bg-[#9b7bc7] px-4 text-[12px] font-bold text-white">提案を見る</Link>
+      </section>
+
+      <section className="rounded-3xl border border-[#eee4d8] bg-white/78 p-4 shadow-[0_10px_24px_rgba(91,76,53,0.06)]">
+        <h2 className="mb-3 text-[16px] font-extrabold">ショートカット</h2>
+        <div className="grid grid-cols-4 gap-3">
+          <MobileShortcut href="/lessons/new" icon={Plus} label="プラン作成" />
+          <MobileShortcut href="/lessons?tab=blocks" icon={ClipboardCheck} label="ブロック一覧" />
+          <MobileShortcut href="/students" icon={UserRound} label="生徒一覧" />
+          <MobileShortcut href="/reports" icon={ListTodo} label="レポート" />
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function MobileShortcut({ href, icon: Icon, label }: { href: string; icon: LucideIcon; label: string }) {
+  return (
+    <Link href={href} className="flex min-h-[72px] flex-col items-center justify-center gap-2 rounded-2xl border border-[#eee4d8] bg-white/75 p-2 text-center">
+      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#ede7f8] text-[#9b7bc7]">
+        <Icon className="h-5 w-5" />
+      </span>
+      <span className="text-[10px] font-bold leading-4">{label}</span>
+    </Link>
   );
 }
 

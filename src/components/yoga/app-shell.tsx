@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, CalendarDays, Home, Leaf, Settings, Sprout, UserRound } from "lucide-react";
+import { BarChart3, Bell, CalendarDays, Home, Leaf, Menu, Settings, Sprout, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MentorPanel } from "@/components/yoga/mentor-panel";
 
@@ -16,11 +16,13 @@ const navItems = [
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const current = navItems.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`) || (item.href === "/lessons" && (pathname.startsWith("/schedules") || pathname.startsWith("/templates") || pathname.startsWith("/blocks"))));
 
   return (
-    <div className="min-h-screen min-w-[1180px] bg-[var(--yoga-bg)] text-[#20231e]">
-      <div className="grid min-h-screen grid-cols-[190px_minmax(0,1fr)_290px] xl:grid-cols-[196px_minmax(0,1fr)_300px]">
-        <aside className="app-sidebar sticky top-0 flex h-screen flex-col overflow-hidden border-r border-[#e7dfd4] bg-[#fbfaf6] px-3 py-4 shadow-[8px_0_30px_rgba(111,92,71,0.06)] print:hidden">
+    <div className="min-h-screen bg-[var(--yoga-bg)] text-[#20231e] md:min-w-[1180px]">
+      <MobileTopBar title={current?.label ?? "YOGA NURTURE"} />
+      <div className="min-h-screen md:grid md:grid-cols-[190px_minmax(0,1fr)_290px] xl:grid-cols-[196px_minmax(0,1fr)_300px]">
+        <aside className="app-sidebar sticky top-0 hidden h-screen flex-col overflow-hidden border-r border-[#e7dfd4] bg-[#fbfaf6] px-3 py-4 shadow-[8px_0_30px_rgba(111,92,71,0.06)] print:hidden md:flex">
           <div className="mx-auto mb-5 flex flex-col items-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-[#4f8b62] bg-[#f5faf3] text-[#3f8156] shadow-inner">
               <Sprout className="h-8 w-8" strokeWidth={1.5} />
@@ -66,14 +68,64 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </aside>
 
-        <main className="min-w-0 px-3 py-3 xl:px-4 print:px-0 print:py-0">
+        <main className="min-w-0 px-3 pb-24 pt-3 md:px-3 md:py-3 xl:px-4 print:px-0 print:py-0">
           <div className="w-full min-w-0">{children}</div>
         </main>
 
-        <div className="mentor-panel print:hidden">
+        <div className="mentor-panel hidden print:hidden md:block">
           <MentorPanel />
         </div>
       </div>
+      <MobileBottomNav pathname={pathname} />
     </div>
+  );
+}
+
+function MobileTopBar({ title }: { title: string }) {
+  return (
+    <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-[#e7dfd4] bg-[#fbfaf6]/95 px-4 backdrop-blur md:hidden">
+      <button className="flex h-9 w-9 items-center justify-center rounded-full text-[#5d6b58]" aria-label="メニュー">
+        <Menu className="h-5 w-5" />
+      </button>
+      <div className="min-w-0 text-center">
+        <div className="mx-auto flex items-center justify-center gap-1.5 text-[#4f875a]">
+          <Sprout className="h-4 w-4" strokeWidth={1.7} />
+          <span className="font-serif text-[13px] tracking-[0.08em]">YOGA NURTURE</span>
+        </div>
+        <p className="truncate text-[11px] font-bold text-[#31372f]">{title}</p>
+      </div>
+      <button className="flex h-9 w-9 items-center justify-center rounded-full text-[#5d6b58]" aria-label="通知">
+        <Bell className="h-5 w-5" />
+      </button>
+    </header>
+  );
+}
+
+function MobileBottomNav({ pathname }: { pathname: string }) {
+  const items = [
+    { href: "/dashboard", label: "ホーム", icon: Home },
+    { href: "/students", label: "生徒", icon: UserRound },
+    { href: "/lessons", label: "レッスン", icon: CalendarDays },
+    { href: "/reports", label: "レポート", icon: BarChart3 },
+    { href: "/settings", label: "設定", icon: Settings },
+  ];
+
+  return (
+    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-[#e7dfd4] bg-[#fbfaf6]/96 px-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(91,76,53,0.08)] backdrop-blur md:hidden">
+      <div className="grid h-16 grid-cols-5">
+        {items.map((item) => {
+          const active = pathname === item.href || pathname.startsWith(`${item.href}/`) || (item.href === "/lessons" && (pathname.startsWith("/schedules") || pathname.startsWith("/blocks")));
+          const Icon = item.icon;
+          return (
+            <Link key={item.href} href={item.href} className={cn("flex flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-bold", active ? "text-[#5d956d]" : "text-[#8a8d86]")}>
+              <span className={cn("flex h-8 w-8 items-center justify-center rounded-full", active ? "bg-[#e3efdf]" : "bg-transparent")}>
+                <Icon className="h-5 w-5" strokeWidth={1.7} />
+              </span>
+              {item.label}
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
   );
 }

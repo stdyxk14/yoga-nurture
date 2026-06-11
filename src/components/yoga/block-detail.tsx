@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, BarChart3, FileText, History, MessageSquareText, Pencil, Sparkles } from "lucide-react";
 import { PageHeader, Pill, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
 import { getBlockAverageDuration, getBlockUsageHistory } from "@/components/yoga/records";
-import type { BlockTemplate } from "@/components/yoga/records";
+import type { BlockTemplate, BlockUsageHistory } from "@/components/yoga/records";
 
 export function BlockDetail({ block }: { block: BlockTemplate }) {
   const histories = getBlockUsageHistory(block.id);
@@ -13,6 +13,10 @@ export function BlockDetail({ block }: { block: BlockTemplate }) {
 
   return (
     <>
+      <div className="md:hidden">
+        <MobileBlockDetail block={block} histories={histories} useAgainRate={useAgainRate} scriptReviewCount={scriptReviewCount} />
+      </div>
+      <div className="hidden md:block">
       <PageHeader title="ブロック詳細" subtitle="原稿・利用実績・改善履歴をまとめて確認" />
 
       <div className="mb-3 flex flex-wrap justify-end gap-2">
@@ -121,7 +125,110 @@ export function BlockDetail({ block }: { block: BlockTemplate }) {
           )}
         </div>
       </SoftCard>
+      </div>
     </>
+  );
+}
+
+function MobileBlockDetail({
+  block,
+  histories,
+  useAgainRate,
+  scriptReviewCount,
+}: {
+  block: BlockTemplate;
+  histories: BlockUsageHistory[];
+  useAgainRate: number;
+  scriptReviewCount: number;
+}) {
+  return (
+    <div className="mx-auto max-w-[430px] space-y-4">
+      <section className="rounded-3xl border border-[#eee4d8] bg-white/80 p-4 shadow-[0_10px_24px_rgba(91,76,53,0.06)]">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="truncate text-[22px] font-extrabold">{block.name}</h1>
+            <p className="mt-1 truncate text-[12px] font-bold text-[#5d956d]">{block.majorCategory} / {block.minorCategory}</p>
+          </div>
+          <span className="shrink-0 rounded-full bg-[#fff7e8] px-3 py-1.5 text-[12px] font-bold text-[#9b7338]">{block.duration}</span>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {block.tags.slice(0, 5).map((tag) => <Pill key={tag}>{tag}</Pill>)}
+        </div>
+        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+          <SummaryStat label="使用回数" value={`${block.usageCount}回`} />
+          <SummaryStat label="評価" value={block.averageRating.toFixed(1)} />
+          <SummaryStat label="最近" value={block.lastUsed} />
+        </div>
+      </section>
+
+      <div className="grid grid-cols-3 rounded-2xl border border-[#e2d9cc] bg-white/75 p-1 text-center">
+        <a href="#basic" className="rounded-xl bg-[#7ea06f] px-2 py-2 text-[11px] font-bold text-white">基本情報</a>
+        <a href="#summary" className="px-2 py-2 text-[11px] font-bold text-[#5d6b58]">利用サマリー</a>
+        <a href="#history" className="px-2 py-2 text-[11px] font-bold text-[#5d6b58]">改善履歴</a>
+      </div>
+
+      <section id="basic" className="rounded-3xl border border-[#eee4d8] bg-white/80 p-4">
+        <h2 className="text-[16px] font-extrabold">基本情報</h2>
+        <div className="mt-3 grid gap-3">
+          <InfoCard label="目的" value={block.purpose} />
+          <InfoCard label="注意点" value={block.cautions} tone="coral" />
+          <div className="rounded-2xl border border-[#eee4d8] bg-white/72 p-3">
+            <p className="text-[12px] font-bold text-[#4f7b58]">誘導セリフ全文</p>
+            <p className="mt-2 whitespace-pre-line text-[13px] font-medium leading-7 text-[#30362f]">{block.script}</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="summary" className="rounded-3xl border border-[#eee4d8] bg-white/80 p-4">
+        <h2 className="text-[16px] font-extrabold">利用サマリー</h2>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <SummaryStat label="使用回数" value={`${block.usageCount}回`} />
+          <SummaryStat label="平均評価" value={block.averageRating.toFixed(1)} />
+          <SummaryStat label="最近使用日" value={block.lastUsed} />
+          <SummaryStat label="使いたい率" value={`${useAgainRate}%`} />
+          <SummaryStat label="見直し回数" value={`${scriptReviewCount}回`} />
+          <SummaryStat label="平均所要時間" value={getBlockAverageDuration(block.id)} />
+        </div>
+      </section>
+
+      <section id="history" className="rounded-3xl border border-[#eee4d8] bg-white/80 p-4">
+        <h2 className="text-[16px] font-extrabold">改善履歴</h2>
+        <div className="mt-3 grid gap-3">
+          {histories.map((history) => (
+            <div key={`${history.lessonId}-${history.blockId}`} className="relative rounded-2xl border border-[#eee4d8] bg-white/78 p-3">
+              <div className="mb-2 flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] font-extrabold">{history.lessonName}</p>
+                  <p className="text-[11px] font-bold text-[#8f867a]">{history.lessonDate}</p>
+                </div>
+                <span className={history.done ? "rounded-full bg-[#edf5ef] px-2 py-1 text-[10px] font-bold text-[#4f875a]" : "rounded-full bg-[#fff0ea] px-2 py-1 text-[10px] font-bold text-[#e46b50]"}>
+                  {history.done ? "実施" : "スキップ"}
+                </span>
+              </div>
+              <div className="mb-2 grid grid-cols-3 gap-2 text-center">
+                <MiniHistory label="時間" value={history.actualDuration} />
+                <MiniHistory label="反応" value={history.reaction} />
+                <MiniHistory label="次回" value={history.useAgain ? "使う" : "見送り"} />
+              </div>
+              <p className="text-[12px] font-bold text-[#4f7b58]">講師メモ</p>
+              <p className="mt-1 text-[12px] font-medium leading-5 text-[#50584e]">{history.teacherMemo}</p>
+              <p className="mt-3 text-[12px] font-bold text-[#d96c55]">改善メモ / セリフ直し</p>
+              <p className="mt-1 whitespace-pre-line text-[12px] font-medium leading-5 text-[#50584e]">{history.improvementMemo}{"\n"}{history.scriptRevision}</p>
+              {history.scriptReviewRequired ? <span className="mt-3 inline-flex rounded-full bg-[#fff0ea] px-3 py-1 text-[11px] font-bold text-[#e46b50]">セリフ見直し</span> : null}
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function MiniHistory({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-[#f8f6f0] px-2 py-1.5">
+      <p className="text-[10px] font-bold text-[#8f867a]">{label}</p>
+      <p className="truncate text-[11px] font-extrabold text-[#394238]">{value}</p>
+    </div>
   );
 }
 
