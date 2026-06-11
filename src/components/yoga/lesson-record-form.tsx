@@ -42,7 +42,7 @@ export function LessonRecordForm({ lesson }: { lesson: LessonRecord }) {
                 <div key={block.id} className="rounded-xl border border-[#eee4d8] bg-white/72 p-3">
                   <div className="mb-3 flex items-center gap-2">
                     <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#edf5ef] text-[12px] font-extrabold text-[#4f875a]">{index + 1}</span>
-                    <h3 className="text-[15px] font-extrabold">{block.name}</h3>
+                    <Link href={`/blocks/${block.id}`} className="text-[15px] font-extrabold text-[#2f342e] hover:text-[#5d956d]">{block.name}</Link>
                     <span className="rounded-full bg-[#fff7e8] px-2 py-0.5 text-[11px] font-bold text-[#9b7338]">{block.majorCategory}</span>
                     <span className="text-[12px] font-bold text-[#5d956d]">{block.duration}</span>
                   </div>

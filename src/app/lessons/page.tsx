@@ -169,7 +169,7 @@ function PlansTab() {
                 <p className="text-[28px] font-extrabold text-[#4f875a]">{lesson.blockIds.length}</p>
               </div>
               <div className="grid grid-cols-2 gap-1.5">
-                <Link href={`/lessons/${lesson.id}`} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] text-[12px] font-bold text-[#5d956d]">詳細</Link>
+                <Link href={`/lessons/${lesson.id}`} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] px-2 text-center text-[12px] font-bold text-[#5d956d]">詳細</Link>
                 <Link href={`/lessons/${lesson.id}/edit`} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#cfe1ca] bg-white text-[12px] font-bold text-[#5d956d]">編集</Link>
                 <Link href={`/lessons/${lesson.id}/script`} className="col-span-2 inline-flex h-8 items-center justify-center rounded-lg bg-[#5d956d] text-[12px] font-bold text-white">原稿を表示・印刷</Link>
               </div>
@@ -206,18 +206,19 @@ function BlocksTab() {
         </div>
       </SoftCard>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 items-stretch gap-3">
         {blockTemplates.map((block) => (
-          <SoftCard key={block.id} className="p-3.5">
+          <SoftCard key={block.id} className="flex min-h-[305px] flex-col p-3">
             <div className="mb-2 flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <h2 className="truncate text-[16px] font-extrabold">{block.name}</h2>
-                <p className="mt-1 text-[12px] font-bold text-[#5d956d]">{block.majorCategory} / {block.minorCategory}</p>
+                <p className="mt-1 truncate text-[12px] font-bold text-[#5d956d]" title={`${block.majorCategory} / ${block.minorCategory}`}>{block.majorCategory} / {block.minorCategory}</p>
               </div>
               <span className="rounded-full bg-[#edf5ef] px-2 py-1 text-[11px] font-bold text-[#4f875a]">{block.duration}</span>
             </div>
-            <p className="line-clamp-2 text-[12px] font-medium leading-5 text-[#50584e]">{block.script}</p>
-            <div className="mt-2 flex flex-wrap gap-1">
+            <p className="line-clamp-3 min-h-[60px] text-[12px] font-medium leading-5 text-[#50584e]">{block.script}</p>
+            <p className="mt-1 line-clamp-1 min-h-5 text-[11px] font-bold text-[#d96c55]" title={block.cautions}>????{block.cautions}</p>
+            <div className="mt-2 flex min-h-[30px] flex-wrap gap-1 overflow-hidden">
               {block.tags.slice(0, 3).map((tag) => <Pill key={tag}>{tag}</Pill>)}
             </div>
             <div className="mt-3 grid grid-cols-3 gap-2 text-center">
@@ -225,8 +226,8 @@ function BlocksTab() {
               <MiniStat label="評価" value={block.averageRating.toFixed(1)} />
               <MiniStat label="最近" value={block.lastUsed} />
             </div>
-            <div className="mt-3 grid grid-cols-3 gap-1.5">
-              <Link href="#" className="inline-flex h-8 items-center justify-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] text-[12px] font-bold text-[#5d956d]">詳細</Link>
+            <div className="mt-auto grid grid-cols-3 gap-1.5 pt-3">
+              <Link href={`/blocks/${block.id}`} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] text-[12px] font-bold text-[#5d956d]">詳細</Link>
               <Link href="/lessons/blocks/new" className="inline-flex h-8 items-center justify-center rounded-lg border border-[#e7dfd4] bg-white text-[12px] font-bold text-[#6b7468]">編集</Link>
               <Link href="/lessons/new" className="inline-flex h-8 items-center justify-center rounded-lg bg-[#5d956d] text-[12px] font-bold text-white">使う</Link>
             </div>

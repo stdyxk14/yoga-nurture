@@ -1,0 +1,184 @@
+import Link from "next/link";
+import { ArrowLeft, BarChart3, FileText, History, MessageSquareText, Pencil, Sparkles } from "lucide-react";
+import { PageHeader, Pill, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
+import { getBlockAverageDuration, getBlockUsageHistory } from "@/components/yoga/records";
+import type { BlockTemplate } from "@/components/yoga/records";
+
+export function BlockDetail({ block }: { block: BlockTemplate }) {
+  const histories = getBlockUsageHistory(block.id);
+  const useAgainRate = histories.length
+    ? Math.round((histories.filter((history) => history.useAgain).length / histories.length) * 100)
+    : 0;
+  const scriptReviewCount = histories.filter((history) => history.scriptReviewRequired).length;
+
+  return (
+    <>
+      <PageHeader title="ブロック詳細" subtitle="原稿・利用実績・改善履歴をまとめて確認" />
+
+      <div className="mb-3 flex flex-wrap justify-end gap-2">
+        <Link href="/lessons?tab=blocks" className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
+          <ArrowLeft className="h-3.5 w-3.5" />
+          ブロック一覧に戻る
+        </Link>
+        <Link href="/lessons?tab=plans" className="inline-flex h-8 items-center rounded-lg border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
+          レッスンプランに戻る
+        </Link>
+        <a href="#history" className="inline-flex h-8 items-center rounded-lg bg-[#5d956d] px-3 text-[12px] font-bold text-white">
+          関連する記録を見る
+        </a>
+      </div>
+
+      <section className="grid grid-cols-[minmax(0,1fr)_330px] gap-4">
+        <SoftCard className="p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h2 className="truncate text-[24px] font-extrabold">{block.name}</h2>
+              <div className="mt-2 flex flex-wrap gap-2 text-[12px] font-bold">
+                <span className="max-w-[220px] truncate rounded-full bg-[#edf5ef] px-3 py-1 text-[#4f875a]" title={block.majorCategory}>{block.majorCategory}</span>
+                <span className="max-w-[220px] truncate rounded-full bg-[#fff7e8] px-3 py-1 text-[#9b7338]" title={block.minorCategory}>{block.minorCategory}</span>
+                <span className="rounded-full bg-[#f2efff] px-3 py-1 text-[#7469bf]">{block.duration}</span>
+              </div>
+            </div>
+            <Link href="/lessons/blocks/new" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
+              <Pencil className="h-3.5 w-3.5" />
+              編集
+            </Link>
+          </div>
+
+          <div className="mt-4 grid grid-cols-3 gap-3">
+            <InfoCard label="目的" value={block.purpose} />
+            <InfoCard label="対象レベル" value={block.level} />
+            <InfoCard label="注意点" value={block.cautions} tone="coral" />
+          </div>
+
+          <div className="mt-4">
+            <SectionTitle icon={FileText} title="誘導セリフ全文" />
+            <div className="rounded-xl border border-[#eee4d8] bg-white/72 p-4">
+              <p className="whitespace-pre-line text-[13px] font-medium leading-7 text-[#30362f]">{block.script}</p>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            {block.tags.map((tag) => (
+              <Pill key={tag}>{tag}</Pill>
+            ))}
+          </div>
+        </SoftCard>
+
+        <div className="grid gap-3">
+          <SoftCard className="p-3.5">
+            <SectionTitle icon={BarChart3} title="利用サマリー" />
+            <div className="grid grid-cols-2 gap-2">
+              <SummaryStat label="使用回数" value={`${block.usageCount}回`} />
+              <SummaryStat label="平均反応評価" value={block.averageRating.toFixed(1)} />
+              <SummaryStat label="最近使用日" value={block.lastUsed} />
+              <SummaryStat label="次回も使いたい率" value={`${useAgainRate}%`} />
+              <SummaryStat label="セリフ見直し対象" value={`${scriptReviewCount}回`} />
+              <SummaryStat label="平均所要時間" value={getBlockAverageDuration(block.id)} />
+            </div>
+          </SoftCard>
+
+          <SoftCard className="p-3.5">
+            <SectionTitle icon={Sparkles} title="まとめ" />
+            <div className="grid gap-2 text-[12px] font-medium leading-5 text-[#50584e]">
+              <SummaryNote title="よく出てくる講師メモ" body={histories[0]?.teacherMemo ?? "まだ使用履歴はありません。初回利用後に講師メモが蓄積されます。"} />
+              <SummaryNote title="改善メモの要点" body={histories.find((history) => history.improvementMemo)?.improvementMemo ?? block.memo} />
+              <SummaryNote title="反応が良かったときの傾向" body="導入の目的が短く伝わり、軽減法が先に案内されている回ほど反応が安定しています。" />
+              <SummaryNote title="セリフ見直し候補" body={histories.find((history) => history.scriptRevision)?.scriptRevision ?? "次回利用時にセリフ改善メモを残します。"} />
+            </div>
+          </SoftCard>
+        </div>
+      </section>
+
+      <SoftCard id="history" className="mt-4 p-4">
+        <SectionTitle icon={History} title="レッスン後記録からの蓄積データ" subtitle="ブロック単位で入力された講師メモ・改善メモを表示" />
+        <div className="grid gap-3">
+          {histories.length ? histories.map((history) => (
+            <div key={`${history.lessonId}-${history.blockId}`} className="rounded-xl border border-[#eee4d8] bg-white/72 p-3">
+              <div className="mb-3 grid grid-cols-[110px_minmax(0,1fr)_110px_110px_130px] items-center gap-3">
+                <p className="text-[12px] font-bold">{history.lessonDate}</p>
+                <div className="min-w-0">
+                  <Link href={`/lessons/${history.lessonId}`} className="block truncate text-[14px] font-extrabold text-[#2f342e] hover:text-[#5d956d]">
+                    {history.lessonName}
+                  </Link>
+                  <p className="truncate text-[11px] font-semibold text-[#6b7468]">レッスンプラン：{history.planName}</p>
+                </div>
+                <StatusPill active={history.done} />
+                <p className="text-[12px] font-bold text-[#4f875a]">{history.actualDuration}</p>
+                <p className="rounded-full bg-[#f2efff] px-2 py-1 text-center text-[11px] font-bold text-[#7469bf]">{history.reaction}</p>
+              </div>
+              <div className="grid grid-cols-[1fr_1fr_110px_110px] gap-3">
+                <HistoryText icon={MessageSquareText} title="講師メモ" body={history.teacherMemo} />
+                <HistoryText icon={Pencil} title="改善メモ / セリフ直し" body={`${history.improvementMemo}\n${history.scriptRevision}`} />
+                <BooleanBox label="次回も使いたい" active={history.useAgain} />
+                <BooleanBox label="セリフを見直す" active={history.scriptReviewRequired} tone="coral" />
+              </div>
+            </div>
+          )) : (
+            <div className="rounded-xl border border-dashed border-[#d8d1c6] bg-white/62 p-4 text-[13px] font-medium text-[#6b7468]">
+              このブロックはまだ実施後記録がありません。レッスン後記録で講師メモや改善メモを入力すると、ここに履歴として表示される想定です。
+            </div>
+          )}
+        </div>
+      </SoftCard>
+    </>
+  );
+}
+
+function InfoCard({ label, value, tone = "green" }: { label: string; value: string; tone?: "green" | "coral" }) {
+  return (
+    <div className="min-w-0 rounded-xl border border-[#eee4d8] bg-white/72 p-3">
+      <p className={tone === "coral" ? "text-[12px] font-bold text-[#d96c55]" : "text-[12px] font-bold text-[#4f7b58]"}>{label}</p>
+      <p className="mt-1 line-clamp-3 text-[12px] font-medium leading-5 text-[#50584e]">{value}</p>
+    </div>
+  );
+}
+
+function SummaryStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-[#eee4d8] bg-white/72 p-3 text-center">
+      <p className="text-[11px] font-bold text-[#7c8476]">{label}</p>
+      <p className="mt-1 truncate text-[22px] font-extrabold text-[#4f875a]">{value}</p>
+    </div>
+  );
+}
+
+function SummaryNote({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="rounded-lg bg-[#f8f6f0] px-3 py-2">
+      <p className="font-bold text-[#394238]">{title}</p>
+      <p className="mt-1 line-clamp-2">{body}</p>
+    </div>
+  );
+}
+
+function StatusPill({ active }: { active: boolean }) {
+  return (
+    <span className={active ? "rounded-full bg-[#edf5ef] px-2 py-1 text-center text-[11px] font-bold text-[#4f875a]" : "rounded-full bg-[#fff0ea] px-2 py-1 text-center text-[11px] font-bold text-[#e46b50]"}>
+      {active ? "実施した" : "スキップした"}
+    </span>
+  );
+}
+
+function HistoryText({ icon: Icon, title, body }: { icon: typeof MessageSquareText; title: string; body: string }) {
+  return (
+    <div className="rounded-xl border border-[#eee4d8] bg-white/72 p-3">
+      <p className="mb-1 flex items-center gap-1.5 text-[12px] font-bold text-[#4f7b58]">
+        <Icon className="h-3.5 w-3.5" />
+        {title}
+      </p>
+      <p className="whitespace-pre-line text-[12px] font-medium leading-5 text-[#50584e]">{body}</p>
+    </div>
+  );
+}
+
+function BooleanBox({ label, active, tone = "green" }: { label: string; active: boolean; tone?: "green" | "coral" }) {
+  const activeClass = tone === "coral" ? "bg-[#fff0ea] text-[#e46b50] border-[#f0c7b4]" : "bg-[#edf5ef] text-[#4f875a] border-[#cfe1ca]";
+  return (
+    <div className={`flex items-center justify-center rounded-xl border px-2 text-center text-[12px] font-bold ${active ? activeClass : "border-[#e3dbcf] bg-white/70 text-[#7c8476]"}`}>
+      {label}
+      <br />
+      {active ? "はい" : "いいえ"}
+    </div>
+  );
+}

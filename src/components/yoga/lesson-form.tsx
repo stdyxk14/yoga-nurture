@@ -160,12 +160,12 @@ export function LessonForm({ mode, lesson }: { mode: "new" | "edit"; lesson?: Le
         </SoftCard>
 
         <SoftCard className="min-w-0 p-3">
-          <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="mb-3 grid gap-2">
             <SectionTitle icon={Plus} title="ブロック候補一覧" subtitle="数百個の候補から探せる想定" />
-            <div className="flex rounded-lg border border-[#e2d9cc] bg-white/70 p-1">
-              <ViewButton active={viewMode === "cards"} onClick={() => setViewMode("cards")} icon={LayoutGrid} label="カード表示" />
-              <ViewButton active={viewMode === "list"} onClick={() => setViewMode("list")} icon={List} label="コンパクト一覧" />
-              <ViewButton active={viewMode === "group"} onClick={() => setViewMode("group")} icon={GripVertical} label="大カテゴリー別" />
+            <div className="inline-grid w-fit grid-cols-3 rounded-xl border border-[#e2d9cc] bg-white/75 p-1">
+              <ViewButton active={viewMode === "cards"} onClick={() => setViewMode("cards")} icon={LayoutGrid} label="カード" />
+              <ViewButton active={viewMode === "list"} onClick={() => setViewMode("list")} icon={List} label="一覧" />
+              <ViewButton active={viewMode === "group"} onClick={() => setViewMode("group")} icon={GripVertical} label="カテゴリ別" />
             </div>
           </div>
 
@@ -311,7 +311,7 @@ function GroupedCandidates({ blocks }: { blocks: BlockTemplate[] }) {
 
 function CandidateCard({ block, compact = false }: { block: BlockTemplate; compact?: boolean }) {
   return (
-    <div className="rounded-xl border border-[#eee4d8] bg-white/72 p-3">
+    <div className="flex min-h-[245px] flex-col rounded-xl border border-[#eee4d8] bg-white/72 p-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h3 className="truncate text-[14px] font-extrabold">{block.name}</h3>
@@ -319,7 +319,7 @@ function CandidateCard({ block, compact = false }: { block: BlockTemplate; compa
         </div>
         <span className="shrink-0 rounded-full bg-[#fff7e8] px-2 py-1 text-[11px] font-bold text-[#9b7338]">{block.duration}</span>
       </div>
-      <div className="mt-2 flex flex-wrap gap-1">
+      <div className="mt-2 flex min-h-[28px] flex-wrap gap-1 overflow-hidden">
         {block.tags.slice(0, compact ? 2 : 4).map((tag) => (
           <Pill key={tag}>{tag}</Pill>
         ))}
@@ -335,8 +335,8 @@ function CandidateCard({ block, compact = false }: { block: BlockTemplate; compa
           <p className="mt-1 line-clamp-1 text-[11px] font-bold text-[#d96c55]">注意点：{block.cautions}</p>
         </>
       ) : null}
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <button className="inline-flex h-8 items-center justify-center rounded-lg border border-[#d8e3d4] bg-white text-[11px] font-bold text-[#4f7b58]">プレビュー</button>
+      <div className="mt-auto grid grid-cols-2 gap-2 pt-3">
+        <Link href={`/blocks/${block.id}`} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#d8e3d4] bg-white text-[11px] font-bold text-[#4f7b58]">プレビュー</Link>
         <button className="inline-flex h-8 items-center justify-center rounded-lg bg-[#5d956d] text-[11px] font-bold text-white">追加</button>
       </div>
     </div>
@@ -378,7 +378,7 @@ function ViewButton({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-[11px] font-bold ${
+      className={`inline-flex h-8 min-w-[76px] items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-[11px] font-bold ${
         active ? "bg-[#5d956d] text-white" : "text-[#5f665c]"
       }`}
     >
