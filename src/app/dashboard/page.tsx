@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { CalendarDays, ChevronRight, ClipboardCheck, FilePenLine, ListTodo, Plus, Sparkles, UserPlus, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -151,7 +154,19 @@ function MobileDashboard() {
     { time: "14:00", title: "プライベートセッション", note: "肩こり改善プラン", status: "準備する", href: "/lessons/new", action: "準備" },
     { time: "16:00", title: "レッスンプランを作成", note: "6/15 グループレッスン", status: "作成する", href: "/lessons/new", action: "作成" },
   ];
-  const plannedDays = new Set([11, 19, 20, 23, 24]);
+  const mobileSchedulesByDay: Record<number, Array<{ time: string; title: string; status: LessonStatus; count: number; planHref: string; scriptHref: string; recordHref: string }>> = {
+    11: [{ time: "10:30", title: "リストラティブヨガ", status: "記録待ち", count: 3, planHref: "/lessons/restorative-20250511", scriptHref: "/lessons/restorative-20250511/script", recordHref: "/lessons/restorative-20250511/record" }],
+    19: [{ time: "13:30", title: "リラックスヨガ", status: "事前準備済み", count: 3, planHref: "/lessons/relax-yoga-20250519", scriptHref: "/lessons/relax-yoga-20250519/script", recordHref: "/lessons/relax-yoga-20250519/record" }],
+    20: [
+      { time: "10:00", title: "基礎バランスフロー", status: "記録済み", count: 6, planHref: "/lessons/basic-flow-20250520", scriptHref: "/lessons/basic-flow-20250520/script", recordHref: "/lessons/basic-flow-20250520/record" },
+      { time: "13:30", title: "肩こり改善ヨガ", status: "記録待ち", count: 6, planHref: "/lessons/restorative-20250511", scriptHref: "/lessons/restorative-20250511/script", recordHref: "/lessons/restorative-20250511/record" },
+    ],
+    23: [{ time: "18:30", title: "陰ヨガ", status: "予定", count: 8, planHref: "/lessons/new", scriptHref: "/lessons/new", recordHref: "/lessons/new" }],
+    24: [{ time: "10:00", title: "ベーシックフロー", status: "事前準備中", count: 5, planHref: "/lessons/basic-flow-20250520/edit", scriptHref: "/lessons/basic-flow-20250520/script", recordHref: "/lessons/basic-flow-20250520/record" }],
+  };
+  const plannedDays = new Set(Object.keys(mobileSchedulesByDay).map(Number));
+  const [selectedDay, setSelectedDay] = useState(20);
+  const selectedSchedules = mobileSchedulesByDay[selectedDay] ?? [];
   const days = Array.from({ length: 35 }, (_, index) => index - 2);
 
   return (
@@ -178,14 +193,39 @@ function MobileDashboard() {
             const inMonth = day > 0 && day <= 31;
             const today = day === 20;
             return (
-              <div key={index} className="flex h-10 flex-col items-center justify-center">
-                <span className={today ? "flex h-7 w-7 items-center justify-center rounded-full bg-[#7ea06f] text-[12px] font-extrabold text-white" : "text-[12px] font-bold text-[#4c514b]"}>
+              <button key={index} type="button" disabled={!inMonth || !plannedDays.has(day)} onClick={() => setSelectedDay(day)} className="flex h-10 flex-col items-center justify-center rounded-xl disabled:pointer-events-none">
+                <span className={today ? "flex h-7 w-7 items-center justify-center rounded-full bg-[#7ea06f] text-[12px] font-extrabold text-white" : selectedDay === day ? "flex h-7 w-7 items-center justify-center rounded-full bg-[#e8f1e3] text-[12px] font-extrabold text-[#5d956d]" : "text-[12px] font-bold text-[#4c514b]"}>
                   {inMonth ? day : ""}
                 </span>
                 {inMonth && plannedDays.has(day) ? <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-[#d6a16f]" /> : <span className="mt-0.5 h-1.5 w-1.5" />}
-              </div>
+              </button>
             );
           })}
+        </div>
+        <div className="mt-4 rounded-2xl border border-[#eee4d8] bg-white/72 p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="text-[14px] font-extrabold">選択した日の予定</h3>
+            <span className="text-[11px] font-bold text-[#8b704c]">5月{selectedDay}日</span>
+          </div>
+          <div className="grid gap-2">
+            {selectedSchedules.map((schedule) => (
+              <article key={`${selectedDay}-${schedule.time}`} className="rounded-2xl border border-[#eee4d8] bg-white/78 p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-extrabold text-[#5d956d]">{schedule.time}</p>
+                    <p className="truncate text-[14px] font-extrabold">{schedule.title}</p>
+                    <p className="mt-1 text-[11px] font-bold text-[#6b7468]">参加予定 {schedule.count}名</p>
+                  </div>
+                  <TaskBadge status={schedule.status} />
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  <Link href={schedule.planHref} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#cfe1ca] bg-[#f8fcf6] text-[11px] font-bold text-[#5d956d]">プラン</Link>
+                  <Link href={schedule.scriptHref} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#e6dff2] bg-[#faf7ff] text-[11px] font-bold text-[#7469bf]">原稿</Link>
+                  <Link href={schedule.recordHref} className="inline-flex h-9 items-center justify-center rounded-xl bg-[#5d956d] text-[11px] font-bold text-white">記録</Link>
+                </div>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
 

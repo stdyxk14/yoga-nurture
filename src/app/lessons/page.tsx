@@ -102,22 +102,29 @@ function MobileLessonsPage({ activeTab }: { activeTab: LessonTab }) {
         ))}
       </div>
 
-      {activeTab === "blocks" ? <MobileBlocksList /> : <MobileLessonHome activeTab={activeTab} />}
+      {activeTab === "schedule" ? <MobileScheduleTab /> : null}
+      {activeTab === "plans" ? <MobilePlansTab /> : null}
+      {activeTab === "blocks" ? <MobileBlocksList /> : null}
+      {activeTab === "records" ? <MobileRecordsTab /> : null}
+      {activeTab === "analysis" ? <MobileAnalysisTab /> : null}
     </div>
   );
 }
 
-function MobileLessonHome({ activeTab }: { activeTab: LessonTab }) {
+function MobileTabIntro({ title, body, primaryHref, primaryLabel }: { title: string; body: string; primaryHref: string; primaryLabel: string }) {
+  return (
+    <section className="rounded-3xl border border-[#eee4d8] bg-white/78 p-4 shadow-[0_10px_24px_rgba(91,76,53,0.06)]">
+      <h1 className="text-[20px] font-extrabold">{title}</h1>
+      <p className="mt-1 text-[12px] font-medium leading-5 text-[#6b7468]">{body}</p>
+      <Link href={primaryHref} className="mt-3 inline-flex h-10 w-full items-center justify-center rounded-xl bg-[#7ea06f] text-[12px] font-bold text-white">{primaryLabel}</Link>
+    </section>
+  );
+}
+
+function MobileScheduleTab() {
   return (
     <div className="space-y-3">
-      <section className="rounded-3xl border border-[#eee4d8] bg-white/78 p-4 shadow-[0_10px_24px_rgba(91,76,53,0.06)]">
-        <h1 className="text-[20px] font-extrabold">レッスン管理</h1>
-        <p className="mt-1 text-[12px] font-medium text-[#6b7468]">予定、プラン、実施後記録をスマホでも確認できます。</p>
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <Link href="/schedules/new" className="inline-flex h-10 items-center justify-center rounded-xl bg-[#7ea06f] text-[12px] font-bold text-white">予定を登録</Link>
-          <Link href="/lessons/new" className="inline-flex h-10 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white text-[12px] font-bold text-[#4f7b58]">プラン作成</Link>
-        </div>
-      </section>
+      <MobileTabIntro title="レッスン予定" body="予定からプラン確認、原稿出力、実施後記録へ進みます。" primaryHref="/schedules/new" primaryLabel="予定を登録" />
       {lessonSchedules.slice(0, 4).map((schedule) => (
         <Link key={schedule.id} href={schedule.lessonId ? `/lessons/${schedule.lessonId}` : "/lessons/new"} className="block rounded-3xl border border-[#eee4d8] bg-white/78 p-4 shadow-[0_8px_18px_rgba(91,76,53,0.05)]">
           <div className="flex items-start justify-between gap-3">
@@ -128,14 +135,37 @@ function MobileLessonHome({ activeTab }: { activeTab: LessonTab }) {
             </div>
             <StatusBadge status={schedule.status} />
           </div>
+          <p className="mt-2 line-clamp-2 text-[12px] font-medium leading-5 text-[#50584e]">{schedule.nextAction}</p>
         </Link>
       ))}
-      {activeTab === "analysis" ? (
-        <section className="rounded-3xl border border-[#eee4d8] bg-white/78 p-4">
-          <h2 className="text-[16px] font-extrabold">AIからの提案</h2>
-          <p className="mt-2 text-[13px] font-medium leading-6 text-[#50584e]">反応が良い呼吸法ブロックを、次回の導入候補として使えます。</p>
-        </section>
-      ) : null}
+    </div>
+  );
+}
+
+function MobilePlansTab() {
+  return (
+    <div className="space-y-3">
+      <MobileTabIntro title="レッスンプラン" body="ブロックを組み合わせた完成済みプランを確認します。" primaryHref="/lessons/new" primaryLabel="レッスンプランを作成" />
+      {lessons.map((lesson) => (
+        <article key={lesson.id} className="rounded-3xl border border-[#eee4d8] bg-white/78 p-4 shadow-[0_8px_18px_rgba(91,76,53,0.05)]">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="truncate text-[15px] font-extrabold">{lesson.title}</h2>
+              <p className="mt-1 text-[12px] font-bold text-[#5d956d]">{lesson.date} {lesson.startTime}-{lesson.endTime}</p>
+              <p className="mt-1 truncate text-[11px] font-medium text-[#6b7468]">{lesson.blockIds.length}ブロック / {lesson.duration}</p>
+            </div>
+            <StatusBadge status={lesson.status} />
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {lesson.tags.slice(0, 3).map((tag) => <Pill key={tag}>{tag}</Pill>)}
+          </div>
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <Link href={`/lessons/${lesson.id}`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#cfe1ca] bg-[#f8fcf6] text-[12px] font-bold text-[#5d956d]">詳細</Link>
+            <Link href={`/lessons/${lesson.id}/script`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#e6dff2] bg-[#faf7ff] text-[12px] font-bold text-[#7469bf]">原稿</Link>
+            <Link href={`/lessons/${lesson.id}/edit`} className="inline-flex h-9 items-center justify-center rounded-xl bg-[#7ea06f] text-[12px] font-bold text-white">編集</Link>
+          </div>
+        </article>
+      ))}
     </div>
   );
 }
@@ -144,6 +174,7 @@ function MobileBlocksList() {
   const chips = ["すべて", "導入", "呼吸法", "ウォームアップ", "クールダウン", "未使用"];
   return (
     <div className="space-y-3">
+      <MobileTabIntro title="ブロックテンプレート" body="原稿ブロックを検索し、プラン作成に再利用します。" primaryHref="/blocks/new" primaryLabel="＋ ブロックを登録" />
       <div className="flex items-center gap-2 rounded-2xl border border-[#e7dfd4] bg-white/80 px-3 py-2">
         <Search className="h-4 w-4 shrink-0 text-[#6b7468]" />
         <Input placeholder="ブロック名・タグ・原稿を検索" className="h-9 border-0 bg-transparent px-0 text-[13px] shadow-none focus-visible:ring-0" />
@@ -193,10 +224,54 @@ function MobileBlockListCard({ block, index }: { block: typeof blockTemplates[nu
       <p className="mt-2 line-clamp-2 text-[12px] font-medium leading-5 text-[#50584e]">{block.script}</p>
       <div className="mt-3 grid grid-cols-3 gap-2">
         <Link href={`/blocks/${block.id}`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white text-[12px] font-bold text-[#4f7b58]">詳細</Link>
-        <Link href="/lessons/blocks/new" className="inline-flex h-9 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white text-[12px] font-bold text-[#4f7b58]">編集</Link>
+        <Link href={`/blocks/${block.id}/edit`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white text-[12px] font-bold text-[#4f7b58]">編集</Link>
         <Link href="/lessons/new" className="inline-flex h-9 items-center justify-center rounded-xl bg-[#7ea06f] text-[12px] font-bold text-white">使う</Link>
       </div>
     </article>
+  );
+}
+
+function MobileRecordsTab() {
+  return (
+    <div className="space-y-3">
+      <MobileTabIntro title="実施後記録" body="レッスン後にブロック評価と生徒コメントを追記します。" primaryHref="/lessons/restorative-20250511/record" primaryLabel="記録を書く" />
+      {lessonRecordSummaries.map((record) => (
+        <article key={record.id} className="rounded-3xl border border-[#eee4d8] bg-white/78 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="truncate text-[15px] font-extrabold">{record.lessonName}</h2>
+              <p className="mt-1 text-[12px] font-bold text-[#5d956d]">{record.date} / {record.participantCount}名</p>
+            </div>
+            <StatusBadge status={record.status} />
+          </div>
+          <p className="mt-2 line-clamp-2 text-[12px] font-medium leading-5 text-[#50584e]">{record.summary}</p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <Link href={`/lessons/${record.id}/record`} className="inline-flex h-9 items-center justify-center rounded-xl bg-[#ef6f5b] text-[12px] font-bold text-white">記録を見る</Link>
+            <Link href={`/lessons/${record.id}`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#cfe1ca] bg-[#f8fcf6] text-[12px] font-bold text-[#5d956d]">詳細</Link>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function MobileAnalysisTab() {
+  return (
+    <div className="space-y-3">
+      <MobileTabIntro title="ブロック分析" body="よく使うブロック、反応が良いブロック、改善が必要なブロックを確認します。" primaryHref="/reports" primaryLabel="レポートを見る" />
+      {blockAnalysis.map(([name, usage, rating, note], index) => (
+        <article key={name} className="rounded-3xl border border-[#eee4d8] bg-white/78 p-4">
+          <div className="flex items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#edf5ef] text-[15px] font-extrabold text-[#5d956d]">{index + 1}</span>
+            <div className="min-w-0 flex-1">
+              <h2 className="truncate text-[15px] font-extrabold">{name}</h2>
+              <p className="mt-1 text-[12px] font-bold text-[#5d956d]">使用 {usage} / 平均評価 {rating}</p>
+              <p className="mt-2 inline-flex rounded-full bg-[#fff7e8] px-3 py-1 text-[11px] font-bold text-[#9b7338]">{note}</p>
+            </div>
+          </div>
+        </article>
+      ))}
+    </div>
   );
 }
 
@@ -310,7 +385,7 @@ function BlocksTab() {
           <Search className="h-4 w-4 shrink-0 text-[#6b7468]" />
           <Input placeholder="ブロック名、カテゴリー、タグ、原稿内の言葉で検索" className="h-8 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0" />
         </div>
-        <Link href="/lessons/blocks/new" className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#5d956d] px-4 text-[13px] font-bold text-white">
+        <Link href="/blocks/new" className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#5d956d] px-4 text-[13px] font-bold text-white">
           <Plus className="h-4 w-4" />
           ブロックを登録
         </Link>
@@ -335,7 +410,7 @@ function BlocksTab() {
               <span className="rounded-full bg-[#edf5ef] px-2 py-1 text-[11px] font-bold text-[#4f875a]">{block.duration}</span>
             </div>
             <p className="line-clamp-3 min-h-[60px] text-[12px] font-medium leading-5 text-[#50584e]">{block.script}</p>
-            <p className="mt-1 line-clamp-1 min-h-5 text-[11px] font-bold text-[#d96c55]" title={block.cautions}>????{block.cautions}</p>
+            <p className="mt-1 line-clamp-1 min-h-5 text-[11px] font-bold text-[#d96c55]" title={block.cautions}>注意：{block.cautions}</p>
             <div className="mt-2 flex min-h-[30px] flex-wrap gap-1 overflow-hidden">
               {block.tags.slice(0, 3).map((tag) => <Pill key={tag}>{tag}</Pill>)}
             </div>
@@ -346,7 +421,7 @@ function BlocksTab() {
             </div>
             <div className="mt-auto grid grid-cols-3 gap-1.5 pt-3">
               <Link href={`/blocks/${block.id}`} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] text-[12px] font-bold text-[#5d956d]">詳細</Link>
-              <Link href="/lessons/blocks/new" className="inline-flex h-8 items-center justify-center rounded-lg border border-[#e7dfd4] bg-white text-[12px] font-bold text-[#6b7468]">編集</Link>
+              <Link href={`/blocks/${block.id}/edit`} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#e7dfd4] bg-white text-[12px] font-bold text-[#6b7468]">編集</Link>
               <Link href="/lessons/new" className="inline-flex h-8 items-center justify-center rounded-lg bg-[#5d956d] text-[12px] font-bold text-white">使う</Link>
             </div>
           </SoftCard>

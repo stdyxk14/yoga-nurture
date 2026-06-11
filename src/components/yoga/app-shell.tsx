@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { BarChart3, Bell, CalendarDays, Home, Leaf, Menu, Settings, Sprout, UserRound, X } from "lucide-react";
+import { Activity, BarChart3, Bell, CalendarDays, HeartHandshake, Home, Leaf, Menu, MessageCircle, Settings, Sparkles, Sprout, UserRound, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MentorPanel } from "@/components/yoga/mentor-panel";
 
@@ -18,6 +18,7 @@ const navItems = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [aiSheetOpen, setAiSheetOpen] = useState(false);
   const current = navItems.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`) || (item.href === "/lessons" && (pathname.startsWith("/schedules") || pathname.startsWith("/templates") || pathname.startsWith("/blocks"))));
 
   return (
@@ -79,7 +80,85 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <MentorPanel />
         </div>
       </div>
+      <MobileAiConsultButton onClick={() => setAiSheetOpen(true)} />
+      <MobileAiConsultSheet open={aiSheetOpen} pathname={pathname} onClose={() => setAiSheetOpen(false)} />
       <MobileBottomNav pathname={pathname} />
+    </div>
+  );
+}
+
+function MobileAiConsultButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="fixed bottom-[5.25rem] right-4 z-50 inline-flex h-12 items-center gap-2 rounded-full bg-[#5d956d] px-4 text-[12px] font-extrabold text-white shadow-[0_14px_30px_rgba(64,113,77,0.26)] md:hidden"
+      aria-label="AI相談を開く"
+    >
+      <MessageCircle className="h-5 w-5" />
+      AI相談
+    </button>
+  );
+}
+
+function MobileAiConsultSheet({ open, pathname, onClose }: { open: boolean; pathname: string; onClose: () => void }) {
+  const context =
+    pathname.includes("/record")
+      ? "この振り返りについて相談"
+      : pathname.includes("/students")
+        ? "この生徒について相談"
+        : pathname.includes("/blocks")
+          ? "このブロックの改善について相談"
+          : pathname.includes("/lessons")
+            ? "このプランについて相談"
+            : "この画面について相談";
+  const mentors = [
+    { title: "身体分析メンター", desc: "身体の状態や注意点を整理します。", icon: Activity },
+    { title: "寄り添い接客コーチ", desc: "生徒への声かけやフォローを考えます。", icon: HeartHandshake },
+    { title: "レッスン設計＆ブランディング戦略家", desc: "プラン改善や伝え方を提案します。", icon: Sparkles },
+  ];
+
+  return (
+    <div className={cn("fixed inset-0 z-[70] md:hidden", open ? "pointer-events-auto" : "pointer-events-none")}>
+      <button
+        type="button"
+        aria-label="AI相談を閉じる"
+        onClick={onClose}
+        className={cn("absolute inset-0 bg-[#1e241c]/30 transition-opacity", open ? "opacity-100" : "opacity-0")}
+      />
+      <section className={cn("absolute inset-x-0 bottom-0 rounded-t-[28px] border border-[#e7dfd4] bg-[#fbfaf6] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-18px_42px_rgba(65,54,38,0.22)] transition-transform duration-200", open ? "translate-y-0" : "translate-y-full")}>
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <p className="text-[12px] font-bold text-[#5d956d]">AIメンター</p>
+            <h2 className="text-[18px] font-extrabold">{context}</h2>
+          </div>
+          <button type="button" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-full border border-[#e4dbcf] bg-white text-[#5d6b58]" aria-label="閉じる">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="grid gap-2">
+          {mentors.map(({ title, desc, icon: Icon }) => (
+            <article key={title} className="rounded-2xl border border-[#eee4d8] bg-white/78 p-3">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#edf5ef] text-[#5d956d]">
+                  <Icon className="h-5 w-5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[13px] font-extrabold">{title}</p>
+                  <p className="mt-0.5 line-clamp-1 text-[11px] font-medium text-[#6b7468]">{desc}</p>
+                </div>
+                <button className="inline-flex h-8 shrink-0 items-center justify-center rounded-xl bg-[#5d956d] px-3 text-[11px] font-bold text-white">
+                  相談する
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+        <button className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[#7ea06f] text-[13px] font-extrabold text-white">
+          <MessageCircle className="h-4 w-4" />
+          AIメンターにまとめて相談
+        </button>
+      </section>
     </div>
   );
 }

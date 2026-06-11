@@ -114,9 +114,35 @@ export type BlockUsageHistory = BlockResult & {
 export type StudentObservation = {
   date: string;
   lessonTitle: string;
+  lessonId?: string;
   condition: string;
   bodyChange: string;
+  concern?: string;
   nextCheck: string;
+  memo?: string;
+};
+
+export type StudentLessonHistory = {
+  lessonId: string;
+  date: string;
+  lessonTitle: string;
+  planName: string;
+  attendanceStatus: AttendanceStatus;
+  teacherMemo: string;
+  observation: string;
+  bodyChange: string;
+  concern: string;
+  nextCheck: string;
+  memo: string;
+};
+
+export type StudentAttendanceStats = {
+  attendedCount: number;
+  cancelCount: number;
+  noShowCount: number;
+  cancelRate: number;
+  lastAttendedDate: string;
+  nextScheduledDate: string;
 };
 
 export const students: StudentRecord[] = [
@@ -659,116 +685,116 @@ export const blockResults: Record<string, BlockResult[]> = {
     {
       blockId: "savasana",
       done: true,
-      actualDuration: "7?",
-      reaction: "????",
-      teacherMemo: "????????????????????????",
-      improvementMemo: "????????????????",
+      actualDuration: "7分",
+      reaction: "良かった",
+      teacherMemo: "全体の呼吸が落ち着き、余韻を感じる時間になった。",
+      improvementMemo: "開始前に膝下ブランケットの選択肢を案内する。",
       useAgain: true,
-      scriptRevision: "?????????????",
+      scriptRevision: "床に体を預ける表現を少し増やす。",
     },
     {
       blockId: "closing",
       done: true,
-      actualDuration: "3?",
-      reaction: "????",
-      teacherMemo: "??????????????????????",
-      improvementMemo: "?????????????????",
+      actualDuration: "3分",
+      reaction: "良かった",
+      teacherMemo: "落ち着いた空気のまま締められた。",
+      improvementMemo: "次回テーマへの一言を最後に添える。",
       useAgain: true,
-      scriptRevision: "????????????",
+      scriptRevision: "余韻を急がせない声かけを残す。",
     },
   ],
   "relax-yoga-20250519": [
     {
       blockId: "intro-grounding",
       done: true,
-      actualDuration: "4?",
-      reaction: "????",
-      teacherMemo: "???????????????????????????",
-      improvementMemo: "??????????????????????????",
+      actualDuration: "4分",
+      reaction: "良かった",
+      teacherMemo: "肩首の緊張を確認する導入が自然で、安心感が出た。",
+      improvementMemo: "オンライン参加者にも聞こえるように最初の声量を少し上げる。",
       useAgain: true,
-      scriptRevision: "????????????????????????????",
+      scriptRevision: "今日のテーマを一文で伝えてから呼吸へ入る。",
     },
     {
       blockId: "complete-breath",
       done: true,
-      actualDuration: "9?",
-      reaction: "????",
-      teacherMemo: "?????????????????????",
-      improvementMemo: "?????????????????????????????",
+      actualDuration: "9分",
+      reaction: "良かった",
+      teacherMemo: "呼吸が深くなり、表情が穏やかになった。",
+      improvementMemo: "鎖骨式の説明は短くし、体感の時間を長めに取る。",
       useAgain: true,
-      scriptRevision: "????????????????????????",
+      scriptRevision: "吸う息を下から積み上げる表現を残す。",
     },
     {
       blockId: "cat-cow",
       done: true,
-      actualDuration: "7?",
-      reaction: "??",
-      teacherMemo: "??????????????????????????",
-      improvementMemo: "????????????????????????????????",
+      actualDuration: "7分",
+      reaction: "普通",
+      teacherMemo: "肩まわりはほぐれたが、手首の負担を気にする生徒がいた。",
+      improvementMemo: "拳や前腕を使う軽減法を最初に案内する。",
       useAgain: true,
-      scriptRevision: "??????????",
+      scriptRevision: "手首の軽減法を追加。",
     },
     {
       blockId: "neck-stretch",
       done: true,
-      actualDuration: "6?",
-      reaction: "????",
-      teacherMemo: "?????????????????????",
-      improvementMemo: "???????????????????????????",
+      actualDuration: "6分",
+      reaction: "良かった",
+      teacherMemo: "首肩の力が抜け、後半の休息につながった。",
+      improvementMemo: "押さずに重さを預ける表現を強調する。",
       useAgain: true,
-      scriptRevision: "??????????????????",
+      scriptRevision: "痛みを探さない声かけを追加。",
     },
     {
       blockId: "savasana",
       done: true,
-      actualDuration: "8?",
-      reaction: "????",
-      teacherMemo: "?????????????????????",
-      improvementMemo: "?????????????????",
+      actualDuration: "8分",
+      reaction: "良かった",
+      teacherMemo: "静かな時間を長めに取れて満足度が高かった。",
+      improvementMemo: "終了合図をさらに柔らかくする。",
       useAgain: true,
-      scriptRevision: "???????????",
+      scriptRevision: "戻る前の呼吸観察を追加。",
     },
   ],
   "restorative-20250511": [
     {
       blockId: "intro-grounding",
       done: true,
-      actualDuration: "5?",
-      reaction: "??",
-      teacherMemo: "????????????????????????",
-      improvementMemo: "?????????????????????",
+      actualDuration: "5分",
+      reaction: "普通",
+      teacherMemo: "静かな導入は合っていたが、説明が少し抽象的だった。",
+      improvementMemo: "休息の目的を具体的に一文で伝える。",
       useAgain: true,
-      scriptRevision: "??????????????????",
+      scriptRevision: "体を休める選択肢を冒頭へ。",
     },
     {
       blockId: "complete-breath",
       done: true,
-      actualDuration: "7?",
-      reaction: "????",
-      teacherMemo: "??????????????????????",
-      improvementMemo: "??????????????????????",
+      actualDuration: "7分",
+      reaction: "良かった",
+      teacherMemo: "呼吸のペースが整い、休息へ入りやすくなった。",
+      improvementMemo: "数を数える誘導は短めにする。",
       useAgain: true,
-      scriptRevision: "???????????????????",
+      scriptRevision: "自然呼吸へ戻す合図を追加。",
     },
     {
       blockId: "neck-stretch",
       done: false,
-      actualDuration: "0?",
-      reaction: "??",
-      teacherMemo: "??????????????",
-      improvementMemo: "??????????????????????",
+      actualDuration: "0分",
+      reaction: "普通",
+      teacherMemo: "時間調整のためスキップした。",
+      improvementMemo: "次回は導入後すぐに短く入れる。",
       useAgain: false,
-      scriptRevision: "?????????",
+      scriptRevision: "短縮版の原稿を作る。",
     },
     {
       blockId: "savasana",
       done: true,
-      actualDuration: "12?",
-      reaction: "????",
-      teacherMemo: "????????????????????????",
-      improvementMemo: "????????????????????",
+      actualDuration: "12分",
+      reaction: "良かった",
+      teacherMemo: "長めの休息で呼吸が落ち着き、終了後の表情が柔らかかった。",
+      improvementMemo: "寒さ対策の声かけを最初に入れる。",
       useAgain: true,
-      scriptRevision: "???????????",
+      scriptRevision: "ブランケット案内を追加。",
     },
   ],
 };
@@ -778,25 +804,74 @@ export const studentObservations: Record<string, StudentObservation[]> = {
     {
       date: "2025/5/20",
       lessonTitle: "基礎バランスフロー",
+      lessonId: "basic-flow-20250520",
       condition: "集中して取り組めていた",
       bodyChange: "肩まわりの動きが少し滑らか",
+      concern: "後屈で膝をかばう様子あり",
       nextCheck: "膝の違和感の有無",
+      memo: "木のポーズで軸が安定していた",
     },
     {
       date: "2025/5/18",
       lessonTitle: "姿勢改善ヨガ",
+      lessonId: "basic-flow-20250520",
       condition: "呼吸が深まり表情が柔らかい",
       bodyChange: "ダウンドッグの安定感UP",
+      concern: "膝まわりの違和感",
       nextCheck: "後屈時の膝の反応",
+      memo: "無理のない範囲で継続できている",
+    },
+    {
+      date: "2025/5/11",
+      lessonTitle: "リストラティブヨガ",
+      lessonId: "restorative-20250511",
+      condition: "静かな誘導に集中できていた",
+      bodyChange: "肩の力みが抜けやすくなった",
+      concern: "冷えやすさ",
+      nextCheck: "膝下サポートの有無",
+      memo: "長めのシャヴァーサナへの反応が良い",
+    },
+    {
+      date: "2025/5/04",
+      lessonTitle: "陰ヨガ",
+      lessonId: "relax-yoga-20250519",
+      condition: "股関節まわりを慎重に動かしていた",
+      bodyChange: "前屈は浅めが安心",
+      concern: "腰の張り",
+      nextCheck: "深い前屈後の違和感",
+      memo: "ボルスターを使うと安定した",
+    },
+    {
+      date: "2025/4/27",
+      lessonTitle: "ベーシックフロー",
+      lessonId: "basic-flow-20250520",
+      condition: "久しぶりの受講でも落ち着いて参加",
+      bodyChange: "肩まわりの可動域が少し広がった",
+      concern: "疲労感",
+      nextCheck: "翌日の膝の状態",
+      memo: "呼吸法から入ると動きやすい",
+    },
+    {
+      date: "2025/4/20",
+      lessonTitle: "肩こり改善ヨガ",
+      lessonId: "relax-yoga-20250519",
+      condition: "首肩の力みを自覚できていた",
+      bodyChange: "首の左右差が少し軽減",
+      concern: "深い後屈",
+      nextCheck: "首のストレッチ後の感覚",
+      memo: "軽減法を選べると安心して動ける",
     },
   ],
   "suzuki-haruna": [
     {
       date: "2025/5/20",
       lessonTitle: "基礎バランスフロー",
+      lessonId: "basic-flow-20250520",
       condition: "安心した様子で動けていた",
       bodyChange: "首肩の緊張が後半に緩んだ",
+      concern: "急なツイスト",
       nextCheck: "首まわりの可動域",
+      memo: "完全呼吸法への反応が良い",
     },
   ],
 };
@@ -863,4 +938,91 @@ export function getBlockAverageDuration(blockId: string) {
   if (!histories.length) return getBlock(blockId).duration;
   const total = histories.reduce((sum, history) => sum + (Number.parseInt(history.actualDuration, 10) || 0), 0);
   return `${Math.round(total / histories.length)}分`;
+}
+
+export function getStudentLessonHistory(studentId: string): StudentLessonHistory[] {
+  const linkedLessons = lessons.flatMap((lesson) => {
+    const participant = lesson.participants.find((item) => item.studentId === studentId);
+    const wasPlanned = lesson.plannedStudentIds.includes(studentId);
+    if (!participant && !wasPlanned) return [];
+
+    const status: AttendanceStatus = participant?.status ?? "参加";
+    const observation = participant?.condition || (status === "参加" ? "事前参加予定。実施後コメントはこれから追記します。" : "参加予定から変更あり。");
+    const teacherMemo =
+      participant?.memo ||
+      (status === "参加"
+        ? lesson.reaction || "レッスン後の講師メモを追記予定です。"
+        : participant?.cancelReason || "参加ステータスの確認が必要です。");
+
+    return [
+      {
+        lessonId: lesson.id,
+        date: lesson.date,
+        lessonTitle: lesson.title,
+        planName: lesson.templateName,
+        attendanceStatus: status,
+        teacherMemo,
+        observation,
+        bodyChange: participant?.bodyChange || "記録待ち",
+        concern: participant?.concern || (studentId === "sato-misaki" ? getStudent(studentId).caution : "次回確認"),
+        nextCheck: participant?.nextCheck || "次回レッスン前に確認",
+        memo: participant?.memo || "個別メモはレッスン後記録から蓄積されます。",
+      },
+    ];
+  });
+
+  const observationOnly = (studentObservations[studentId] ?? []).flatMap((memo) => {
+    if (linkedLessons.some((lesson) => lesson.lessonId === memo.lessonId || (lesson.date.startsWith(memo.date) && lesson.lessonTitle === memo.lessonTitle))) return [];
+    return [
+      {
+        lessonId: memo.lessonId ?? lessons[0].id,
+        date: memo.date,
+        lessonTitle: memo.lessonTitle,
+        planName: "過去レッスンプラン",
+        attendanceStatus: "参加" as AttendanceStatus,
+        teacherMemo: memo.memo ?? "過去の観察メモから移行",
+        observation: memo.condition,
+        bodyChange: memo.bodyChange,
+        concern: memo.concern ?? "特になし",
+        nextCheck: memo.nextCheck,
+        memo: memo.memo ?? "観察メモとして蓄積",
+      },
+    ];
+  });
+
+  return [...linkedLessons, ...observationOnly].sort((a, b) => b.date.localeCompare(a.date, "ja"));
+}
+
+export function getStudentObservationHistory(studentId: string) {
+  return getStudentLessonHistory(studentId).map((history) => ({
+    date: history.date.replace(/（.+）/, ""),
+    lessonTitle: history.lessonTitle,
+    lessonId: history.lessonId,
+    condition: history.observation,
+    bodyChange: history.bodyChange,
+    concern: history.concern,
+    nextCheck: history.nextCheck,
+    memo: history.memo,
+  }));
+}
+
+export function getStudentAttendanceStats(studentId: string): StudentAttendanceStats {
+  const history = getStudentLessonHistory(studentId);
+  const attendedCount = history.filter((item) => item.attendanceStatus === "参加").length;
+  const cancelCount = history.filter((item) => item.attendanceStatus === "キャンセル").length;
+  const noShowCount = history.filter((item) => item.attendanceStatus === "無断欠席").length;
+  const totalScheduled = history.length || 1;
+  const nextSchedule = lessonSchedules.find((schedule) => {
+    const lesson = schedule.lessonId ? getLesson(schedule.lessonId) : undefined;
+    return lesson?.plannedStudentIds.includes(studentId) && schedule.status !== "記録済み";
+  });
+
+  return {
+    attendedCount,
+    cancelCount,
+    noShowCount,
+    cancelRate: Math.round((cancelCount / totalScheduled) * 100),
+    lastAttendedDate: history.find((item) => item.attendanceStatus === "参加")?.date ?? getStudent(studentId).lastLessonDate,
+    nextScheduledDate: nextSchedule ? `${nextSchedule.date} ${nextSchedule.time}` : "未定",
+  };
 }

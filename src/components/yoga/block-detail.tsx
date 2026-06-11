@@ -43,7 +43,7 @@ export function BlockDetail({ block }: { block: BlockTemplate }) {
                 <span className="rounded-full bg-[#f2efff] px-3 py-1 text-[#7469bf]">{block.duration}</span>
               </div>
             </div>
-            <Link href="/lessons/blocks/new" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
+            <Link href={`/blocks/${block.id}/edit`} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
               <Pencil className="h-3.5 w-3.5" />
               編集
             </Link>
