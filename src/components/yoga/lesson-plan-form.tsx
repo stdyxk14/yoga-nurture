@@ -6,7 +6,9 @@ import Link from "next/link";
 import { ArrowDown, ArrowUp, Clock, FileText, Plus, Save, Search, Trash2 } from "lucide-react";
 import { createLessonPlanAction, updateLessonPlanAction } from "@/app/lessons/lesson-plan-actions";
 import { Input } from "@/components/ui/input";
+import { LessonPlanAiSuggestionPanel } from "@/components/yoga/lesson-plan-ai-suggestion-panel";
 import type { BlockCategory, DbBlockTemplate } from "@/lib/blocks";
+import type { StudentAiSuggestionState } from "@/lib/ai-suggestions";
 import type { DbLessonPlan, LessonPlanFormState } from "@/lib/lesson-plans";
 import { Pill, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
 
@@ -16,6 +18,7 @@ type Props = {
   categories: BlockCategory[];
   tags: string[];
   initialPlan?: DbLessonPlan;
+  aiSuggestionState?: StudentAiSuggestionState;
 };
 
 const initialState: LessonPlanFormState = {};
@@ -32,7 +35,7 @@ const lessonPlanStatusOptions = [
   { value: "archived", label: "アーカイブ" },
 ] as const;
 
-export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: Props) {
+export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, aiSuggestionState }: Props) {
   const [selectedBlocks, setSelectedBlocks] = useState<DbBlockTemplate[]>(initialPlan?.blocks ?? []);
   const [query, setQuery] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -96,6 +99,10 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
     <form action={formAction} className="space-y-4 pb-24 md:pb-0">
       <div className="grid gap-4 xl:grid-cols-[300px_minmax(0,1fr)_340px]">
         <div className="space-y-4">
+          {mode === "edit" ? (
+            <LessonPlanAiSuggestionPanel plan={initialPlan} aiSuggestionState={aiSuggestionState} context="edit" />
+          ) : null}
+
           <SoftCard className="p-4">
             <SectionTitle icon={FileText} title={mode === "new" ? "レッスンプランを作成" : "レッスンプランを編集"} subtitle="ブロックを組み合わせて、印刷できる原稿を作ります。" />
             {state.error ? (

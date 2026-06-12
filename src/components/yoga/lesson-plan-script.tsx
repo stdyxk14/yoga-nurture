@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { Copy, Pencil, Printer } from "lucide-react";
+import { LessonPlanAiSuggestionPanel } from "@/components/yoga/lesson-plan-ai-suggestion-panel";
+import type { StudentAiSuggestionState } from "@/lib/ai-suggestions";
 import type { DbLessonPlan } from "@/lib/lesson-plans";
 
-export function LessonPlanScript({ plan }: { plan: DbLessonPlan }) {
+export function LessonPlanScript({ plan, aiSuggestionState }: { plan: DbLessonPlan; aiSuggestionState: StudentAiSuggestionState }) {
   const scriptText = [
     `${plan.name}`,
     `テーマ: ${plan.theme || "未設定"}`,
@@ -46,6 +48,8 @@ export function LessonPlanScript({ plan }: { plan: DbLessonPlan }) {
           </div>
         </div>
       </div>
+
+      <LessonPlanAiSuggestionPanel plan={plan} aiSuggestionState={aiSuggestionState} context="script" />
 
       <article className="rounded-2xl border border-[#e7dfd4] bg-white p-5 shadow-[0_10px_24px_rgba(91,76,53,0.05)] print:border-0 print:p-0 print:shadow-none">
         <header className="border-b border-[#e7dfd4] pb-4">

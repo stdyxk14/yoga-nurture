@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { ArrowLeft, FileText, Pencil, Printer } from "lucide-react";
+import { LessonPlanAiSuggestionPanel } from "@/components/yoga/lesson-plan-ai-suggestion-panel";
 import { PageHeader, Pill, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
+import type { StudentAiSuggestionState } from "@/lib/ai-suggestions";
 import type { DbLessonPlan } from "@/lib/lesson-plans";
 
-export function LessonPlanDetail({ plan }: { plan: DbLessonPlan }) {
+export function LessonPlanDetail({ plan, aiSuggestionState }: { plan: DbLessonPlan; aiSuggestionState: StudentAiSuggestionState }) {
   return (
     <div className="space-y-4">
       <PageHeader title={plan.name} subtitle="保存済みレッスンプランの詳細" />
@@ -42,6 +44,8 @@ export function LessonPlanDetail({ plan }: { plan: DbLessonPlan }) {
           </div>
         </div>
       </SoftCard>
+
+      <LessonPlanAiSuggestionPanel plan={plan} aiSuggestionState={aiSuggestionState} />
 
       <SoftCard className="p-4">
         <SectionTitle icon={FileText} title="使用ブロック一覧" subtitle="原稿に出力される順番で表示しています。" />

@@ -1,0 +1,16 @@
+"use server";
+
+import { generateLessonPlanAiSuggestion, type StudentAiActionState } from "@/lib/ai-suggestions";
+
+export async function generateLessonPlanAiSuggestionAction(
+  _state: StudentAiActionState,
+  formData: FormData,
+): Promise<StudentAiActionState> {
+  const planId = String(formData.get("lesson_plan_id") ?? "").trim();
+
+  if (!planId) {
+    return { error: "レッスンプラン情報が見つかりません。" };
+  }
+
+  return generateLessonPlanAiSuggestion(planId);
+}
