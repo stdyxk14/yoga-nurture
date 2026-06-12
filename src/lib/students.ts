@@ -40,13 +40,16 @@ export function mapStudentRow(row: StudentRow): StudentRecord {
 
 export async function requireUserId() {
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.auth.getClaims();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
 
-  if (error || !data?.claims.sub) {
+  if (error || !user) {
     redirect("/login");
   }
 
-  return { supabase, userId: data.claims.sub };
+  return { supabase, userId: user.id };
 }
 
 export async function getStudents() {
