@@ -19,6 +19,13 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Server Actions post back to the current route. If middleware turns that POST
+  // into a login redirect, React receives an HTML page instead of an action
+  // response and shows "This page couldn't load".
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return NextResponse.next();
+  }
+
   const isLogin = pathname === "/login";
 
   if (!hasSupabaseEnv()) {
@@ -26,7 +33,7 @@ export async function proxy(request: NextRequest) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     loginUrl.searchParams.set("next", pathname);
-    return NextResponse.redirect(loginUrl, request.method === "GET" ? 307 : 303);
+    return NextResponse.redirect(loginUrl);
   }
 
   let response = NextResponse.next({
@@ -61,7 +68,7 @@ export async function proxy(request: NextRequest) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     loginUrl.searchParams.set("next", pathname);
-    return NextResponse.redirect(loginUrl, request.method === "GET" ? 307 : 303);
+    return NextResponse.redirect(loginUrl);
   }
 
   if (isAuthenticated && isLogin) {
