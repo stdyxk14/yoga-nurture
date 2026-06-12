@@ -5,29 +5,32 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { PageHeader, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
 import type { StudentAttendanceStats, StudentLessonHistory, StudentObservation, StudentRecord } from "@/components/yoga/records";
 import { StudentAiButton } from "@/components/yoga/student-ai-button";
+import { StudentAiSuggestionPanel } from "@/components/yoga/student-ai-suggestion-panel";
+import type { StudentAiSuggestionState } from "@/lib/ai-suggestions";
 
 export function StudentDetail({
   student,
   observations,
   lessonHistory,
   stats,
+  aiSuggestionState,
 }: {
   student: StudentRecord;
   observations: StudentObservation[];
   lessonHistory: StudentLessonHistory[];
   stats: StudentAttendanceStats;
+  aiSuggestionState: StudentAiSuggestionState;
 }) {
   const profileItems = [
     ["ヨガ他経験", student.experience, Dumbbell],
     ["ケガなどの注意点", student.caution, HeartHandshake],
     ["その他メモ", student.memo, NotebookPen],
   ] as const;
-  const aiSuggestions = getBasicInfoSuggestions(student);
 
   return (
     <>
         <div className="md:hidden">
-        <MobileStudentDetail student={student} observations={observations} lessonHistory={lessonHistory} stats={stats} />
+        <MobileStudentDetail student={student} observations={observations} lessonHistory={lessonHistory} stats={stats} aiSuggestionState={aiSuggestionState} />
       </div>
 
       <div className="hidden md:block">
@@ -100,7 +103,7 @@ export function StudentDetail({
           </SoftCard>
 
           <SoftCard>
-            <AiSuggestionPanel suggestions={aiSuggestions} />
+            <StudentAiSuggestionPanel student={student} aiSuggestionState={aiSuggestionState} />
           </SoftCard>
         </section>
 
@@ -138,11 +141,13 @@ function MobileStudentDetail({
   observations,
   lessonHistory,
   stats,
+  aiSuggestionState,
 }: {
   student: StudentRecord;
   observations: StudentObservation[];
   lessonHistory: StudentLessonHistory[];
   stats: StudentAttendanceStats;
+  aiSuggestionState: StudentAiSuggestionState;
 }) {
   const infoItems = [
     ["ヨガ他経験", student.experience, Dumbbell],
@@ -209,7 +214,7 @@ function MobileStudentDetail({
       </MobileSection>
 
       <MobileSection title="AIメンターからの次回提案">
-        <AiSuggestionPanel suggestions={getBasicInfoSuggestions(student)} compact />
+        <StudentAiSuggestionPanel student={student} aiSuggestionState={aiSuggestionState} compact />
       </MobileSection>
 
       <MobileSection title="受講レッスン履歴">
@@ -265,6 +270,8 @@ function EmptyHistoryMessage({ text }: { text: string }) {
   );
 }
 
+// Legacy static placeholder kept while the new AI panel lives in a dedicated component.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function AiSuggestionPanel({
   suggestions,
   compact = false,
@@ -306,6 +313,7 @@ function AiSuggestionPanel({
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function getBasicInfoSuggestions(student: StudentRecord) {
   const suggestions: string[] = [];
 

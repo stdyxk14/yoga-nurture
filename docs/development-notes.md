@@ -37,6 +37,22 @@ E2E_TEST_PASSWORD=
 
 Never commit real passwords. Keep real values in a local `.env` file, shell environment, or CI/Vercel secrets.
 
+## AI Mentor Environment Variables
+
+AI mentor calls must run on the server only. Use this variable name in local `.env` files and Vercel Environment Variables:
+
+```text
+OPENAI_API_KEY=
+```
+
+Do not use `NEXT_PUBLIC_` for OpenAI keys. If `OPENAI_API_KEY` is missing, the app should show `AI連携は未設定です` and continue working without crashing.
+
+AI suggestion history is stored in Supabase table `ai_suggestions`. If the table has not been created yet, run:
+
+```text
+supabase/migrations/002_ai_suggestions.sql
+```
+
 ## Codex Verification Flow
 
 Normal code changes:

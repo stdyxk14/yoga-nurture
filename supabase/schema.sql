@@ -202,6 +202,18 @@ create table if not exists public.lesson_record_students (
   unique (lesson_record_id, student_id)
 );
 
+create table if not exists public.ai_suggestions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  target_type text not null check (target_type in ('student', 'lesson_plan', 'block', 'lesson_record')),
+  target_id uuid not null,
+  mentor_type text not null default 'general' check (mentor_type in ('body', 'communication', 'lesson_design', 'general')),
+  prompt text not null,
+  response text not null,
+  source_summary text,
+  created_at timestamptz not null default now()
+);
+
 alter table public.profiles enable row level security;
 alter table public.students enable row level security;
 alter table public.student_observation_notes enable row level security;
@@ -217,6 +229,7 @@ alter table public.schedule_participants enable row level security;
 alter table public.lesson_records enable row level security;
 alter table public.lesson_record_blocks enable row level security;
 alter table public.lesson_record_students enable row level security;
+alter table public.ai_suggestions enable row level security;
 
 drop policy if exists "profiles are owned by user" on public.profiles;
 create policy "profiles are owned by user" on public.profiles
@@ -343,12 +356,17 @@ create policy "lesson record students follow record owner" on public.lesson_reco
     )
   );
 
+drop policy if exists "ai suggestions are owned by user" on public.ai_suggestions;
+create policy "ai suggestions are owned by user" on public.ai_suggestions
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
 create index if not exists students_user_id_idx on public.students(user_id);
 create index if not exists student_observation_notes_student_id_idx on public.student_observation_notes(student_id);
 create index if not exists block_templates_user_id_idx on public.block_templates(user_id);
 create index if not exists lesson_plans_user_id_idx on public.lesson_plans(user_id);
 create index if not exists schedules_user_id_starts_at_idx on public.schedules(user_id, starts_at);
 create index if not exists lesson_records_user_id_record_date_idx on public.lesson_records(user_id, record_date);
+create index if not exists ai_suggestions_user_target_idx on public.ai_suggestions(user_id, target_type, target_id, created_at desc);
 
 drop trigger if exists profiles_set_updated_at on public.profiles;
 create trigger profiles_set_updated_at before update on public.profiles
