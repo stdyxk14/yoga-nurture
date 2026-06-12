@@ -1,3 +1,4 @@
+import { unstable_noStore as noStore } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { GenderCode, StudentRecord } from "@/components/yoga/records";
@@ -39,6 +40,7 @@ export function mapStudentRow(row: StudentRow): StudentRecord {
 }
 
 export async function requireUserId() {
+  noStore();
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
