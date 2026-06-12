@@ -7,7 +7,6 @@ import {
   FileText,
   Layers3,
   MapPin,
-  PenLine,
   Plus,
   Search,
   SlidersHorizontal,
@@ -17,11 +16,11 @@ import { PageHeader, Pill, SectionTitle, SoftCard } from "@/components/yoga/page
 import {
   blockAnalysis,
   lessonRecordSummaries,
-  lessonSchedules,
 } from "@/components/yoga/records";
-import type { LessonSchedule, LessonStatus } from "@/components/yoga/records";
+import type { LessonStatus } from "@/components/yoga/records";
 import { getBlockCategories, getBlocks, getBlockTags, type BlockCategory, type DbBlockTemplate } from "@/lib/blocks";
 import { getLessonPlans, type DbLessonPlan } from "@/lib/lesson-plans";
+import { getSchedules, type DbSchedule } from "@/lib/schedules";
 
 type LessonTab = "schedule" | "plans" | "blocks" | "records" | "analysis";
 
@@ -42,17 +41,18 @@ export default async function LessonsPage({
   const { tab } = params;
   const activeTab: LessonTab =
     tab === "plans" || tab === "blocks" || tab === "records" || tab === "analysis" ? tab : "schedule";
-  const [blocks, categories, tags, plans] = await Promise.all([
+  const [blocks, categories, tags, plans, schedules] = await Promise.all([
     getBlocks(params),
     getBlockCategories(),
     getBlockTags(),
     getLessonPlans(),
+    getSchedules(),
   ]);
 
   return (
     <>
       <div className="md:hidden">
-        <MobileLessonsPage activeTab={activeTab} blocks={blocks} categories={categories} tags={tags.map((tag) => tag.name)} plans={plans} />
+        <MobileLessonsPage activeTab={activeTab} blocks={blocks} categories={categories} tags={tags.map((tag) => tag.name)} plans={plans} schedules={schedules} />
       </div>
       <div className="hidden md:block">
       <PageHeader
@@ -84,7 +84,7 @@ export default async function LessonsPage({
         </div>
       </SoftCard>
 
-      {activeTab === "schedule" ? <ScheduleTab /> : null}
+      {activeTab === "schedule" ? <ScheduleTab schedules={schedules} /> : null}
       {activeTab === "plans" ? <PlansTab plans={plans} /> : null}
       {activeTab === "blocks" ? <BlocksTab blocks={blocks} categories={categories} tags={tags.map((tag) => tag.name)} /> : null}
       {activeTab === "records" ? <RecordsTab /> : null}
@@ -96,7 +96,21 @@ export default async function LessonsPage({
 
 export const dynamic = "force-dynamic";
 
-function MobileLessonsPage({ activeTab, blocks, categories, tags, plans }: { activeTab: LessonTab; blocks: DbBlockTemplate[]; categories: BlockCategory[]; tags: string[]; plans: DbLessonPlan[] }) {
+function MobileLessonsPage({
+  activeTab,
+  blocks,
+  categories,
+  tags,
+  plans,
+  schedules,
+}: {
+  activeTab: LessonTab;
+  blocks: DbBlockTemplate[];
+  categories: BlockCategory[];
+  tags: string[];
+  plans: DbLessonPlan[];
+  schedules: DbSchedule[];
+}) {
   return (
     <div className="mx-auto max-w-[430px] space-y-4">
       <div className="flex gap-2 overflow-x-auto pb-1">
@@ -111,7 +125,7 @@ function MobileLessonsPage({ activeTab, blocks, categories, tags, plans }: { act
         ))}
       </div>
 
-      {activeTab === "schedule" ? <MobileScheduleTab /> : null}
+      {activeTab === "schedule" ? <MobileScheduleTab schedules={schedules} /> : null}
       {activeTab === "plans" ? <MobilePlansTab plans={plans} /> : null}
       {activeTab === "blocks" ? <MobileBlocksList blocks={blocks} categories={categories} tags={tags} /> : null}
       {activeTab === "records" ? <MobileRecordsTab /> : null}
@@ -130,23 +144,31 @@ function MobileTabIntro({ title, body, primaryHref, primaryLabel }: { title: str
   );
 }
 
-function MobileScheduleTab() {
+function MobileScheduleTab({ schedules }: { schedules: DbSchedule[] }) {
   return (
     <div className="space-y-3">
-      <MobileTabIntro title="レッスン予定" body="予定からプラン確認、原稿出力、実施後記録へ進みます。" primaryHref="/schedules/new" primaryLabel="予定を登録" />
-      {lessonSchedules.slice(0, 4).map((schedule) => (
-        <Link key={schedule.id} href={schedule.lessonId ? `/lessons/${schedule.lessonId}` : "/lessons/new"} className="block rounded-3xl border border-[#eee4d8] bg-white/78 p-4 shadow-[0_8px_18px_rgba(91,76,53,0.05)]">
+      <MobileTabIntro title="レッスン予定" body="登録済みの予定を確認します。" primaryHref="/schedules/new" primaryLabel="予定を登録" />
+      {schedules.length ? schedules.map((schedule) => (
+        <article key={schedule.id} className="rounded-3xl border border-[#eee4d8] bg-white/78 p-4 shadow-[0_8px_18px_rgba(91,76,53,0.05)]">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="truncate text-[15px] font-extrabold">{schedule.lessonName}</p>
-              <p className="mt-1 text-[12px] font-bold text-[#5d956d]">{schedule.date} {schedule.time}</p>
-              <p className="mt-1 truncate text-[11px] font-medium text-[#6b7468]">{schedule.place} / {schedule.participantCount}名</p>
+              <h2 className="truncate text-[15px] font-extrabold">{schedule.lessonName}</h2>
+              <p className="mt-1 text-[12px] font-bold text-[#5d956d]">{schedule.dateLabel} {schedule.startTimeLabel}-{schedule.endTimeLabel}</p>
+              <p className="mt-1 truncate text-[11px] font-medium text-[#6b7468]">{schedule.lessonPlanName} / {schedule.place || "場所未設定"} / {schedule.participantCount}名</p>
             </div>
-            <StatusBadge status={schedule.status} />
+            <ScheduleStatusBadge label={schedule.statusLabel} />
           </div>
-          <p className="mt-2 line-clamp-2 text-[12px] font-medium leading-5 text-[#50584e]">{schedule.nextAction}</p>
-        </Link>
-      ))}
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <Link href={`/schedules/${schedule.id}`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#cfe1ca] bg-[#f8fcf6] text-[12px] font-bold text-[#5d956d]">詳細</Link>
+            {schedule.lessonPlanId ? (
+              <Link href={`/lessons/${schedule.lessonPlanId}/script`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#e6dff2] bg-[#faf7ff] text-[12px] font-bold text-[#7469bf]">原稿</Link>
+            ) : (
+              <span className="inline-flex h-9 items-center justify-center rounded-xl border border-[#e7dfd4] bg-[#f4f1ea] text-[12px] font-bold text-[#9b8c7b]">原稿なし</span>
+            )}
+            <span className="inline-flex h-9 items-center justify-center rounded-xl border border-[#e7dfd4] bg-[#f4f1ea] text-[12px] font-bold text-[#9b8c7b]">記録は次</span>
+          </div>
+        </article>
+      )) : <SchedulesEmptyState />}
     </div>
   );
 }
@@ -286,15 +308,10 @@ function MobileAnalysisTab() {
   );
 }
 
-function ScheduleTab() {
+function ScheduleTab({ schedules }: { schedules: DbSchedule[] }) {
   return (
     <>
-      <section className="mb-3 grid grid-cols-[1fr_auto] items-center gap-3">
-        <div className="grid grid-cols-3 gap-3">
-          <Metric title="今日の予定" value="2" unit="件" icon={CalendarDays} />
-          <Metric title="原稿出力待ち" value="3" unit="件" icon={FileText} tone="purple" />
-          <Metric title="記録待ち" value="1" unit="件" icon={PenLine} />
-        </div>
+      <section className="mb-3 flex justify-end">
         <Link
           href="/schedules/new"
           className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#5d956d] px-4 text-[13px] font-bold text-white shadow-[0_8px_18px_rgba(64,113,77,0.2)]"
@@ -305,39 +322,47 @@ function ScheduleTab() {
       </section>
 
       <SoftCard className="p-3.5">
-        <SectionTitle icon={CalendarDays} title="スケジュール" subtitle="予定からプラン作成、原稿出力、実施後記録へ進みます" />
-        <div className="grid gap-2">
-          {lessonSchedules.map((schedule) => {
-            const action = scheduleAction(schedule);
-            return (
+        <SectionTitle icon={CalendarDays} title="スケジュール" subtitle="Supabaseに保存された予定だけを表示します。" />
+        {schedules.length ? (
+          <div className="mt-3 grid gap-2">
+            {schedules.map((schedule) => (
               <div
                 key={schedule.id}
-                className="grid grid-cols-[100px_82px_minmax(130px,1fr)_72px_82px_minmax(150px,1fr)_220px] items-center gap-2 rounded-xl border border-[#eee4d8] bg-white/72 px-3 py-2.5"
+                className="grid grid-cols-[100px_95px_minmax(150px,1fr)_minmax(120px,0.8fr)_80px_90px_210px] items-center gap-2 rounded-xl border border-[#eee4d8] bg-white/72 px-3 py-2.5"
               >
-                <p className="text-[12px] font-bold">{schedule.date}</p>
-                <p className="text-[12px] font-bold">{schedule.time}</p>
+                <p className="text-[12px] font-bold">{schedule.dateLabel}</p>
+                <p className="text-[12px] font-bold">{schedule.startTimeLabel}-{schedule.endTimeLabel}</p>
                 <div className="min-w-0">
                   <p className="truncate text-[14px] font-extrabold">{schedule.lessonName}</p>
                   <p className="mt-0.5 flex items-center gap-1 text-[11px] font-semibold text-[#6b7468]">
                     <MapPin className="h-3 w-3" />
-                    {schedule.place} / {schedule.format}
+                    {schedule.place || "場所未設定"} / {schedule.formatLabel}
                   </p>
                 </div>
+                <p className="truncate text-[12px] font-bold text-[#4f875a]">{schedule.lessonPlanName}</p>
                 <p className="text-[12px] font-bold text-[#4f875a]">{schedule.participantCount}名</p>
-                <StatusBadge status={schedule.status} />
-                <p className="line-clamp-2 text-[12px] font-medium leading-5 text-[#50584e]">{schedule.nextAction}</p>
-                <div className="grid grid-cols-2 gap-1">
-                  <Link href={action.href} className="inline-flex h-7 items-center justify-center rounded-lg bg-[#5d956d] px-2 text-[11px] font-bold text-white">
-                    {action.label}
+                <ScheduleStatusBadge label={schedule.statusLabel} />
+                <div className="grid grid-cols-3 gap-1">
+                  <Link href={`/schedules/${schedule.id}`} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] px-2 text-[11px] font-bold text-[#5d956d]">
+                    詳細
                   </Link>
-                  <Link href={schedule.lessonId ? `/lessons/${schedule.lessonId}/script` : "/lessons/new"} className="inline-flex h-7 items-center justify-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] px-2 text-[11px] font-bold text-[#5d956d]">
-                    原稿
-                  </Link>
+                  {schedule.lessonPlanId ? (
+                    <Link href={`/lessons/${schedule.lessonPlanId}/script`} className="inline-flex h-8 items-center justify-center rounded-lg bg-[#5d956d] px-2 text-[11px] font-bold text-white">
+                      原稿
+                    </Link>
+                  ) : (
+                    <span className="inline-flex h-8 items-center justify-center rounded-lg border border-[#e7dfd4] bg-[#f4f1ea] px-2 text-[11px] font-bold text-[#9b8c7b]">
+                      原稿なし
+                  </span>
+                  )}
+                  <span className="inline-flex h-8 items-center justify-center rounded-lg border border-[#e7dfd4] bg-[#f4f1ea] px-2 text-[11px] font-bold text-[#9b8c7b]">
+                    記録は次
+                  </span>
                 </div>
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        ) : <SchedulesEmptyState />}
       </SoftCard>
     </>
   );
@@ -499,6 +524,22 @@ function PlansEmptyState() {
   );
 }
 
+function SchedulesEmptyState() {
+  return (
+    <SoftCard className="mt-3 p-6 text-center">
+      <CalendarDays className="mx-auto h-10 w-10 text-[#5d956d]" />
+      <p className="mt-3 text-[15px] font-extrabold">まだ予定が登録されていません。</p>
+      <p className="mx-auto mt-1 max-w-xl text-[13px] font-semibold leading-6 text-[#6b7468]">
+        作成済みのレッスンプランを選んで予定を登録しましょう。
+      </p>
+      <Link href="/schedules/new" className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-[#5d956d] px-4 text-[13px] font-bold text-white">
+        <Plus className="h-4 w-4" />
+        予定を登録
+      </Link>
+    </SoftCard>
+  );
+}
+
 function RecordsTab() {
   return (
     <SoftCard className="p-3.5">
@@ -553,25 +594,6 @@ function AnalysisTab() {
   );
 }
 
-function scheduleAction(schedule: LessonSchedule) {
-  if (schedule.status === "予定") return { label: "プラン作成", href: "/lessons/new" };
-  if (schedule.status === "事前準備中") return { label: "編集", href: schedule.lessonId ? `/lessons/${schedule.lessonId}/edit` : "/lessons/new" };
-  if (schedule.status === "事前準備済み") return { label: "プランを見る", href: schedule.lessonId ? `/lessons/${schedule.lessonId}` : "/lessons/new" };
-  if (schedule.status === "記録待ち") return { label: "記録を書く", href: schedule.lessonId ? `/lessons/${schedule.lessonId}/record` : "/lessons/new" };
-  return { label: "詳細", href: schedule.lessonId ? `/lessons/${schedule.lessonId}` : "/lessons?tab=records" };
-}
-
-function Metric({ title, value, unit, icon: Icon, tone = "green" }: { title: string; value: string; unit: string; icon: LucideIcon; tone?: "green" | "purple" }) {
-  return (
-    <SoftCard className="p-3">
-      <SectionTitle icon={Icon} title={title} />
-      <p className={tone === "purple" ? "text-[34px] font-extrabold leading-none text-[#6b61b8]" : "text-[34px] font-extrabold leading-none text-[#4f875a]"}>
-        {value}<span className="ml-1 text-sm">{unit}</span>
-      </p>
-    </SoftCard>
-  );
-}
-
 function StatusBadge({ status }: { status: LessonStatus }) {
   const className =
     status === "記録済み"
@@ -585,6 +607,19 @@ function StatusBadge({ status }: { status: LessonStatus }) {
             : "border-[#d8d1ef] bg-[#f2efff] text-[#6b61b8]";
 
   return <span className={`inline-flex h-7 items-center justify-center rounded-full border px-2 text-[11px] font-bold ${className}`}>{status}</span>;
+}
+
+function ScheduleStatusBadge({ label }: { label: string }) {
+  const className =
+    label === "記録済み"
+      ? "border-[#cfe1ca] bg-[#edf5ef] text-[#4f875a]"
+      : label === "記録待ち"
+        ? "border-[#f2c9bd] bg-[#fff0ea] text-[#ec6f5d]"
+        : label === "事前準備済み"
+          ? "border-[#cfe1ca] bg-[#f4f8f1] text-[#4f875a]"
+          : "border-[#d8d1ef] bg-[#f2efff] text-[#6b61b8]";
+
+  return <span className={`inline-flex h-7 items-center justify-center rounded-full border px-2 text-[11px] font-bold ${className}`}>{label}</span>;
 }
 
 function MiniStat({ label, value }: { label: string; value: string }) {

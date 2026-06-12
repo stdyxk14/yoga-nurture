@@ -1,5 +1,8 @@
 import { ScheduleForm } from "@/components/yoga/schedule-form";
-import { lessons, students } from "@/components/yoga/records";
+import { getLessonPlans } from "@/lib/lesson-plans";
+import { getStudents } from "@/lib/students";
+
+export const dynamic = "force-dynamic";
 
 export default async function NewSchedulePage({
   searchParams,
@@ -7,6 +10,7 @@ export default async function NewSchedulePage({
   searchParams: Promise<{ plan?: string }>;
 }) {
   const { plan } = await searchParams;
+  const [plans, students] = await Promise.all([getLessonPlans(), getStudents()]);
 
-  return <ScheduleForm plans={lessons} students={students} initialPlanId={plan} />;
+  return <ScheduleForm plans={plans} students={students} initialPlanId={plan} />;
 }
