@@ -1,10 +1,11 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ArrowDownUp, BarChart3, Dumbbell, HeartHandshake, NotebookPen, Target, UserRound } from "lucide-react";
+import { ArrowDownUp, BarChart3, Dumbbell, HeartHandshake, NotebookPen, Sparkles, Target, UserRound } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MiniBar, PageHeader, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
+import { PageHeader, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
 import { getStudentAttendanceStats, getStudentLessonHistory, getStudentObservationHistory } from "@/components/yoga/records";
 import type { StudentAttendanceStats, StudentLessonHistory, StudentObservation, StudentRecord } from "@/components/yoga/records";
+import { StudentAiButton } from "@/components/yoga/student-ai-button";
 
 export function StudentDetail({ student }: { student: StudentRecord }) {
   const profileItems = [
@@ -15,6 +16,7 @@ export function StudentDetail({ student }: { student: StudentRecord }) {
   const observations = getStudentObservationHistory(student.id);
   const lessonHistory = getStudentLessonHistory(student.id);
   const stats = getStudentAttendanceStats(student.id);
+  const aiSuggestions = getBasicInfoSuggestions(student);
 
   return (
     <>
@@ -92,15 +94,7 @@ export function StudentDetail({ student }: { student: StudentRecord }) {
           </SoftCard>
 
           <SoftCard>
-            <SectionTitle icon={Target} title="次回レッスンに向けたポイント" />
-            <div className="space-y-3">
-              {[student.caution, "ブロック評価で反応が良かった呼吸法を導入に使う", "参加ステータスと次回フォローを確認する"].map((point) => (
-                <div key={point} className="flex items-start gap-2 text-[14px] font-medium">
-                  <Target className="mt-0.5 h-5 w-5 shrink-0 text-[#629268]" />
-                  {point}
-                </div>
-              ))}
-            </div>
+            <AiSuggestionPanel suggestions={aiSuggestions} />
           </SoftCard>
         </section>
 
@@ -126,26 +120,7 @@ export function StudentDetail({ student }: { student: StudentRecord }) {
 
         <SoftCard className="mt-4">
           <SectionTitle icon={BarChart3} title="この生徒の受講傾向" />
-          <div className="grid grid-cols-[170px_1fr_170px_1.2fr_1fr] gap-4">
-            <div className="border-r border-[#eee3d7] pr-4">
-              <p className="text-sm font-bold">受講頻度</p>
-              <p className="mt-4 text-3xl font-extrabold text-[#4f875a]">3.8<span className="ml-1 text-sm">回</span></p>
-              <p className="mt-2 text-[12px] font-semibold text-[#677064]">月平均。安定して通われています</p>
-            </div>
-            <div className="border-r border-[#eee3d7] pr-4">
-              <p className="mb-3 text-sm font-bold">よく受けるクラス</p>
-              {[["リラックス系", 60], ["ベーシックフロー", 30], ["陰ヨガ", 10]].map(([label, value]) => (
-                <div key={label} className="mb-3 grid grid-cols-[110px_1fr_36px] items-center gap-2 text-[12px] font-semibold">
-                  <span>{label}</span>
-                  <MiniBar value={Number(value)} />
-                  <span>{value}%</span>
-                </div>
-              ))}
-            </div>
-            <Info label="属性" value={`${student.ageGroup} / ${student.gender}`} />
-            <Info label="反応の傾向" value="呼吸法とゆったりした誘導で変化が出やすいタイプ。" />
-            <Info label="次のフォーカス" value={student.caution} />
-          </div>
+          <EmptyHistoryMessage text="受講履歴が蓄積されると、受講頻度・よく受けるクラス・反応の傾向が表示されます。" />
         </SoftCard>
       </div>
     </>
@@ -227,15 +202,8 @@ function MobileStudentDetail({
         ) : null}
       </MobileSection>
 
-      <MobileSection title="次回レッスンに向けたポイント">
-        <div className="grid gap-2">
-          {[student.caution, "反応が良かった呼吸法を導入に使う", "参加ステータスと次回フォローを確認"].map((point) => (
-            <div key={point} className="flex gap-2 rounded-2xl border border-[#eee4d8] bg-white/76 p-3 text-[13px] font-semibold leading-5">
-              <Target className="mt-0.5 h-4 w-4 shrink-0 text-[#629268]" />
-              <p className="min-w-0 break-words">{point}</p>
-            </div>
-          ))}
-        </div>
+      <MobileSection title="AIメンターからの次回提案">
+        <AiSuggestionPanel suggestions={getBasicInfoSuggestions(student)} compact />
       </MobileSection>
 
       <MobileSection title="受講レッスン履歴">
@@ -257,19 +225,7 @@ function MobileStudentDetail({
       </MobileSection>
 
       <MobileSection title="この生徒の受講傾向">
-        <div className="grid gap-3">
-          <div className="rounded-2xl border border-[#eee4d8] bg-white/76 p-3">
-            <p className="text-[12px] font-bold text-[#8b704c]">受講頻度</p>
-            <p className="mt-1 text-[28px] font-extrabold text-[#4f875a]">3.8<span className="ml-1 text-sm">回/月</span></p>
-          </div>
-          {[["リラックス系", 60], ["ベーシックフロー", 30], ["陰ヨガ", 10]].map(([label, value]) => (
-            <div key={label} className="grid grid-cols-[96px_1fr_36px] items-center gap-2 text-[12px] font-semibold">
-              <span>{label}</span>
-              <MiniBar value={Number(value)} />
-              <span>{value}%</span>
-            </div>
-          ))}
-        </div>
+        <EmptyHistoryMessage text="受講履歴が蓄積されると、受講頻度・よく受けるクラス・反応の傾向が表示されます。" />
       </MobileSection>
     </div>
   );
@@ -301,6 +257,65 @@ function EmptyHistoryMessage({ text }: { text: string }) {
       {text}
     </div>
   );
+}
+
+function AiSuggestionPanel({
+  suggestions,
+  compact = false,
+}: {
+  suggestions: string[];
+  compact?: boolean;
+}) {
+  return (
+    <div className="min-w-0">
+      <SectionTitle
+        icon={Sparkles}
+        title="AIメンターからの次回提案"
+        subtitle="生徒情報・受講履歴・観察メモをもとに、次回レッスンの配慮ポイントを提案します。"
+      />
+      <div className="rounded-2xl border border-[#eee4d8] bg-[#fbf8f1] p-3">
+        <p className="text-[13px] font-bold leading-6 text-[#657064]">
+          まだ受講履歴が少ないため、AI提案は生徒の基本情報をもとに準備中です。
+        </p>
+        <div className="mt-3 grid gap-2">
+          {suggestions.length ? suggestions.map((point) => (
+            <div key={point} className="flex items-start gap-2 text-[13px] font-semibold leading-5 text-[#394238]">
+              <Target className="mt-0.5 h-4 w-4 shrink-0 text-[#629268]" />
+              <p className="min-w-0 break-words">{point}</p>
+            </div>
+          )) : (
+            <p className="text-[12px] font-semibold leading-5 text-[#6b7468]">
+              ヨガ他経験・ケガなどの注意点・その他メモを登録すると、次回の配慮ポイントを準備しやすくなります。
+            </p>
+          )}
+        </div>
+        <div className={compact ? "mt-3" : "mt-4"}>
+          <StudentAiButton />
+        </div>
+      </div>
+      <div className="mt-3 rounded-2xl border border-dashed border-[#d8e3d4] bg-white/60 p-3 text-[11px] font-semibold leading-5 text-[#7a7f73]">
+        将来的には、年代・性別・ヨガ他経験・注意点・観察メモ・受講履歴・ブロック評価をAI提案の材料にします。
+      </div>
+    </div>
+  );
+}
+
+function getBasicInfoSuggestions(student: StudentRecord) {
+  const suggestions: string[] = [];
+
+  if (student.caution.trim()) {
+    suggestions.push(`${student.caution}に配慮し、痛みや違和感が出る動きは無理に進めない。`);
+  }
+
+  if (student.memo.trim()) {
+    suggestions.push(`その他メモを確認し、可動域や体調を見ながらゆっくり進める。`);
+  }
+
+  if (student.experience.trim()) {
+    suggestions.push(`ヨガ他経験を踏まえ、説明量とポーズの難度を調整する。`);
+  }
+
+  return suggestions.slice(0, 3);
 }
 
 function LessonHistoryTable({ histories }: { histories: StudentLessonHistory[] }) {
@@ -403,14 +418,5 @@ function MobileSection({ title, children }: { title: string; children: ReactNode
       <h2 className="mb-3 text-[16px] font-extrabold">{title}</h2>
       {children}
     </section>
-  );
-}
-
-function Info({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-[#eee4d8] bg-white/68 p-2">
-      <p className="text-[11px] font-bold text-[#8b704c]">{label}</p>
-      <p className="mt-1 text-[12px] font-medium leading-5">{value}</p>
-    </div>
   );
 }
