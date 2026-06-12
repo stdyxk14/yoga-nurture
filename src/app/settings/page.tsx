@@ -2,7 +2,6 @@ import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 import {
   Archive,
-  ArrowDown,
   ArrowUp,
   CloudUpload,
   Download,
@@ -11,7 +10,6 @@ import {
   Heart,
   LockKeyhole,
   LogOut,
-  Palette,
   Pencil,
   Plus,
   Settings2,
@@ -29,6 +27,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PageHeader, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
+import {
+  archiveBlockCategoryAction,
+  archiveBlockSubcategoryAction,
+  createBlockCategoryAction,
+  createBlockSubcategoryAction,
+  createDefaultBlockCategoriesAction,
+  deleteBlockCategoryAction,
+  deleteBlockSubcategoryAction,
+  updateBlockCategoryAction,
+  updateBlockSubcategoryAction,
+} from "@/app/settings/block-category-actions";
+import { getBlockCategories, type BlockCategory } from "@/lib/blocks";
 
 const mentorSettings: [string, string, LucideIcon][] = [
   ["身体分析メンター", "身体の状態を分析し、改善や提案のヒントを整理します。", Sprout],
@@ -43,41 +53,15 @@ const learningRows = [
   ["生徒さまからの質問まとめ.xlsx", "Q&A", "寄り添い", "OCR済み", "2025/5/6"],
 ];
 
-const majorCategories = [
-  { name: "事前準備", color: "#8fbf9a", icon: "clipboard", count: 8, archived: false },
-  { name: "雑談", color: "#d9b98f", icon: "message", count: 5, archived: false },
-  { name: "導入", color: "#7fb18a", icon: "leaf", count: 16, archived: false },
-  { name: "呼吸法", color: "#92a7d8", icon: "wind", count: 21, archived: false },
-  { name: "ウォーミングアップ", color: "#e0aa8f", icon: "sun", count: 18, archived: false },
-  { name: "スーリャナマスカーラ", color: "#c99b6a", icon: "sunrise", count: 9, archived: false },
-  { name: "立位", color: "#90b47b", icon: "standing", count: 32, archived: false },
-  { name: "立位以外", color: "#a6a0d3", icon: "mat", count: 24, archived: false },
-  { name: "ターゲットアーサナ", color: "#dd8d78", icon: "target", count: 14, archived: false },
-  { name: "クールダウン", color: "#96b8bb", icon: "moon", count: 28, archived: false },
-  { name: "クロージング", color: "#b8a68c", icon: "sparkles", count: 7, archived: false },
-  { name: "その他", color: "#b7b7ae", icon: "more", count: 3, archived: true },
-];
+export const dynamic = "force-dynamic";
 
-const minorGroups = [
-  {
-    major: "導入",
-    minors: ["足指体操", "今日のテーマ説明", "怪我確認", "グラウンディング"],
-  },
-  {
-    major: "呼吸法",
-    minors: ["完全呼吸法", "片鼻呼吸", "胸式呼吸", "腹式呼吸"],
-  },
-  {
-    major: "クールダウン",
-    minors: ["首のストレッチ", "セツヴァンダサルヴァンガ", "ハラアーサナ", "ジャタラパリブルッタアーサナ", "シャヴァーサナ"],
-  },
-];
+export default async function SettingsPage() {
+  const blockCategories = await getBlockCategories();
 
-export default function SettingsPage() {
   return (
     <>
       <div className="md:hidden">
-        <MobileSettings />
+        <MobileSettings categories={blockCategories} />
       </div>
 
       <div className="hidden md:block">
@@ -234,108 +218,13 @@ export default function SettingsPage() {
         </SoftCard>
       </section>
 
-      <section id="block-categories" className="mt-4 grid grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] gap-4">
-        <SoftCard className="p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <SectionTitle icon={FolderTree} title="ブロックカテゴリー管理" subtitle="大カテゴリーは固定ではなく、変更できる想定" />
-            <Button className="h-9 rounded-lg bg-[#5d956d] text-white hover:bg-[#4f835d]">
-              <Plus className="mr-1.5 h-4 w-4" />
-              大カテゴリーを追加
-            </Button>
-          </div>
-
-          <div className="overflow-hidden rounded-xl border border-[#eee4d8] bg-white/72">
-            <div className="grid grid-cols-[28px_1fr_92px_78px_68px_126px] gap-2 border-b border-[#eee4d8] bg-[#faf7ef] px-3 py-2 text-[11px] font-bold text-[#6b7468]">
-              <span>色</span>
-              <span>大カテゴリー名</span>
-              <span>アイコン</span>
-              <span>使用数</span>
-              <span>表示順</span>
-              <span className="text-right">操作</span>
-            </div>
-            {majorCategories.map((category) => (
-              <div key={category.name} className="grid grid-cols-[28px_1fr_92px_78px_68px_126px] items-center gap-2 border-b border-[#eee4d8] px-3 py-2 last:border-b-0">
-                <span className="h-5 w-5 rounded-full border border-white shadow-sm" style={{ backgroundColor: category.color }} />
-                <div className="min-w-0">
-                  <Input defaultValue={category.name} className="h-8 bg-white/80 text-[13px] font-bold" />
-                  {category.archived ? <Badge className="mt-1 rounded-full bg-[#f0eee8] text-[#7c756b] shadow-none">アーカイブ中</Badge> : null}
-                </div>
-                <div className="flex items-center gap-1 rounded-lg border border-[#e3dbcf] bg-white/80 px-2 py-1 text-[11px] font-bold text-[#5f665c]">
-                  <Palette className="h-3.5 w-3.5" />
-                  {category.icon}
-                </div>
-                <span className="text-[12px] font-bold text-[#4f7b58]">{category.count}個</span>
-                <div className="flex gap-1">
-                  <button className="h-7 w-7 rounded-lg border border-[#d8e3d4] bg-white text-[#4f7b58]" aria-label="上へ"><ArrowUp className="mx-auto h-3.5 w-3.5" /></button>
-                  <button className="h-7 w-7 rounded-lg border border-[#d8e3d4] bg-white text-[#4f7b58]" aria-label="下へ"><ArrowDown className="mx-auto h-3.5 w-3.5" /></button>
-                </div>
-                <div className="flex justify-end gap-1 text-[#6d716a]">
-                  <button className="h-7 w-7 rounded-lg border border-[#e3dbcf] bg-white" aria-label="編集"><Pencil className="mx-auto h-3.5 w-3.5" /></button>
-                  <button className="h-7 w-7 rounded-lg border border-[#e3dbcf] bg-white" aria-label="アーカイブ"><Archive className="mx-auto h-3.5 w-3.5" /></button>
-                  <button className="h-7 w-7 rounded-lg border border-[#f0c7b4] bg-[#fff3ec] text-[#e46b50]" aria-label="削除"><Trash2 className="mx-auto h-3.5 w-3.5" /></button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <p className="mt-3 rounded-xl bg-[#fff7e8] px-3 py-2 text-[12px] font-medium leading-5 text-[#80633c]">
-            すでにブロックに使われている大カテゴリーは、完全削除ではなく「アーカイブ」または「別カテゴリーへ付け替えてから削除」する想定です。
-          </p>
-        </SoftCard>
-
-        <SoftCard className="p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <SectionTitle icon={FolderTree} title="小カテゴリー管理" subtitle="大カテゴリーごとに追加・編集・並び替え" />
-            <Button variant="outline" className="h-9 rounded-lg border-[#cfe1ca] bg-[#f8fcf6] text-[#5d956d]">
-              <Plus className="mr-1.5 h-4 w-4" />
-              小カテゴリーを追加
-            </Button>
-          </div>
-
-          <div className="grid gap-3">
-            {minorGroups.map((group) => (
-              <div key={group.major} className="rounded-xl border border-[#eee4d8] bg-white/70 p-3">
-                <div className="mb-2 flex items-center justify-between">
-                  <p className="text-[14px] font-extrabold text-[#4f7b58]">{group.major}</p>
-                  <Select defaultValue={group.major}>
-                    <SelectTrigger className="h-8 w-40 rounded-lg bg-white/80 text-[12px]"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {majorCategories.slice(0, 10).map((category) => (
-                        <SelectItem key={category.name} value={category.name}>{category.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  {group.minors.map((minor, index) => (
-                    <div key={minor} className="grid grid-cols-[1fr_68px_112px] items-center gap-2 rounded-lg border border-[#eee4d8] bg-white/78 px-2 py-2">
-                      <Input defaultValue={minor} className="h-8 bg-white/80 text-[13px] font-bold" />
-                      <div className="flex gap-1">
-                        <button className="h-7 w-7 rounded-lg border border-[#d8e3d4] bg-white text-[#4f7b58]" aria-label="上へ"><ArrowUp className="mx-auto h-3.5 w-3.5" /></button>
-                        <button className="h-7 w-7 rounded-lg border border-[#d8e3d4] bg-white text-[#4f7b58]" aria-label="下へ"><ArrowDown className="mx-auto h-3.5 w-3.5" /></button>
-                      </div>
-                      <div className="flex justify-end gap-1">
-                        <button className="h-7 w-7 rounded-lg border border-[#e3dbcf] bg-white text-[#6d716a]" aria-label="編集"><Pencil className="mx-auto h-3.5 w-3.5" /></button>
-                        <button className="h-7 w-7 rounded-lg border border-[#e3dbcf] bg-white text-[#6d716a]" aria-label="アーカイブ"><Archive className="mx-auto h-3.5 w-3.5" /></button>
-                        <button className="h-7 w-7 rounded-lg border border-[#f0c7b4] bg-[#fff3ec] text-[#e46b50]" aria-label="削除"><Trash2 className="mx-auto h-3.5 w-3.5" /></button>
-                      </div>
-                      {index === group.minors.length - 1 ? (
-                        <p className="col-span-3 text-[11px] font-medium text-[#7c8476]">使用中の場合はアーカイブ、または付け替え後に削除します。</p>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </SoftCard>
-      </section>
+      <BlockCategoryManagement categories={blockCategories} />
       </div>
     </>
   );
 }
 
-function MobileSettings() {
+function MobileSettings({ categories }: { categories: BlockCategory[] }) {
   return (
     <div className="mx-auto max-w-[430px] space-y-4 overflow-x-hidden">
       <div className="rounded-[24px] border border-[#eee4d8] bg-white/84 p-4 shadow-[0_12px_26px_rgba(122,104,80,0.08)]">
@@ -393,29 +282,38 @@ function MobileSettings() {
 
       <MobileSettingCard title="ブロックカテゴリー管理" icon={FolderTree}>
         <div className="mb-3 grid grid-cols-2 gap-2">
-          <Button className="h-10 rounded-xl bg-[#5d956d] text-[12px] text-white hover:bg-[#4f835d]">
+          <form action={createBlockCategoryAction}>
+            <input type="hidden" name="name" value="新しいカテゴリー" />
+            <input type="hidden" name="color" value="#8fbf9a" />
+            <input type="hidden" name="icon" value="folder" />
+            <Button className="h-10 w-full rounded-xl bg-[#5d956d] text-[12px] text-white hover:bg-[#4f835d]">
             <Plus className="mr-1 h-4 w-4" />
             大カテゴリー追加
-          </Button>
-          <Button variant="outline" className="h-10 rounded-xl border-[#cfe1ca] bg-[#f8fcf6] text-[12px] text-[#5d956d]">
+            </Button>
+          </form>
+          <Link href="#block-categories" className="inline-flex h-10 items-center justify-center rounded-xl border border-[#cfe1ca] bg-[#f8fcf6] text-[12px] font-bold text-[#5d956d]">
             <Plus className="mr-1 h-4 w-4" />
-            小カテゴリー追加
-          </Button>
+            小カテゴリー
+          </Link>
         </div>
         <div className="space-y-2">
-          {majorCategories.slice(0, 6).map((category) => (
+          {categories.length ? categories.slice(0, 6).map((category) => (
             <div key={category.name} className="flex items-center gap-2 rounded-2xl border border-[#eee4d8] bg-white/74 p-2.5">
-              <span className="h-4 w-4 shrink-0 rounded-full border border-white shadow-sm" style={{ backgroundColor: category.color }} />
+              <span className="h-4 w-4 shrink-0 rounded-full border border-white shadow-sm" style={{ backgroundColor: category.color ?? "#8fbf9a" }} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[13px] font-extrabold">{category.name}</p>
-                <p className="text-[11px] font-semibold text-[#6d7469]">{category.count}個のブロック</p>
+                <p className="text-[11px] font-semibold text-[#6d7469]">{category.subcategories.length}個の小カテゴリー</p>
               </div>
               <div className="flex gap-1">
                 <button className="h-8 w-8 rounded-lg border border-[#d8e3d4] bg-white text-[#4f7b58]" aria-label="上へ"><ArrowUp className="mx-auto h-3.5 w-3.5" /></button>
                 <button className="h-8 w-8 rounded-lg border border-[#e3dbcf] bg-white text-[#6d716a]" aria-label="編集"><Pencil className="mx-auto h-3.5 w-3.5" /></button>
               </div>
             </div>
-          ))}
+          )) : (
+            <div className="rounded-2xl border border-dashed border-[#d8e3d4] bg-[#f8fcf6] p-4 text-[12px] font-semibold leading-5 text-[#657064]">
+              まだカテゴリーがありません。初期カテゴリーを作成してください。
+            </div>
+          )}
         </div>
         <p className="mt-3 rounded-2xl bg-[#fff7e8] px-3 py-2 text-[11px] font-semibold leading-5 text-[#80633c]">
           使用中のカテゴリーは、アーカイブまたは別カテゴリーへ付け替えてから削除する想定です。
@@ -439,6 +337,105 @@ function MobileSettings() {
           ))}
         </div>
       </MobileSettingCard>
+    </div>
+  );
+}
+
+function BlockCategoryManagement({ categories }: { categories: BlockCategory[] }) {
+  return (
+    <section id="block-categories" className="mt-4 grid grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] gap-4">
+      <SoftCard className="p-4">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <SectionTitle icon={FolderTree} title="ブロックカテゴリー管理" subtitle="Supabaseに保存された大カテゴリーを管理" />
+          <form action={createDefaultBlockCategoriesAction}>
+            <Button className="h-9 rounded-lg bg-[#5d956d] text-white hover:bg-[#4f835d]">
+              <Plus className="mr-1.5 h-4 w-4" />
+              初期カテゴリー作成
+            </Button>
+          </form>
+        </div>
+
+        <form action={createBlockCategoryAction} className="mb-3 grid grid-cols-[1fr_90px_90px_60px_auto] gap-2 rounded-xl border border-[#eee4d8] bg-white/72 p-3">
+          <Input name="name" placeholder="大カテゴリー名" className="h-9 bg-white/80 text-[13px]" />
+          <Input name="color" defaultValue="#8fbf9a" className="h-9 bg-white/80 text-[13px]" />
+          <Input name="icon" defaultValue="folder" className="h-9 bg-white/80 text-[13px]" />
+          <Input name="sort_order" type="number" defaultValue="0" className="h-9 bg-white/80 text-[13px]" />
+          <Button className="h-9 rounded-lg bg-[#5d956d] text-white hover:bg-[#4f835d]">追加</Button>
+        </form>
+
+        {categories.length ? (
+          <div className="overflow-hidden rounded-xl border border-[#eee4d8] bg-white/72">
+            <div className="grid grid-cols-[86px_1fr_86px_62px_112px] gap-2 border-b border-[#eee4d8] bg-[#faf7ef] px-3 py-2 text-[11px] font-bold text-[#6b7468]">
+              <span>色</span><span>大カテゴリー名</span><span>アイコン</span><span>順</span><span className="text-right">操作</span>
+            </div>
+            {categories.map((category) => (
+              <form key={category.id} action={updateBlockCategoryAction.bind(null, category.id)} className="grid grid-cols-[86px_1fr_86px_62px_112px] items-center gap-2 border-b border-[#eee4d8] px-3 py-2 last:border-b-0">
+                <Input name="color" defaultValue={category.color ?? "#8fbf9a"} className="h-8 bg-white/80 text-[12px]" />
+                <div className="min-w-0">
+                  <Input name="name" defaultValue={category.name} className="h-8 bg-white/80 text-[13px] font-bold" />
+                  {category.archived ? <Badge className="mt-1 rounded-full bg-[#f0eee8] text-[#7c756b] shadow-none">アーカイブ中</Badge> : null}
+                </div>
+                <Input name="icon" defaultValue={category.icon ?? "folder"} className="h-8 bg-white/80 text-[12px]" />
+                <Input name="sort_order" type="number" defaultValue={category.sort_order} className="h-8 bg-white/80 text-[12px]" />
+                <div className="flex justify-end gap-1 text-[#6d716a]">
+                  <button className="h-7 w-7 rounded-lg border border-[#e3dbcf] bg-white" aria-label="保存"><Pencil className="mx-auto h-3.5 w-3.5" /></button>
+                  <button formAction={archiveBlockCategoryAction.bind(null, category.id)} className="h-7 w-7 rounded-lg border border-[#e3dbcf] bg-white" aria-label="アーカイブ"><Archive className="mx-auto h-3.5 w-3.5" /></button>
+                  <button formAction={deleteBlockCategoryAction.bind(null, category.id)} className="h-7 w-7 rounded-lg border border-[#f0c7b4] bg-[#fff3ec] text-[#e46b50]" aria-label="削除"><Trash2 className="mx-auto h-3.5 w-3.5" /></button>
+                </div>
+              </form>
+            ))}
+          </div>
+        ) : (
+          <EmptyCategoryState />
+        )}
+      </SoftCard>
+
+      <SoftCard className="p-4">
+        <SectionTitle icon={FolderTree} title="小カテゴリー管理" subtitle="大カテゴリーごとに追加・編集・アーカイブ" />
+        <form action={createBlockSubcategoryAction} className="mb-3 grid grid-cols-[1fr_1fr_60px_auto] gap-2 rounded-xl border border-[#eee4d8] bg-white/72 p-3">
+          <select name="category_id" className="h-9 rounded-md border border-input bg-white/80 px-3 text-[13px]">
+            <option value="">大カテゴリー</option>
+            {categories.filter((category) => !category.archived).map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+          </select>
+          <Input name="name" placeholder="小カテゴリー名" className="h-9 bg-white/80 text-[13px]" />
+          <Input name="sort_order" type="number" defaultValue="0" className="h-9 bg-white/80 text-[13px]" />
+          <Button variant="outline" className="h-9 rounded-lg border-[#cfe1ca] bg-[#f8fcf6] text-[#5d956d]">追加</Button>
+        </form>
+        <div className="grid gap-3">
+          {categories.length ? categories.map((group) => (
+            <div key={group.id} className="rounded-xl border border-[#eee4d8] bg-white/70 p-3">
+              <p className="mb-2 text-[14px] font-extrabold text-[#4f7b58]">{group.name}</p>
+              <div className="grid gap-2">
+                {group.subcategories.length ? group.subcategories.map((minor) => (
+                  <form key={minor.id} action={updateBlockSubcategoryAction.bind(null, minor.id)} className="grid grid-cols-[1fr_120px_60px_112px] items-center gap-2 rounded-lg border border-[#eee4d8] bg-white/78 px-2 py-2">
+                    <Input name="name" defaultValue={minor.name} className="h-8 bg-white/80 text-[13px] font-bold" />
+                    <select name="category_id" defaultValue={minor.category_id} className="h-8 rounded-md border border-input bg-white/80 px-2 text-[12px]">
+                      {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+                    </select>
+                    <Input name="sort_order" type="number" defaultValue={minor.sort_order} className="h-8 bg-white/80 text-[12px]" />
+                    <div className="flex justify-end gap-1">
+                      <button className="h-7 w-7 rounded-lg border border-[#e3dbcf] bg-white text-[#6d716a]" aria-label="保存"><Pencil className="mx-auto h-3.5 w-3.5" /></button>
+                      <button formAction={archiveBlockSubcategoryAction.bind(null, minor.id)} className="h-7 w-7 rounded-lg border border-[#e3dbcf] bg-white text-[#6d716a]" aria-label="アーカイブ"><Archive className="mx-auto h-3.5 w-3.5" /></button>
+                      <button formAction={deleteBlockSubcategoryAction.bind(null, minor.id)} className="h-7 w-7 rounded-lg border border-[#f0c7b4] bg-[#fff3ec] text-[#e46b50]" aria-label="削除"><Trash2 className="mx-auto h-3.5 w-3.5" /></button>
+                    </div>
+                    {minor.archived ? <p className="col-span-4 text-[11px] font-medium text-[#7c8476]">アーカイブ中</p> : null}
+                  </form>
+                )) : <p className="rounded-lg border border-dashed border-[#d8e3d4] bg-[#f8fcf6] p-3 text-[12px] font-semibold text-[#657064]">小カテゴリーはまだありません。</p>}
+              </div>
+            </div>
+          )) : <EmptyCategoryState />}
+        </div>
+      </SoftCard>
+    </section>
+  );
+}
+
+function EmptyCategoryState() {
+  return (
+    <div className="rounded-xl border border-dashed border-[#d8e3d4] bg-[#f8fcf6] p-5 text-center">
+      <FolderTree className="mx-auto h-9 w-9 text-[#5d956d]" />
+      <p className="mt-2 text-[14px] font-extrabold">まだカテゴリーが登録されていません</p>
+      <p className="mt-1 text-[12px] font-semibold text-[#657064]">初期カテゴリー作成ボタン、または追加フォームから登録できます。</p>
     </div>
   );
 }

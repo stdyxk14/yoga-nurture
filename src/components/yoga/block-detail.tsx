@@ -1,20 +1,16 @@
 import Link from "next/link";
 import { ArrowLeft, BarChart3, FileText, History, MessageSquareText, Pencil, Sparkles } from "lucide-react";
 import { PageHeader, Pill, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
-import { getBlockAverageDuration, getBlockUsageHistory } from "@/components/yoga/records";
-import type { BlockTemplate, BlockUsageHistory } from "@/components/yoga/records";
+import type { BlockUsageHistory } from "@/components/yoga/records";
+import type { DbBlockTemplate } from "@/lib/blocks";
 
-export function BlockDetail({ block }: { block: BlockTemplate }) {
-  const histories = getBlockUsageHistory(block.id);
-  const useAgainRate = histories.length
-    ? Math.round((histories.filter((history) => history.useAgain).length / histories.length) * 100)
-    : 0;
-  const scriptReviewCount = histories.filter((history) => history.scriptReviewRequired).length;
+export function BlockDetail({ block }: { block: DbBlockTemplate }) {
+  const histories: BlockUsageHistory[] = [];
 
   return (
     <>
       <div className="md:hidden">
-        <MobileBlockDetail block={block} histories={histories} useAgainRate={useAgainRate} scriptReviewCount={scriptReviewCount} />
+        <MobileBlockDetail block={block} histories={histories} />
       </div>
       <div className="hidden md:block">
       <PageHeader title="ブロック詳細" subtitle="原稿・利用実績・改善履歴をまとめて確認" />
@@ -74,11 +70,11 @@ export function BlockDetail({ block }: { block: BlockTemplate }) {
             <SectionTitle icon={BarChart3} title="利用サマリー" />
             <div className="grid grid-cols-2 gap-2">
               <SummaryStat label="使用回数" value={`${block.usageCount}回`} />
-              <SummaryStat label="平均反応評価" value={block.averageRating.toFixed(1)} />
+              <SummaryStat label="平均反応評価" value="未評価" />
               <SummaryStat label="最近使用日" value={block.lastUsed} />
-              <SummaryStat label="次回も使いたい率" value={`${useAgainRate}%`} />
-              <SummaryStat label="セリフ見直し対象" value={`${scriptReviewCount}回`} />
-              <SummaryStat label="平均所要時間" value={getBlockAverageDuration(block.id)} />
+              <SummaryStat label="次回も使いたい率" value="未集計" />
+              <SummaryStat label="セリフ見直し対象" value="0回" />
+              <SummaryStat label="平均所要時間" value="未集計" />
             </div>
           </SoftCard>
 
@@ -86,8 +82,8 @@ export function BlockDetail({ block }: { block: BlockTemplate }) {
             <SectionTitle icon={Sparkles} title="まとめ" />
             <div className="grid gap-2 text-[12px] font-medium leading-5 text-[#50584e]">
               <SummaryNote title="よく出てくる講師メモ" body={histories[0]?.teacherMemo ?? "まだ使用履歴はありません。初回利用後に講師メモが蓄積されます。"} />
-              <SummaryNote title="改善メモの要点" body={histories.find((history) => history.improvementMemo)?.improvementMemo ?? block.memo} />
-              <SummaryNote title="反応が良かったときの傾向" body="導入の目的が短く伝わり、軽減法が先に案内されている回ほど反応が安定しています。" />
+              <SummaryNote title="改善メモの要点" body={histories.find((history) => history.improvementMemo)?.improvementMemo ?? "まだ改善メモはありません。"} />
+              <SummaryNote title="反応が良かったときの傾向" body="レッスン後記録が蓄積されると表示されます。" />
               <SummaryNote title="セリフ見直し候補" body={histories.find((history) => history.scriptRevision)?.scriptRevision ?? "次回利用時にセリフ改善メモを残します。"} />
             </div>
           </SoftCard>
@@ -120,7 +116,7 @@ export function BlockDetail({ block }: { block: BlockTemplate }) {
             </div>
           )) : (
             <div className="rounded-xl border border-dashed border-[#d8d1c6] bg-white/62 p-4 text-[13px] font-medium text-[#6b7468]">
-              このブロックはまだ実施後記録がありません。レッスン後記録で講師メモや改善メモを入力すると、ここに履歴として表示される想定です。
+              レッスン後記録でこのブロックが使われると、ここに使用履歴や改善メモが蓄積されます。
             </div>
           )}
         </div>
@@ -133,13 +129,9 @@ export function BlockDetail({ block }: { block: BlockTemplate }) {
 function MobileBlockDetail({
   block,
   histories,
-  useAgainRate,
-  scriptReviewCount,
 }: {
-  block: BlockTemplate;
+  block: DbBlockTemplate;
   histories: BlockUsageHistory[];
-  useAgainRate: number;
-  scriptReviewCount: number;
 }) {
   return (
     <div className="mx-auto max-w-[430px] space-y-4">
@@ -156,7 +148,7 @@ function MobileBlockDetail({
         </div>
         <div className="mt-3 grid grid-cols-3 gap-2 text-center">
           <SummaryStat label="使用回数" value={`${block.usageCount}回`} />
-          <SummaryStat label="評価" value={block.averageRating.toFixed(1)} />
+          <SummaryStat label="評価" value="未評価" />
           <SummaryStat label="最近" value={block.lastUsed} />
         </div>
       </section>
@@ -183,18 +175,18 @@ function MobileBlockDetail({
         <h2 className="text-[16px] font-extrabold">利用サマリー</h2>
         <div className="mt-3 grid grid-cols-2 gap-2">
           <SummaryStat label="使用回数" value={`${block.usageCount}回`} />
-          <SummaryStat label="平均評価" value={block.averageRating.toFixed(1)} />
+          <SummaryStat label="平均評価" value="未評価" />
           <SummaryStat label="最近使用日" value={block.lastUsed} />
-          <SummaryStat label="使いたい率" value={`${useAgainRate}%`} />
-          <SummaryStat label="見直し回数" value={`${scriptReviewCount}回`} />
-          <SummaryStat label="平均所要時間" value={getBlockAverageDuration(block.id)} />
+          <SummaryStat label="使いたい率" value="未集計" />
+          <SummaryStat label="見直し回数" value="0回" />
+          <SummaryStat label="平均所要時間" value="未集計" />
         </div>
       </section>
 
       <section id="history" className="rounded-3xl border border-[#eee4d8] bg-white/80 p-4">
         <h2 className="text-[16px] font-extrabold">改善履歴</h2>
         <div className="mt-3 grid gap-3">
-          {histories.map((history) => (
+          {histories.length ? histories.map((history) => (
             <div key={`${history.lessonId}-${history.blockId}`} className="relative rounded-2xl border border-[#eee4d8] bg-white/78 p-3">
               <div className="mb-2 flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -216,7 +208,11 @@ function MobileBlockDetail({
               <p className="mt-1 whitespace-pre-line text-[12px] font-medium leading-5 text-[#50584e]">{history.improvementMemo}{"\n"}{history.scriptRevision}</p>
               {history.scriptReviewRequired ? <span className="mt-3 inline-flex rounded-full bg-[#fff0ea] px-3 py-1 text-[11px] font-bold text-[#e46b50]">セリフ見直し</span> : null}
             </div>
-          ))}
+          )) : (
+            <div className="rounded-2xl border border-dashed border-[#d8d1c6] bg-white/62 p-4 text-[13px] font-medium leading-6 text-[#6b7468]">
+              レッスン後記録でこのブロックが使われると、ここに使用履歴や改善メモが蓄積されます。
+            </div>
+          )}
         </div>
       </section>
     </div>

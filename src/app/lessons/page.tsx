@@ -16,12 +16,12 @@ import { Input } from "@/components/ui/input";
 import { PageHeader, Pill, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
 import {
   blockAnalysis,
-  blockTemplates,
   lessonRecordSummaries,
   lessonSchedules,
   lessons,
 } from "@/components/yoga/records";
 import type { LessonSchedule, LessonStatus } from "@/components/yoga/records";
+import { getBlockCategories, getBlocks, getBlockTags, type BlockCategory, type DbBlockTemplate } from "@/lib/blocks";
 
 type LessonTab = "schedule" | "plans" | "blocks" | "records" | "analysis";
 
@@ -36,16 +36,22 @@ const tabs: Array<{ id: LessonTab; label: string; href: string; icon: LucideIcon
 export default async function LessonsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; q?: string; category?: string; subcategory?: string; tag?: string; sort?: string }>;
 }) {
-  const { tab } = await searchParams;
+  const params = await searchParams;
+  const { tab } = params;
   const activeTab: LessonTab =
     tab === "plans" || tab === "blocks" || tab === "records" || tab === "analysis" ? tab : "schedule";
+  const [blocks, categories, tags] = await Promise.all([
+    getBlocks(params),
+    getBlockCategories(),
+    getBlockTags(),
+  ]);
 
   return (
     <>
       <div className="md:hidden">
-        <MobileLessonsPage activeTab={activeTab} />
+        <MobileLessonsPage activeTab={activeTab} blocks={blocks} categories={categories} tags={tags.map((tag) => tag.name)} />
       </div>
       <div className="hidden md:block">
       <PageHeader
@@ -79,7 +85,7 @@ export default async function LessonsPage({
 
       {activeTab === "schedule" ? <ScheduleTab /> : null}
       {activeTab === "plans" ? <PlansTab /> : null}
-      {activeTab === "blocks" ? <BlocksTab /> : null}
+      {activeTab === "blocks" ? <BlocksTab blocks={blocks} categories={categories} tags={tags.map((tag) => tag.name)} /> : null}
       {activeTab === "records" ? <RecordsTab /> : null}
       {activeTab === "analysis" ? <AnalysisTab /> : null}
       </div>
@@ -87,7 +93,9 @@ export default async function LessonsPage({
   );
 }
 
-function MobileLessonsPage({ activeTab }: { activeTab: LessonTab }) {
+export const dynamic = "force-dynamic";
+
+function MobileLessonsPage({ activeTab, blocks, categories, tags }: { activeTab: LessonTab; blocks: DbBlockTemplate[]; categories: BlockCategory[]; tags: string[] }) {
   return (
     <div className="mx-auto max-w-[430px] space-y-4">
       <div className="flex gap-2 overflow-x-auto pb-1">
@@ -104,7 +112,7 @@ function MobileLessonsPage({ activeTab }: { activeTab: LessonTab }) {
 
       {activeTab === "schedule" ? <MobileScheduleTab /> : null}
       {activeTab === "plans" ? <MobilePlansTab /> : null}
-      {activeTab === "blocks" ? <MobileBlocksList /> : null}
+      {activeTab === "blocks" ? <MobileBlocksList blocks={blocks} categories={categories} tags={tags} /> : null}
       {activeTab === "records" ? <MobileRecordsTab /> : null}
       {activeTab === "analysis" ? <MobileAnalysisTab /> : null}
     </div>
@@ -170,36 +178,38 @@ function MobilePlansTab() {
   );
 }
 
-function MobileBlocksList() {
-  const chips = ["すべて", "導入", "呼吸法", "ウォームアップ", "クールダウン", "未使用"];
+function MobileBlocksList({ blocks, categories, tags }: { blocks: DbBlockTemplate[]; categories: BlockCategory[]; tags: string[] }) {
   return (
     <div className="space-y-3">
       <MobileTabIntro title="ブロックテンプレート" body="原稿ブロックを検索し、プラン作成に再利用します。" primaryHref="/blocks/new" primaryLabel="＋ ブロックを登録" />
-      <div className="flex items-center gap-2 rounded-2xl border border-[#e7dfd4] bg-white/80 px-3 py-2">
+      <form action="/lessons" className="space-y-3">
+        <input type="hidden" name="tab" value="blocks" />
+        <div className="flex items-center gap-2 rounded-2xl border border-[#e7dfd4] bg-white/80 px-3 py-2">
         <Search className="h-4 w-4 shrink-0 text-[#6b7468]" />
-        <Input placeholder="ブロック名・タグ・原稿を検索" className="h-9 border-0 bg-transparent px-0 text-[13px] shadow-none focus-visible:ring-0" />
-      </div>
+        <Input name="q" placeholder="ブロック名・タグ・原稿を検索" className="h-9 border-0 bg-transparent px-0 text-[13px] shadow-none focus-visible:ring-0" />
+        </div>
       <div className="flex gap-2 overflow-x-auto pb-1">
-        {chips.map((chip, index) => (
-          <span key={chip} className={index === 0 ? "shrink-0 rounded-full bg-[#7ea06f] px-4 py-2 text-[12px] font-bold text-white" : "shrink-0 rounded-full border border-[#e1d9ce] bg-white/80 px-4 py-2 text-[12px] font-bold text-[#5d6b58]"}>{chip}</span>
+        <Link href="/lessons?tab=blocks" className="shrink-0 rounded-full bg-[#7ea06f] px-4 py-2 text-[12px] font-bold text-white">すべて</Link>
+        {categories.filter((category) => !category.archived).map((category) => (
+          <Link key={category.id} href={`/lessons?tab=blocks&category=${category.id}`} className="shrink-0 rounded-full border border-[#e1d9ce] bg-white/80 px-4 py-2 text-[12px] font-bold text-[#5d6b58]">{category.name}</Link>
         ))}
       </div>
       <div className="grid grid-cols-[1fr_96px] gap-2">
-        <select className="h-10 rounded-xl border border-[#e1d9ce] bg-white/80 px-3 text-[12px] font-bold text-[#5d6b58]">
-          <option>すべての小カテゴリー</option>
-          <option>完全呼吸法</option>
-          <option>首のストレッチ</option>
+        <select name="tag" className="h-10 rounded-xl border border-[#e1d9ce] bg-white/80 px-3 text-[12px] font-bold text-[#5d6b58]">
+          <option value="">すべてのタグ</option>
+          {tags.map((tag) => <option key={tag} value={tag}>{tag}</option>)}
         </select>
-        <button className="inline-flex h-10 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white text-[12px] font-bold text-[#4f7b58]">絞り込み</button>
+        <button className="inline-flex h-10 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white text-[12px] font-bold text-[#4f7b58]">検索</button>
       </div>
-      {blockTemplates.map((block, index) => (
+      </form>
+      {blocks.length ? blocks.map((block, index) => (
         <MobileBlockListCard key={block.id} block={block} index={index} />
-      ))}
+      )) : <BlocksEmptyState />}
     </div>
   );
 }
 
-function MobileBlockListCard({ block, index }: { block: typeof blockTemplates[number]; index: number }) {
+function MobileBlockListCard({ block, index }: { block: DbBlockTemplate; index: number }) {
   const colors = ["bg-[#e5efdf] text-[#5d956d]", "bg-[#f6ead9] text-[#9b7338]", "bg-[#eee9fb] text-[#8b68bd]", "bg-[#fff0ea] text-[#d96c55]"];
   return (
     <article className="rounded-3xl border border-[#eee4d8] bg-white/80 p-3 shadow-[0_8px_18px_rgba(91,76,53,0.05)]">
@@ -217,8 +227,8 @@ function MobileBlockListCard({ block, index }: { block: typeof blockTemplates[nu
         {block.tags.slice(0, 3).map((tag) => <Pill key={tag}>{tag}</Pill>)}
       </div>
       <div className="mt-2 grid grid-cols-3 gap-2 text-center">
-        <MiniStat label="使用" value={`${block.usageCount}回`} />
-        <MiniStat label="評価" value={block.averageRating.toFixed(1)} />
+        <MiniStat label="使用" value="0回" />
+        <MiniStat label="評価" value="未評価" />
         <MiniStat label="最近" value={block.lastUsed} />
       </div>
       <p className="mt-2 line-clamp-2 text-[12px] font-medium leading-5 text-[#50584e]">{block.script}</p>
@@ -374,33 +384,52 @@ function PlansTab() {
   );
 }
 
-function BlocksTab() {
-  const categoryFilters = ["すべて", "導入", "呼吸法", "ウォーミングアップ", "クールダウン", "未使用"];
-  const sortFilters = ["使用頻度順", "評価が高い順", "最近使った順", "改善メモ多め"];
-
+function BlocksTab({ blocks, categories, tags }: { blocks: DbBlockTemplate[]; categories: BlockCategory[]; tags: string[] }) {
   return (
     <>
-      <div className="mb-3 flex items-center justify-between gap-3">
+      <form action="/lessons" className="mb-3 grid grid-cols-[minmax(0,1fr)_150px_150px_140px_130px_auto_auto] items-center gap-2">
+        <input type="hidden" name="tab" value="blocks" />
         <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-[#e7dfd4] bg-white/80 px-3 py-2">
           <Search className="h-4 w-4 shrink-0 text-[#6b7468]" />
-          <Input placeholder="ブロック名、カテゴリー、タグ、原稿内の言葉で検索" className="h-8 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0" />
+          <Input name="q" placeholder="ブロック名、タグ、原稿内の言葉で検索" className="h-8 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0" />
         </div>
+        <select name="category" className="h-10 rounded-xl border border-[#e1d9ce] bg-white/80 px-3 text-[12px] font-bold text-[#5d6b58]">
+          <option value="">大カテゴリー</option>
+          {categories.filter((category) => !category.archived).map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+        </select>
+        <select name="subcategory" className="h-10 rounded-xl border border-[#e1d9ce] bg-white/80 px-3 text-[12px] font-bold text-[#5d6b58]">
+          <option value="">小カテゴリー</option>
+          {categories.flatMap((category) => category.subcategories).filter((subcategory) => !subcategory.archived).map((subcategory) => <option key={subcategory.id} value={subcategory.id}>{subcategory.name}</option>)}
+        </select>
+        <select name="tag" className="h-10 rounded-xl border border-[#e1d9ce] bg-white/80 px-3 text-[12px] font-bold text-[#5d6b58]">
+          <option value="">タグ</option>
+          {tags.map((tag) => <option key={tag} value={tag}>{tag}</option>)}
+        </select>
+        <select name="sort" className="h-10 rounded-xl border border-[#e1d9ce] bg-white/80 px-3 text-[12px] font-bold text-[#5d6b58]">
+          <option value="updated">更新日順</option>
+          <option value="duration">目安時間順</option>
+          <option value="name">ブロック名順</option>
+        </select>
+        <button className="inline-flex h-10 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white px-4 text-[12px] font-bold text-[#4f7b58]">検索</button>
         <Link href="/blocks/new" className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#5d956d] px-4 text-[13px] font-bold text-white">
           <Plus className="h-4 w-4" />
           ブロックを登録
         </Link>
-      </div>
+      </form>
 
       <SoftCard className="mb-3 p-3">
         <div className="flex flex-wrap gap-2">
-          {[...categoryFilters, ...sortFilters, "#呼吸", "#肩こり改善", "#リラックス"].map((item, index) => (
-            <Pill key={item} active={index === 0}>{item}</Pill>
-          ))}
+          <Pill active>実データ表示</Pill>
+          <Pill>使用回数：0回</Pill>
+          <Pill>平均評価：未評価</Pill>
+          <Pill>最近使用日：未使用</Pill>
+          <Pill>使用回数順・評価順は実施後記録接続後に有効化</Pill>
         </div>
       </SoftCard>
 
-      <div className="grid grid-cols-3 items-stretch gap-3">
-        {blockTemplates.map((block) => (
+      {blocks.length ? (
+        <div className="grid grid-cols-3 items-stretch gap-3">
+        {blocks.map((block) => (
           <SoftCard key={block.id} className="flex min-h-[305px] flex-col p-3">
             <div className="mb-2 flex items-start justify-between gap-2">
               <div className="min-w-0">
@@ -415,8 +444,8 @@ function BlocksTab() {
               {block.tags.slice(0, 3).map((tag) => <Pill key={tag}>{tag}</Pill>)}
             </div>
             <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-              <MiniStat label="使用" value={`${block.usageCount}回`} />
-              <MiniStat label="評価" value={block.averageRating.toFixed(1)} />
+              <MiniStat label="使用" value="0回" />
+              <MiniStat label="評価" value="未評価" />
               <MiniStat label="最近" value={block.lastUsed} />
             </div>
             <div className="mt-auto grid grid-cols-3 gap-1.5 pt-3">
@@ -426,8 +455,27 @@ function BlocksTab() {
             </div>
           </SoftCard>
         ))}
-      </div>
+        </div>
+      ) : <BlocksEmptyState />}
     </>
+  );
+}
+
+function BlocksEmptyState() {
+  return (
+    <SoftCard className="p-6 text-center">
+      <Layers3 className="mx-auto h-10 w-10 text-[#5d956d]" />
+      <p className="mt-3 text-[15px] font-extrabold">まだブロックテンプレートが登録されていません。</p>
+      <p className="mt-1 text-[13px] font-semibold text-[#6b7468]">よく使う誘導セリフやレッスンパートを登録しましょう。</p>
+      <div className="mt-4 flex justify-center gap-2">
+        <Link href="/blocks/new" className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#5d956d] px-4 text-[13px] font-bold text-white">
+          <Plus className="h-4 w-4" />ブロックを登録
+        </Link>
+        <Link href="/settings#block-categories" className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#d8e3d4] bg-white px-4 text-[13px] font-bold text-[#4f7b58]">
+          カテゴリーを設定する
+        </Link>
+      </div>
+    </SoftCard>
   );
 }
 

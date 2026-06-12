@@ -1,18 +1,31 @@
-import { notFound } from "next/navigation";
 import { BlockForm } from "@/components/yoga/block-form";
-import { blockTemplates, getBlock } from "@/components/yoga/records";
+import { deleteBlockAction, updateBlockAction } from "@/app/blocks/actions";
+import { getBlockById, getBlockCategories, getBlockTags } from "@/lib/blocks";
 
-export function generateStaticParams() {
-  return blockTemplates.map((block) => ({ id: block.id }));
-}
+export const dynamic = "force-dynamic";
 
-export default async function EditBlockPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EditBlockPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string }>;
+}) {
   const { id } = await params;
-  const block = getBlock(id);
+  const { error } = await searchParams;
+  const [block, categories, tags] = await Promise.all([getBlockById(id), getBlockCategories(), getBlockTags()]);
+  const updateAction = updateBlockAction.bind(null, id);
+  const deleteAction = deleteBlockAction.bind(null, id);
 
-  if (!blockTemplates.some((item) => item.id === id)) {
-    notFound();
-  }
-
-  return <BlockForm mode="edit" block={block} />;
+  return (
+    <BlockForm
+      mode="edit"
+      block={block}
+      categories={categories}
+      tagCandidates={tags.map((tag) => tag.name)}
+      action={updateAction}
+      deleteAction={deleteAction}
+      deleteError={error}
+    />
+  );
 }

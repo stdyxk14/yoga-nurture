@@ -1,18 +1,11 @@
-import { notFound } from "next/navigation";
 import { BlockDetail } from "@/components/yoga/block-detail";
-import { blockTemplates, getBlock } from "@/components/yoga/records";
+import { getBlockById } from "@/lib/blocks";
 
-export function generateStaticParams() {
-  return blockTemplates.map((block) => ({ id: block.id }));
-}
+export const dynamic = "force-dynamic";
 
 export default async function BlockDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const block = getBlock(id);
-
-  if (!blockTemplates.some((item) => item.id === id)) {
-    notFound();
-  }
+  const block = await getBlockById(id);
 
   return <BlockDetail block={block} />;
 }
