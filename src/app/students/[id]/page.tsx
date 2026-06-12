@@ -1,12 +1,11 @@
 import { StudentDetail } from "@/components/yoga/student-detail";
-import { getStudent, students } from "@/components/yoga/records";
+import { getStudentById } from "@/lib/students";
 
-export function generateStaticParams() {
-  return students.map((student) => ({ id: student.id }));
-}
+export const dynamic = "force-dynamic";
 
 export default async function StudentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const student = await getStudentById(id);
 
-  return <StudentDetail student={getStudent(id)} />;
+  return <StudentDetail student={student} />;
 }

@@ -2,15 +2,21 @@ import Link from "next/link";
 import { AlertCircle, Edit3, Plus, Search, UserRound } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { PageHeader, Pill, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
-import { students } from "@/components/yoga/records";
+import type { StudentRecord } from "@/components/yoga/records";
+import { getStudents } from "@/lib/students";
 
 const filterItems = ["すべて", "最近受講", "要フォロー", "注意点あり"];
 
-export default function StudentsPage() {
+export const dynamic = "force-dynamic";
+
+export default async function StudentsPage() {
+  const students = await getStudents();
+  const cautionCount = students.filter((student) => student.caution).length;
+
   return (
     <>
       <div className="md:hidden">
-        <MobileStudents />
+        <MobileStudents students={students} />
       </div>
 
       <div className="hidden md:block">
@@ -32,8 +38,9 @@ export default function StudentsPage() {
             {filterItems.map((item, index) => <Pill key={item} active={index === 0}>{item}</Pill>)}
           </div>
 
-          <div className="grid gap-2">
-            {students.map((student) => (
+          {students.length ? (
+            <div className="grid gap-2">
+              {students.map((student) => (
               <div key={student.id} className="grid min-w-0 grid-cols-[170px_74px_70px_minmax(90px,0.9fr)_minmax(92px,1fr)_minmax(90px,1fr)_70px_42px_118px] items-center gap-2 rounded-xl border border-[#eee4d8] bg-white/70 px-3 py-3">
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#edf4ea] text-[#4f875a]">
@@ -60,8 +67,11 @@ export default function StudentsPage() {
                   </Link>
                 </div>
               </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyStudents />
+          )}
         </SoftCard>
 
         <section className="mt-4 grid grid-cols-3 gap-4">
@@ -72,12 +82,12 @@ export default function StudentsPage() {
           </SoftCard>
           <SoftCard className="p-3.5">
             <SectionTitle icon={AlertCircle} title="要フォロー" />
-            <p className="text-[34px] font-extrabold leading-none text-[#ec6f5d]">2<span className="ml-1 text-sm">名</span></p>
+            <p className="text-[34px] font-extrabold leading-none text-[#ec6f5d]">{cautionCount}<span className="ml-1 text-sm">名</span></p>
             <p className="mt-2 text-[12px] font-semibold text-[#697467]">レッスン後コメントから確認</p>
           </SoftCard>
           <SoftCard className="p-3.5">
             <SectionTitle icon={AlertCircle} title="注意点あり" />
-            <p className="text-[34px] font-extrabold leading-none text-[#7a6cc4]">5<span className="ml-1 text-sm">名</span></p>
+            <p className="text-[34px] font-extrabold leading-none text-[#7a6cc4]">{cautionCount}<span className="ml-1 text-sm">名</span></p>
             <p className="mt-2 text-[12px] font-semibold text-[#697467]">レッスン前に注意点を確認</p>
           </SoftCard>
         </section>
@@ -86,7 +96,23 @@ export default function StudentsPage() {
   );
 }
 
-function MobileStudents() {
+function EmptyStudents() {
+  return (
+    <div className="rounded-2xl border border-dashed border-[#d8e3d4] bg-[#f8fcf6] p-8 text-center">
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#5d956d]">
+        <UserRound className="h-6 w-6" />
+      </div>
+      <p className="mt-3 text-[15px] font-extrabold">まだ生徒が登録されていません</p>
+      <p className="mt-1 text-[12px] font-semibold text-[#6b7468]">最初の生徒カルテを登録すると、ここに一覧表示されます。</p>
+      <Link href="/students/new" className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-[#5d956d] px-4 text-[13px] font-bold text-white">
+        <Plus className="h-4 w-4" />
+        生徒を登録
+      </Link>
+    </div>
+  );
+}
+
+function MobileStudents({ students }: { students: StudentRecord[] }) {
   return (
     <div className="mx-auto max-w-[430px] space-y-4 overflow-x-hidden">
       <div className="rounded-[24px] border border-[#eee4d8] bg-white/82 p-4 shadow-[0_12px_26px_rgba(122,104,80,0.08)]">
@@ -114,7 +140,7 @@ function MobileStudents() {
       </div>
 
       <div className="grid gap-3">
-        {students.map((student) => (
+        {students.length ? students.map((student) => (
           <article key={student.id} className="rounded-[22px] border border-[#eee4d8] bg-white/86 p-4 shadow-[0_10px_24px_rgba(122,104,80,0.07)]">
             <div className="flex items-start gap-3">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#edf4ea] text-[#4f875a]">
@@ -148,7 +174,7 @@ function MobileStudents() {
               </Link>
             </div>
           </article>
-        ))}
+        )) : <EmptyStudents />}
       </div>
     </div>
   );

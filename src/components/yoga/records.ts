@@ -1,4 +1,5 @@
 export type Gender = "女性" | "男性" | "その他" | "回答しない";
+export type GenderCode = "female" | "male" | "other" | "prefer_not_to_say";
 export type AttendanceStatus = "参加" | "キャンセル" | "無断欠席";
 export type LessonStatus = "予定" | "事前準備中" | "事前準備済み" | "記録待ち" | "記録済み";
 export type LessonFormat = "パーソナル" | "グループ" | "オンライン";
@@ -10,6 +11,7 @@ export type StudentRecord = {
   kana: string;
   ageGroup: string;
   gender: Gender;
+  genderCode?: GenderCode;
   experience: string;
   caution: string;
   memo: string;
@@ -983,6 +985,7 @@ export function getStudentAttendanceStats(studentId: string): StudentAttendanceS
   const cancelCount = history.filter((item) => item.attendanceStatus === "キャンセル").length;
   const noShowCount = history.filter((item) => item.attendanceStatus === "無断欠席").length;
   const totalScheduled = history.length || 1;
+  const fallbackStudent = students.find((student) => student.id === studentId);
   const nextSchedule = lessonSchedules.find((schedule) => {
     const lesson = schedule.lessonId ? getLesson(schedule.lessonId) : undefined;
     return lesson?.plannedStudentIds.includes(studentId) && schedule.status !== "記録済み";
@@ -993,7 +996,7 @@ export function getStudentAttendanceStats(studentId: string): StudentAttendanceS
     cancelCount,
     noShowCount,
     cancelRate: Math.round((cancelCount / totalScheduled) * 100),
-    lastAttendedDate: history.find((item) => item.attendanceStatus === "参加")?.date ?? getStudent(studentId).lastLessonDate,
+    lastAttendedDate: history.find((item) => item.attendanceStatus === "参加")?.date ?? fallbackStudent?.lastLessonDate ?? "未記録",
     nextScheduledDate: nextSchedule ? `${nextSchedule.date} ${nextSchedule.time}` : "未定",
   };
 }

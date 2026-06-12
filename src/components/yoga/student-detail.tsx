@@ -71,18 +71,24 @@ export function StudentDetail({ student }: { student: StudentRecord }) {
           <SoftCard>
             <SectionTitle icon={NotebookPen} title="最近の変化・観察メモ" subtitle="レッスン後記録の生徒別コメントから蓄積" />
             <div className="space-y-2">
-              {observations.slice(0, 3).map((memo) => (
-                <ObservationRow key={`${memo.date}-${memo.lessonTitle}`} memo={memo} />
-              ))}
+              {observations.length ? (
+                observations.slice(0, 3).map((memo) => (
+                  <ObservationRow key={`${memo.date}-${memo.lessonTitle}`} memo={memo} />
+                ))
+              ) : (
+                <EmptyHistoryMessage text="レッスン後記録が保存されると、ここに観察メモが蓄積されます。" />
+              )}
             </div>
-            <details className="mt-3 rounded-xl border border-[#d8e3d4] bg-[#f8fcf6] p-3">
-              <summary className="cursor-pointer text-[13px] font-bold text-[#4f7b58]">すべての観察メモを見る</summary>
-              <div className="mt-3 space-y-2">
-                {observations.map((memo) => (
-                  <ObservationRow key={`all-${memo.date}-${memo.lessonTitle}`} memo={memo} />
-                ))}
-              </div>
-            </details>
+            {observations.length ? (
+              <details className="mt-3 rounded-xl border border-[#d8e3d4] bg-[#f8fcf6] p-3">
+                <summary className="cursor-pointer text-[13px] font-bold text-[#4f7b58]">すべての観察メモを見る</summary>
+                <div className="mt-3 space-y-2">
+                  {observations.map((memo) => (
+                    <ObservationRow key={`all-${memo.date}-${memo.lessonTitle}`} memo={memo} />
+                  ))}
+                </div>
+              </details>
+            ) : null}
           </SoftCard>
 
           <SoftCard>
@@ -103,13 +109,19 @@ export function StudentDetail({ student }: { student: StudentRecord }) {
             <SectionTitle icon={ArrowDownUp} title="受講レッスン履歴" subtitle="参加・キャンセル・記録メモをまとめて確認" />
             <Link href="/lessons" className="text-[13px] font-bold text-[#5d956d]">レッスンカルテ一覧へ</Link>
           </div>
-          <LessonHistoryTable histories={lessonHistory.slice(0, 5)} />
-          <details className="mt-3 rounded-xl border border-[#d8e3d4] bg-[#f8fcf6] p-3">
-            <summary className="cursor-pointer text-[13px] font-bold text-[#4f7b58]">すべてのレッスン履歴を見る</summary>
-            <div className="mt-3">
-              <LessonHistoryTable histories={lessonHistory} />
-            </div>
-          </details>
+          {lessonHistory.length ? (
+            <>
+              <LessonHistoryTable histories={lessonHistory.slice(0, 5)} />
+              <details className="mt-3 rounded-xl border border-[#d8e3d4] bg-[#f8fcf6] p-3">
+                <summary className="cursor-pointer text-[13px] font-bold text-[#4f7b58]">すべてのレッスン履歴を見る</summary>
+                <div className="mt-3">
+                  <LessonHistoryTable histories={lessonHistory} />
+                </div>
+              </details>
+            </>
+          ) : (
+            <EmptyHistoryMessage text="まだ受講レッスン履歴はありません。今後、予定や実施後記録と連動して表示します。" />
+          )}
         </SoftCard>
 
         <SoftCard className="mt-4">
@@ -199,18 +211,20 @@ function MobileStudentDetail({
 
       <MobileSection title="最近の変化・観察メモ">
         <div className="grid gap-3">
-          {observations.slice(0, 3).map((memo) => (
+          {observations.length ? observations.slice(0, 3).map((memo) => (
             <ObservationRow key={`${memo.date}-${memo.lessonTitle}`} memo={memo} />
-          ))}
+          )) : <EmptyHistoryMessage text="レッスン後記録が保存されると、ここに観察メモが蓄積されます。" />}
         </div>
-        <details className="mt-3 rounded-2xl border border-[#d8e3d4] bg-[#f8fcf6] p-3">
-          <summary className="cursor-pointer text-[13px] font-bold text-[#4f7b58]">すべての観察メモを見る</summary>
-          <div className="mt-3 grid gap-2">
-            {observations.map((memo) => (
-              <ObservationRow key={`mobile-all-${memo.date}-${memo.lessonTitle}`} memo={memo} />
-            ))}
-          </div>
-        </details>
+        {observations.length ? (
+          <details className="mt-3 rounded-2xl border border-[#d8e3d4] bg-[#f8fcf6] p-3">
+            <summary className="cursor-pointer text-[13px] font-bold text-[#4f7b58]">すべての観察メモを見る</summary>
+            <div className="mt-3 grid gap-2">
+              {observations.map((memo) => (
+                <ObservationRow key={`mobile-all-${memo.date}-${memo.lessonTitle}`} memo={memo} />
+              ))}
+            </div>
+          </details>
+        ) : null}
       </MobileSection>
 
       <MobileSection title="次回レッスンに向けたポイント">
@@ -226,18 +240,20 @@ function MobileStudentDetail({
 
       <MobileSection title="受講レッスン履歴">
         <div className="grid gap-2">
-          {lessonHistory.slice(0, 5).map((history) => (
+          {lessonHistory.length ? lessonHistory.slice(0, 5).map((history) => (
             <LessonHistoryCard key={`${history.lessonId}-${history.date}`} history={history} />
-          ))}
+          )) : <EmptyHistoryMessage text="まだ受講レッスン履歴はありません。" />}
         </div>
-        <details className="mt-3 rounded-2xl border border-[#d8e3d4] bg-[#f8fcf6] p-3">
-          <summary className="cursor-pointer text-[13px] font-bold text-[#4f7b58]">すべてのレッスン履歴を見る</summary>
-          <div className="mt-3 grid gap-2">
-            {lessonHistory.map((history) => (
-              <LessonHistoryCard key={`all-${history.lessonId}-${history.date}`} history={history} />
-            ))}
-          </div>
-        </details>
+        {lessonHistory.length ? (
+          <details className="mt-3 rounded-2xl border border-[#d8e3d4] bg-[#f8fcf6] p-3">
+            <summary className="cursor-pointer text-[13px] font-bold text-[#4f7b58]">すべてのレッスン履歴を見る</summary>
+            <div className="mt-3 grid gap-2">
+              {lessonHistory.map((history) => (
+                <LessonHistoryCard key={`all-${history.lessonId}-${history.date}`} history={history} />
+              ))}
+            </div>
+          </details>
+        ) : null}
       </MobileSection>
 
       <MobileSection title="この生徒の受講傾向">
@@ -275,6 +291,14 @@ function SummaryCard({
     <div className="min-w-0 rounded-2xl border border-[#eee4d8] bg-white/78 p-3 text-center shadow-[0_8px_18px_rgba(122,104,80,0.05)]">
       <p className="truncate text-[11px] font-bold text-[#7c8476]">{label}</p>
       <p className={`mt-1 break-words font-extrabold leading-tight ${compact ? "text-[13px]" : "text-[22px]"} ${color}`}>{value}</p>
+    </div>
+  );
+}
+
+function EmptyHistoryMessage({ text }: { text: string }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-[#d8e3d4] bg-[#f8fcf6] p-4 text-[13px] font-semibold leading-6 text-[#657064]">
+      {text}
     </div>
   );
 }
