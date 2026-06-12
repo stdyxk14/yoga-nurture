@@ -36,10 +36,10 @@ export function ScheduleDetail({ schedule }: { schedule: DbSchedule }) {
             ) : (
               <span className="inline-flex h-9 items-center justify-center rounded-xl border border-[#e7dfd4] bg-[#f4f1ea] px-3 text-[12px] font-bold text-[#9b8c7b]">原稿なし</span>
             )}
-            <span className="inline-flex h-9 items-center justify-center gap-1 rounded-xl border border-[#e7dfd4] bg-[#f4f1ea] px-3 text-[12px] font-bold text-[#9b8c7b]">
+            <Link href={`/lessons/${schedule.id}/record`} className="inline-flex h-9 items-center justify-center gap-1 rounded-xl border border-[#f2c9bd] bg-[#fff4ef] px-3 text-[12px] font-bold text-[#d96c55]">
               <FileText className="h-3.5 w-3.5" />
-              記録は次フェーズ
-            </span>
+              記録を書く
+            </Link>
             <span className="inline-flex h-9 items-center justify-center gap-1 rounded-xl border border-[#e7dfd4] bg-[#f4f1ea] px-3 text-[12px] font-bold text-[#9b8c7b]">
               <Pencil className="h-3.5 w-3.5" />
               編集は次フェーズ

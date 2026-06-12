@@ -4,8 +4,14 @@ import { PageHeader, Pill, SectionTitle, SoftCard } from "@/components/yoga/page
 import type { BlockUsageHistory } from "@/components/yoga/records";
 import type { DbBlockTemplate } from "@/lib/blocks";
 
-export function BlockDetail({ block }: { block: DbBlockTemplate }) {
-  const histories: BlockUsageHistory[] = [];
+export function BlockDetail({ block, histories }: { block: DbBlockTemplate; histories: BlockUsageHistory[] }) {
+  const usageCount = histories.length;
+  const lastUsed = histories[0]?.lessonDate ?? "未使用";
+  const reviewCount = histories.filter((history) => history.scriptReviewRequired).length;
+  const averageMinutes = histories.length
+    ? `${Math.round(histories.reduce((sum, history) => sum + (Number.parseInt(history.actualDuration, 10) || 0), 0) / histories.length)}分`
+    : "未集計";
+  const averageReaction = histories.length ? "履歴あり" : "未評価";
 
   return (
     <>
@@ -69,12 +75,12 @@ export function BlockDetail({ block }: { block: DbBlockTemplate }) {
           <SoftCard className="p-3.5">
             <SectionTitle icon={BarChart3} title="利用サマリー" />
             <div className="grid grid-cols-2 gap-2">
-              <SummaryStat label="使用回数" value={`${block.usageCount}回`} />
-              <SummaryStat label="平均反応評価" value="未評価" />
-              <SummaryStat label="最近使用日" value={block.lastUsed} />
+              <SummaryStat label="使用回数" value={`${usageCount}回`} />
+              <SummaryStat label="平均反応評価" value={averageReaction} />
+              <SummaryStat label="最近使用日" value={lastUsed} />
               <SummaryStat label="次回も使いたい率" value="未集計" />
-              <SummaryStat label="セリフ見直し対象" value="0回" />
-              <SummaryStat label="平均所要時間" value="未集計" />
+              <SummaryStat label="セリフ見直し対象" value={`${reviewCount}回`} />
+              <SummaryStat label="平均所要時間" value={averageMinutes} />
             </div>
           </SoftCard>
 
@@ -133,6 +139,14 @@ function MobileBlockDetail({
   block: DbBlockTemplate;
   histories: BlockUsageHistory[];
 }) {
+  const usageCount = histories.length;
+  const lastUsed = histories[0]?.lessonDate ?? "未使用";
+  const reviewCount = histories.filter((history) => history.scriptReviewRequired).length;
+  const averageMinutes = histories.length
+    ? `${Math.round(histories.reduce((sum, history) => sum + (Number.parseInt(history.actualDuration, 10) || 0), 0) / histories.length)}分`
+    : "未集計";
+  const averageReaction = histories.length ? "履歴あり" : "未評価";
+
   return (
     <div className="mx-auto max-w-[430px] space-y-4">
       <section className="rounded-3xl border border-[#eee4d8] bg-white/80 p-4 shadow-[0_10px_24px_rgba(91,76,53,0.06)]">
@@ -147,9 +161,9 @@ function MobileBlockDetail({
           {block.tags.slice(0, 5).map((tag) => <Pill key={tag}>{tag}</Pill>)}
         </div>
         <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-          <SummaryStat label="使用回数" value={`${block.usageCount}回`} />
-          <SummaryStat label="評価" value="未評価" />
-          <SummaryStat label="最近" value={block.lastUsed} />
+          <SummaryStat label="使用回数" value={`${usageCount}回`} />
+          <SummaryStat label="評価" value={averageReaction} />
+          <SummaryStat label="最近" value={lastUsed} />
         </div>
       </section>
 
@@ -174,12 +188,12 @@ function MobileBlockDetail({
       <section id="summary" className="rounded-3xl border border-[#eee4d8] bg-white/80 p-4">
         <h2 className="text-[16px] font-extrabold">利用サマリー</h2>
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <SummaryStat label="使用回数" value={`${block.usageCount}回`} />
-          <SummaryStat label="平均評価" value="未評価" />
-          <SummaryStat label="最近使用日" value={block.lastUsed} />
+          <SummaryStat label="使用回数" value={`${usageCount}回`} />
+          <SummaryStat label="平均評価" value={averageReaction} />
+          <SummaryStat label="最近使用日" value={lastUsed} />
           <SummaryStat label="使いたい率" value="未集計" />
-          <SummaryStat label="見直し回数" value="0回" />
-          <SummaryStat label="平均所要時間" value="未集計" />
+          <SummaryStat label="見直し回数" value={`${reviewCount}回`} />
+          <SummaryStat label="平均所要時間" value={averageMinutes} />
         </div>
       </section>
 

@@ -13,13 +13,10 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { PageHeader, Pill, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
-import {
-  blockAnalysis,
-  lessonRecordSummaries,
-} from "@/components/yoga/records";
-import type { LessonStatus } from "@/components/yoga/records";
+import { blockAnalysis } from "@/components/yoga/records";
 import { getBlockCategories, getBlocks, getBlockTags, type BlockCategory, type DbBlockTemplate } from "@/lib/blocks";
 import { getLessonPlans, type DbLessonPlan } from "@/lib/lesson-plans";
+import { getLessonRecords, type DbLessonRecord } from "@/lib/lesson-records";
 import { getSchedules, type DbSchedule } from "@/lib/schedules";
 
 type LessonTab = "schedule" | "plans" | "blocks" | "records" | "analysis";
@@ -41,18 +38,19 @@ export default async function LessonsPage({
   const { tab } = params;
   const activeTab: LessonTab =
     tab === "plans" || tab === "blocks" || tab === "records" || tab === "analysis" ? tab : "schedule";
-  const [blocks, categories, tags, plans, schedules] = await Promise.all([
+  const [blocks, categories, tags, plans, schedules, records] = await Promise.all([
     getBlocks(params),
     getBlockCategories(),
     getBlockTags(),
     getLessonPlans(),
     getSchedules(),
+    getLessonRecords(),
   ]);
 
   return (
     <>
       <div className="md:hidden">
-        <MobileLessonsPage activeTab={activeTab} blocks={blocks} categories={categories} tags={tags.map((tag) => tag.name)} plans={plans} schedules={schedules} />
+        <MobileLessonsPage activeTab={activeTab} blocks={blocks} categories={categories} tags={tags.map((tag) => tag.name)} plans={plans} schedules={schedules} records={records} />
       </div>
       <div className="hidden md:block">
       <PageHeader
@@ -87,7 +85,7 @@ export default async function LessonsPage({
       {activeTab === "schedule" ? <ScheduleTab schedules={schedules} /> : null}
       {activeTab === "plans" ? <PlansTab plans={plans} /> : null}
       {activeTab === "blocks" ? <BlocksTab blocks={blocks} categories={categories} tags={tags.map((tag) => tag.name)} /> : null}
-      {activeTab === "records" ? <RecordsTab /> : null}
+      {activeTab === "records" ? <RecordsTab records={records} /> : null}
       {activeTab === "analysis" ? <AnalysisTab /> : null}
       </div>
     </>
@@ -103,6 +101,7 @@ function MobileLessonsPage({
   tags,
   plans,
   schedules,
+  records,
 }: {
   activeTab: LessonTab;
   blocks: DbBlockTemplate[];
@@ -110,6 +109,7 @@ function MobileLessonsPage({
   tags: string[];
   plans: DbLessonPlan[];
   schedules: DbSchedule[];
+  records: DbLessonRecord[];
 }) {
   return (
     <div className="mx-auto max-w-[430px] space-y-4">
@@ -128,7 +128,7 @@ function MobileLessonsPage({
       {activeTab === "schedule" ? <MobileScheduleTab schedules={schedules} /> : null}
       {activeTab === "plans" ? <MobilePlansTab plans={plans} /> : null}
       {activeTab === "blocks" ? <MobileBlocksList blocks={blocks} categories={categories} tags={tags} /> : null}
-      {activeTab === "records" ? <MobileRecordsTab /> : null}
+      {activeTab === "records" ? <MobileRecordsTab records={records} /> : null}
       {activeTab === "analysis" ? <MobileAnalysisTab /> : null}
     </div>
   );
@@ -165,7 +165,7 @@ function MobileScheduleTab({ schedules }: { schedules: DbSchedule[] }) {
             ) : (
               <span className="inline-flex h-9 items-center justify-center rounded-xl border border-[#e7dfd4] bg-[#f4f1ea] text-[12px] font-bold text-[#9b8c7b]">原稿なし</span>
             )}
-            <span className="inline-flex h-9 items-center justify-center rounded-xl border border-[#e7dfd4] bg-[#f4f1ea] text-[12px] font-bold text-[#9b8c7b]">記録は次</span>
+            <Link href={`/lessons/${schedule.id}/record`} className="inline-flex h-9 items-center justify-center rounded-xl bg-[#ef6f5b] text-[12px] font-bold text-white">記録</Link>
           </div>
         </article>
       )) : <SchedulesEmptyState />}
@@ -264,26 +264,26 @@ function MobileBlockListCard({ block, index }: { block: DbBlockTemplate; index: 
   );
 }
 
-function MobileRecordsTab() {
+function MobileRecordsTab({ records }: { records: DbLessonRecord[] }) {
   return (
     <div className="space-y-3">
-      <MobileTabIntro title="実施後記録" body="レッスン後にブロック評価と生徒コメントを追記します。" primaryHref="/lessons/restorative-20250511/record" primaryLabel="記録を書く" />
-      {lessonRecordSummaries.map((record) => (
+      <MobileTabIntro title="実施後記録" body="保存済みのレッスン後記録を確認します。" primaryHref="/lessons" primaryLabel="予定から記録を書く" />
+      {records.length ? records.map((record) => (
         <article key={record.id} className="rounded-3xl border border-[#eee4d8] bg-white/78 p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h2 className="truncate text-[15px] font-extrabold">{record.lessonName}</h2>
-              <p className="mt-1 text-[12px] font-bold text-[#5d956d]">{record.date} / {record.participantCount}名</p>
+              <p className="mt-1 text-[12px] font-bold text-[#5d956d]">{record.recordDate} / {record.participantCount}名</p>
             </div>
-            <StatusBadge status={record.status} />
+            <span className="shrink-0 rounded-full bg-[#edf5ef] px-2 py-1 text-[11px] font-bold text-[#4f875a]">{record.statusLabel}</span>
           </div>
-          <p className="mt-2 line-clamp-2 text-[12px] font-medium leading-5 text-[#50584e]">{record.summary}</p>
+          <p className="mt-2 line-clamp-2 text-[12px] font-medium leading-5 text-[#50584e]">{record.overallMemo || record.overallReaction || "記録メモは未入力です。"}</p>
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <Link href={`/lessons/${record.id}/record`} className="inline-flex h-9 items-center justify-center rounded-xl bg-[#ef6f5b] text-[12px] font-bold text-white">記録を見る</Link>
-            <Link href={`/lessons/${record.id}`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#cfe1ca] bg-[#f8fcf6] text-[12px] font-bold text-[#5d956d]">詳細</Link>
+            {record.scheduleId ? <Link href={`/lessons/${record.scheduleId}/record`} className="inline-flex h-9 items-center justify-center rounded-xl bg-[#ef6f5b] text-[12px] font-bold text-white">記録を見る</Link> : null}
+            {record.lessonPlanId ? <Link href={`/lessons/${record.lessonPlanId}`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#cfe1ca] bg-[#f8fcf6] text-[12px] font-bold text-[#5d956d]">プラン</Link> : null}
           </div>
         </article>
-      ))}
+      )) : <RecordsEmptyState />}
     </div>
   );
 }
@@ -355,9 +355,9 @@ function ScheduleTab({ schedules }: { schedules: DbSchedule[] }) {
                       原稿なし
                   </span>
                   )}
-                  <span className="inline-flex h-8 items-center justify-center rounded-lg border border-[#e7dfd4] bg-[#f4f1ea] px-2 text-[11px] font-bold text-[#9b8c7b]">
-                    記録は次
-                  </span>
+                  <Link href={`/lessons/${schedule.id}/record`} className="inline-flex h-8 items-center justify-center rounded-lg bg-[#ef6f5b] px-2 text-[11px] font-bold text-white">
+                    記録
+                  </Link>
                 </div>
               </div>
             ))}
@@ -540,28 +540,47 @@ function SchedulesEmptyState() {
   );
 }
 
-function RecordsTab() {
+function RecordsEmptyState() {
+  return (
+    <SoftCard className="mt-3 p-6 text-center">
+      <FileText className="mx-auto h-10 w-10 text-[#5d956d]" />
+      <p className="mt-3 text-[15px] font-extrabold">まだ実施後記録はありません。</p>
+      <p className="mx-auto mt-1 max-w-xl text-[13px] font-semibold leading-6 text-[#6b7468]">
+        レッスン後に記録を書くと、ブロック評価や生徒コメントがここに蓄積されます。
+      </p>
+      <Link href="/lessons" className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-[#5d956d] px-4 text-[13px] font-bold text-white">
+        <CalendarDays className="h-4 w-4" />
+        スケジュールを見る
+      </Link>
+    </SoftCard>
+  );
+}
+
+function RecordsTab({ records }: { records: DbLessonRecord[] }) {
   return (
     <SoftCard className="p-3.5">
       <SectionTitle icon={FileText} title="実施後記録" subtitle="レッスン後にブロック評価と生徒コメントを入力" />
-      <div className="grid gap-2">
-        {lessonRecordSummaries.map((record) => (
-          <div key={record.id} className="grid grid-cols-[110px_minmax(130px,0.8fr)_80px_90px_minmax(140px,1fr)_160px] items-center gap-2 rounded-xl border border-[#eee4d8] bg-white/72 p-3">
-            <p className="text-[12px] font-bold">{record.date}</p>
+      {records.length ? (
+        <div className="grid gap-2">
+        {records.map((record) => (
+          <div key={record.id} className="grid grid-cols-[110px_minmax(150px,0.9fr)_95px_90px_90px_minmax(140px,1fr)_170px] items-center gap-2 rounded-xl border border-[#eee4d8] bg-white/72 p-3">
+            <p className="text-[12px] font-bold">{record.recordDate}</p>
             <div className="min-w-0">
               <p className="truncate text-[14px] font-extrabold">{record.lessonName}</p>
-              <p className="truncate text-[11px] font-medium text-[#6b7468]">{record.tags.join(" ")}</p>
+              <p className="truncate text-[11px] font-medium text-[#6b7468]">{record.lessonPlanName}</p>
             </div>
             <p className="text-[12px] font-bold text-[#4f875a]">{record.participantCount}名</p>
-            <StatusBadge status={record.status} />
-            <p className="line-clamp-2 text-[12px] font-medium leading-5">{record.summary}</p>
+            <span className="inline-flex h-7 items-center justify-center rounded-full border border-[#cfe1ca] bg-[#edf5ef] px-2 text-[11px] font-bold text-[#4f875a]">{record.statusLabel}</span>
+            <p className="text-[12px] font-bold text-[#7469bf]">{record.blockCount}件</p>
+            <p className="line-clamp-2 text-[12px] font-medium leading-5">{record.overallMemo || record.overallReaction || "記録メモは未入力です。"}</p>
             <div className="grid grid-cols-2 gap-1.5">
-              <Link href={`/lessons/${record.id}/record`} className="inline-flex h-8 items-center justify-center rounded-lg bg-[#ef6f5b] text-[12px] font-bold text-white">記録</Link>
-              <Link href={`/lessons/${record.id}`} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] text-[12px] font-bold text-[#5d956d]">詳細</Link>
+              {record.scheduleId ? <Link href={`/lessons/${record.scheduleId}/record`} className="inline-flex h-8 items-center justify-center rounded-lg bg-[#ef6f5b] text-[12px] font-bold text-white">編集</Link> : <span />}
+              {record.lessonPlanId ? <Link href={`/lessons/${record.lessonPlanId}`} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] text-[12px] font-bold text-[#5d956d]">プラン</Link> : <span />}
             </div>
           </div>
         ))}
-      </div>
+        </div>
+      ) : <RecordsEmptyState />}
     </SoftCard>
   );
 }
@@ -592,21 +611,6 @@ function AnalysisTab() {
       </SoftCard>
     </div>
   );
-}
-
-function StatusBadge({ status }: { status: LessonStatus }) {
-  const className =
-    status === "記録済み"
-      ? "border-[#cfe1ca] bg-[#edf5ef] text-[#4f875a]"
-      : status === "記録待ち"
-        ? "border-[#f2c9bd] bg-[#fff0ea] text-[#ec6f5d]"
-        : status === "事前準備済み"
-          ? "border-[#cfe1ca] bg-[#f4f8f1] text-[#4f875a]"
-          : status === "事前準備中"
-            ? "border-[#efd3a7] bg-[#fff7e8] text-[#9b7338]"
-            : "border-[#d8d1ef] bg-[#f2efff] text-[#6b61b8]";
-
-  return <span className={`inline-flex h-7 items-center justify-center rounded-full border px-2 text-[11px] font-bold ${className}`}>{status}</span>;
 }
 
 function ScheduleStatusBadge({ label }: { label: string }) {

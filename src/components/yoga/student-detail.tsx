@@ -3,19 +3,25 @@ import type { ReactNode } from "react";
 import { ArrowDownUp, BarChart3, Dumbbell, HeartHandshake, NotebookPen, Sparkles, Target, UserRound } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PageHeader, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
-import { getStudentAttendanceStats, getStudentLessonHistory, getStudentObservationHistory } from "@/components/yoga/records";
 import type { StudentAttendanceStats, StudentLessonHistory, StudentObservation, StudentRecord } from "@/components/yoga/records";
 import { StudentAiButton } from "@/components/yoga/student-ai-button";
 
-export function StudentDetail({ student }: { student: StudentRecord }) {
+export function StudentDetail({
+  student,
+  observations,
+  lessonHistory,
+  stats,
+}: {
+  student: StudentRecord;
+  observations: StudentObservation[];
+  lessonHistory: StudentLessonHistory[];
+  stats: StudentAttendanceStats;
+}) {
   const profileItems = [
     ["ヨガ他経験", student.experience, Dumbbell],
     ["ケガなどの注意点", student.caution, HeartHandshake],
     ["その他メモ", student.memo, NotebookPen],
   ] as const;
-  const observations = getStudentObservationHistory(student.id);
-  const lessonHistory = getStudentLessonHistory(student.id);
-  const stats = getStudentAttendanceStats(student.id);
   const aiSuggestions = getBasicInfoSuggestions(student);
 
   return (

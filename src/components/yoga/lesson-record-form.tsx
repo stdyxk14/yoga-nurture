@@ -1,271 +1,283 @@
+"use client";
+
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { CheckCircle2, FilePenLine, MessageSquareText, Save, UserRound } from "lucide-react";
+import { useActionState } from "react";
+import { ArrowLeft, CheckCircle2, FilePenLine, MessageSquareText, Save, UserRound } from "lucide-react";
+import { saveLessonRecordAction } from "@/app/lessons/[id]/record/actions";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PageHeader, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
-import { blockResults, getLessonBlocks, getStudent } from "@/components/yoga/records";
-import type { LessonRecord } from "@/components/yoga/records";
 
-export function LessonRecordForm({ lesson }: { lesson: LessonRecord }) {
-  const blocks = getLessonBlocks(lesson);
-  const results = blockResults[lesson.id] ?? [];
-  const plannedStudents = lesson.plannedStudentIds.map(getStudent);
+type LessonRecordFormState = {
+  error?: string;
+};
+
+type LessonRecordFormData = {
+  schedule: {
+    id: string;
+    lessonPlanId: string | null;
+    lessonName: string;
+    dateLabel: string;
+    startTimeLabel: string;
+    endTimeLabel: string;
+    place: string;
+    formatLabel: string;
+    statusLabel: string;
+    lessonPlanName: string;
+    participantCount: number;
+  } | null;
+  record: {
+    id: string;
+    overallMemo: string;
+    overallReaction: string;
+    improvementPoints: string;
+    status: "draft" | "completed";
+  } | null;
+  blocks: Array<{
+    id: string;
+    planBlockId: string;
+    sortOrder: number;
+    name: string;
+    majorCategory: string;
+    minorCategory: string;
+    plannedMinutes: number;
+    done: boolean;
+    actualMinutes: number;
+    reaction: "good" | "neutral" | "poor";
+    teacherMemo: string;
+    improvementMemo: string;
+    useAgain: boolean;
+    reviseScript: boolean;
+    scriptRevision: string;
+  }>;
+  students: Array<{
+    id: string;
+    name: string;
+    caution: string;
+    attendanceStatus: "present" | "cancelled" | "no_show";
+    todayNote: string;
+    personalMemo: string;
+    nextFollow: string;
+  }>;
+};
+
+const recordStatusOptions = [
+  { value: "draft", label: "下書き" },
+  { value: "completed", label: "記録済み" },
+] as const;
+
+const blockReactionOptions = [
+  { value: "good", label: "良かった" },
+  { value: "neutral", label: "普通" },
+  { value: "poor", label: "いまいち" },
+] as const;
+
+const attendanceOptions = [
+  { value: "present", label: "参加" },
+  { value: "cancelled", label: "キャンセル" },
+  { value: "no_show", label: "無断欠席" },
+] as const;
+
+const initialState: LessonRecordFormState = {};
+
+export function LessonRecordForm({ data }: { data: LessonRecordFormData }) {
+  const [state, formAction, pending] = useActionState(saveLessonRecordAction, initialState);
+
+  if (!data.schedule) {
+    return (
+      <SoftCard className="p-6 text-center">
+        <p className="text-[16px] font-extrabold">予定が見つかりません</p>
+        <p className="mt-2 text-[13px] font-semibold leading-6 text-[#6b7468]">
+          削除済み、または現在のアカウントでは表示できない予定です。
+        </p>
+        <Link href="/lessons" className="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-[#5d956d] px-4 text-[13px] font-bold text-white">
+          レッスン管理へ戻る
+        </Link>
+      </SoftCard>
+    );
+  }
+
+  const { schedule, record, blocks, students } = data;
 
   return (
-    <>
-      <div className="md:hidden">
-        <MobileLessonRecordForm lesson={lesson} blocks={blocks} results={results} plannedStudents={plannedStudents} />
-      </div>
+    <form action={formAction} className="space-y-4 pb-28 md:pb-0">
+      <input type="hidden" name="schedule_id" value={schedule.id} />
+      <input type="hidden" name="record_id" value={record?.id ?? ""} />
 
-      <div className="hidden md:block">
-        <PageHeader title="レッスン後の記録" subtitle="ブロックごとの反応と参加生徒ごとのコメントを残す" />
+      <PageHeader title="レッスン後の記録" subtitle="実施内容・ブロックごとの反応・参加生徒ごとのコメントを保存します" />
 
-        <div className="mb-3 flex justify-end gap-2">
-          <Link href={`/lessons/${lesson.id}`} className="inline-flex h-8 items-center rounded-lg border border-[#d8e3d4] bg-white px-3 text-[13px] font-bold text-[#4f7b58]">
-            キャンセル
+      {state.error ? (
+        <p className="rounded-xl border border-[#f2c7be] bg-[#fff0ea] px-4 py-3 text-[13px] font-bold text-[#c4523d]">{state.error}</p>
+      ) : null}
+
+      <div className="flex flex-col gap-2 md:flex-row md:justify-end">
+        <Link href={`/schedules/${schedule.id}`} className="inline-flex h-9 items-center justify-center gap-1 rounded-xl border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
+          <ArrowLeft className="h-3.5 w-3.5" />
+          予定詳細へ戻る
+        </Link>
+        {schedule.lessonPlanId ? (
+          <Link href={`/lessons/${schedule.lessonPlanId}/script`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#e6dff2] bg-[#faf7ff] px-3 text-[12px] font-bold text-[#7469bf]">
+            原稿を見る
           </Link>
-        </div>
-
-        <SoftCard className="p-4">
-          <div className="mb-4 rounded-xl border border-[#eee4d8] bg-white/68 p-3">
-            <SectionTitle icon={FilePenLine} title={lesson.title} subtitle={`${lesson.date} ${lesson.startTime}-${lesson.endTime}`} />
-            <div className="grid grid-cols-4 gap-3 text-[12px] font-bold text-[#5f665c]">
-              <p>場所：{lesson.place}</p>
-              <p>形式：{lesson.format}</p>
-              <p>参加予定：{plannedStudents.length}名</p>
-              <p>状態：記録待ち</p>
-            </div>
-          </div>
-
-          <section className="mb-5">
-            <SectionTitle icon={CheckCircle2} title="ブロックごとの記録" subtitle="実施/スキップ、反応、改善メモを残す" />
-            <div className="grid gap-3">
-              {blocks.map((block, index) => {
-                const result = results.find((item) => item.blockId === block.id);
-                return (
-                  <div key={block.id} className="rounded-xl border border-[#eee4d8] bg-white/72 p-3">
-                    <div className="mb-3 flex items-center gap-2">
-                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#edf5ef] text-[12px] font-extrabold text-[#4f875a]">{index + 1}</span>
-                      <Link href={`/blocks/${block.id}`} className="text-[15px] font-extrabold text-[#2f342e] hover:text-[#5d956d]">{block.name}</Link>
-                      <span className="rounded-full bg-[#fff7e8] px-2 py-0.5 text-[11px] font-bold text-[#9b7338]">{block.majorCategory}</span>
-                      <span className="text-[12px] font-bold text-[#5d956d]">{block.duration}</span>
-                    </div>
-                    <div className="grid grid-cols-[160px_120px_150px_minmax(0,1fr)_minmax(0,1fr)] gap-3">
-                      <Field label="実施状態">
-                        <select defaultValue={result?.done === false ? "スキップした" : "実施した"} className="h-9 w-full rounded-md border border-input bg-white/80 px-2 text-[13px]">
-                          <option>実施した</option>
-                          <option>スキップした</option>
-                        </select>
-                      </Field>
-                      <Field label="実際の所要時間">
-                        <input defaultValue={result?.actualDuration ?? block.duration} className="h-9 w-full rounded-md border border-input bg-white/80 px-2 text-[13px]" />
-                      </Field>
-                      <Field label="生徒の反応">
-                        <select defaultValue={result?.reaction ?? "普通"} className="h-9 w-full rounded-md border border-input bg-white/80 px-2 text-[13px]">
-                          <option>良かった</option>
-                          <option>普通</option>
-                          <option>いまいち</option>
-                        </select>
-                      </Field>
-                      <Field label="講師メモ">
-                        <Textarea defaultValue={result?.teacherMemo ?? ""} className="min-h-[84px] bg-white/80 text-[13px]" />
-                      </Field>
-                      <Field label="改善メモ / セリフ見直し">
-                        <Textarea defaultValue={result?.scriptRevision ?? result?.improvementMemo ?? ""} className="min-h-[84px] bg-white/80 text-[13px]" />
-                      </Field>
-                    </div>
-                    <div className="mt-2 flex items-center gap-4 text-[12px] font-bold">
-                      <label className="flex items-center gap-2"><input type="checkbox" defaultChecked={result?.useAgain ?? true} className="accent-[#5d956d]" />次回も使いたい</label>
-                      <label className="flex items-center gap-2"><input type="checkbox" className="accent-[#ef6f5b]" />セリフを見直す</label>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="mb-5">
-            <SectionTitle icon={UserRound} title="参加予定者と実際の参加者" subtitle="出席ステータスと個別コメント" />
-            <div className="grid gap-3">
-              {plannedStudents.map((student) => {
-                const participant = lesson.participants.find((item) => item.studentId === student.id);
-                return (
-                  <div key={student.id} className="rounded-xl border border-[#eee4d8] bg-white/72 p-3">
-                    <div className="mb-3 flex items-center justify-between gap-2">
-                      <div>
-                        <p className="text-[14px] font-extrabold">{student.name} さん</p>
-                        <p className="text-[11px] font-medium text-[#6b7468]">{student.caution}</p>
-                      </div>
-                      <div className="grid grid-cols-[140px] gap-2">
-                        <select defaultValue={participant?.status ?? "参加"} className="h-9 rounded-md border border-input bg-white/80 px-2 text-[13px]">
-                          <option>参加</option>
-                          <option>キャンセル</option>
-                          <option>無断欠席</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      <Field label="今日の様子"><Textarea defaultValue={participant?.condition} className="min-h-[76px] bg-white/80 text-[12px]" /></Field>
-                      <Field label="個別メモ"><Textarea defaultValue={participant?.memo} className="min-h-[76px] bg-white/80 text-[12px]" /></Field>
-                      <Field label="次回フォロー"><Textarea defaultValue={participant?.nextFollow} className="min-h-[76px] bg-white/80 text-[12px]" /></Field>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-
-          <section>
-            <SectionTitle icon={MessageSquareText} title="レッスン全体の記録" />
-            <div className="grid grid-cols-3 gap-3">
-              <Field label="全体の実施メモ"><Textarea defaultValue={lesson.actualContent} className="min-h-[130px] bg-white/80 text-[14px]" /></Field>
-              <Field label="生徒の反応・観察"><Textarea defaultValue={lesson.reaction} className="min-h-[130px] bg-white/80 text-[14px]" /></Field>
-              <Field label="次回への改善ポイント"><Textarea defaultValue={lesson.improvement} className="min-h-[130px] bg-white/80 text-[14px]" /></Field>
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <button className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#ef6f5b] px-4 text-[13px] font-bold text-white">
-                <MessageSquareText className="h-4 w-4" />
-                AIメンターに振り返り相談
-              </button>
-              <Link href={`/lessons/${lesson.id}`} className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#5d956d] px-5 text-[13px] font-bold text-white">
-                <Save className="h-4 w-4" />
-                記録を保存
-              </Link>
-            </div>
-          </section>
-        </SoftCard>
+        ) : null}
       </div>
-    </>
-  );
-}
 
-function MobileLessonRecordForm({
-  lesson,
-  blocks,
-  results,
-  plannedStudents,
-}: {
-  lesson: LessonRecord;
-  blocks: ReturnType<typeof getLessonBlocks>;
-  results: typeof blockResults[string];
-  plannedStudents: ReturnType<typeof getStudent>[];
-}) {
-  return (
-    <div className="mx-auto max-w-[430px] space-y-4 overflow-x-hidden pb-20">
-      <section className="rounded-[24px] border border-[#eee4d8] bg-white/84 p-4 shadow-[0_12px_26px_rgba(122,104,80,0.08)]">
-        <h1 className="break-words text-[22px] font-extrabold tracking-normal">レッスン後の記録</h1>
-        <p className="mt-1 break-words text-[13px] font-bold text-[#4f875a]">{lesson.title}</p>
-        <div className="mt-3 grid gap-2 text-[12px] font-semibold text-[#5f665c]">
-          <p>{lesson.date} {lesson.startTime}-{lesson.endTime}</p>
-          <p>場所：{lesson.place} / 形式：{lesson.format}</p>
-          <p>参加予定：{plannedStudents.length}名 / 状態：記録待ち</p>
+      <SoftCard className="p-4">
+        <SectionTitle icon={FilePenLine} title={schedule.lessonName} subtitle={`${schedule.dateLabel} ${schedule.startTimeLabel}-${schedule.endTimeLabel} / ${schedule.place || "場所未設定"} / ${schedule.formatLabel}`} />
+        <div className="mt-3 grid gap-2 md:grid-cols-4">
+          <Info label="使用レッスンプラン" value={schedule.lessonPlanName} />
+          <Info label="参加予定生徒" value={`${schedule.participantCount}名`} />
+          <Info label="予定ステータス" value={schedule.statusLabel} />
+          <label className="block min-w-0 rounded-xl border border-[#eee4d8] bg-white/65 p-3">
+            <span className="mb-1 block text-[11px] font-bold text-[#7c8476]">記録ステータス</span>
+            <select name="status" defaultValue={record?.status ?? "draft"} className="h-9 w-full rounded-lg border border-[#e1d9ce] bg-white px-2 text-[13px] font-bold">
+              {recordStatusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </label>
         </div>
-      </section>
+      </SoftCard>
 
-      <MobileCard title="ブロックごとの記録">
-        <div className="grid gap-3">
-          {blocks.map((block, index) => {
-            const result = results.find((item) => item.blockId === block.id);
-            return (
-              <article key={block.id} className="rounded-2xl border border-[#eee4d8] bg-white/76 p-3">
-                <div className="mb-3 flex items-start gap-2">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#edf5ef] text-[12px] font-extrabold text-[#4f875a]">{index + 1}</span>
-                  <div className="min-w-0 flex-1">
-                    <Link href={`/blocks/${block.id}`} className="break-words text-[15px] font-extrabold text-[#2f342e]">{block.name}</Link>
-                    <p className="mt-1 text-[11px] font-bold text-[#5d956d]">{block.majorCategory} / {block.minorCategory} / 目安 {block.duration}</p>
+      <SoftCard className="p-4">
+        <SectionTitle icon={MessageSquareText} title="レッスン全体の記録" subtitle="レッスン全体として残したいことを簡潔に記録します" />
+        <div className="mt-4 grid gap-3 lg:grid-cols-3">
+          <Field label="全体メモ">
+            <Textarea name="overall_memo" defaultValue={record?.overallMemo ?? ""} className="min-h-[130px] bg-white/85 text-[14px]" />
+          </Field>
+          <Field label="生徒の反応・観察">
+            <Textarea name="overall_reaction" defaultValue={record?.overallReaction ?? ""} className="min-h-[130px] bg-white/85 text-[14px]" />
+          </Field>
+          <Field label="次回への改善ポイント">
+            <Textarea name="improvement_points" defaultValue={record?.improvementPoints ?? ""} className="min-h-[130px] bg-white/85 text-[14px]" />
+          </Field>
+        </div>
+      </SoftCard>
+
+      <SoftCard className="p-4">
+        <SectionTitle icon={CheckCircle2} title="ブロックごとの記録" subtitle="各ブロックの実施状態・反応・改善メモを残します" />
+        {blocks.length ? (
+          <div className="mt-4 grid gap-3">
+            {blocks.map((block, index) => (
+              <article key={`${block.planBlockId}-${block.id}`} className="rounded-2xl border border-[#eee4d8] bg-white/74 p-3">
+                <input type="hidden" name="block_template_ids" value={block.id} />
+                <input type="hidden" name={`block_${block.id}_plan_block_id`} value={block.planBlockId} />
+                <input type="hidden" name={`block_${block.id}_sort_order`} value={block.sortOrder} />
+                <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-bold text-[#5d956d]">#{index + 1} {block.majorCategory} / {block.minorCategory}</p>
+                    <Link href={`/blocks/${block.id}`} className="line-clamp-1 text-[16px] font-extrabold text-[#2f342e] hover:text-[#5d956d]">{block.name}</Link>
                   </div>
+                  <span className="w-fit rounded-full bg-[#fff7e8] px-3 py-1 text-[12px] font-bold text-[#9b7338]">目安 {block.plannedMinutes}分</span>
                 </div>
-                <div className="grid gap-3">
+                <div className="grid gap-3 md:grid-cols-[150px_130px_150px_minmax(0,1fr)_minmax(0,1fr)]">
                   <Field label="実施状態">
-                    <select defaultValue={result?.done === false ? "スキップした" : "実施した"} className="h-11 w-full rounded-md border border-input bg-white/90 px-3 text-[15px]">
-                      <option>実施した</option>
-                      <option>スキップした</option>
+                    <select name={`block_${block.id}_done`} defaultValue={block.done ? "done" : "skipped"} className="h-10 w-full rounded-md border border-input bg-white/90 px-2 text-[13px]">
+                      <option value="done">実施した</option>
+                      <option value="skipped">スキップした</option>
                     </select>
                   </Field>
                   <Field label="実際の所要時間">
-                    <input defaultValue={result?.actualDuration ?? block.duration} className="h-11 w-full rounded-md border border-input bg-white/90 px-3 text-[15px]" />
+                    <Input name={`block_${block.id}_actual_minutes`} type="number" min={0} defaultValue={block.actualMinutes} className="h-10 bg-white/90 text-[13px]" />
                   </Field>
                   <Field label="生徒の反応">
-                    <select defaultValue={result?.reaction ?? "普通"} className="h-11 w-full rounded-md border border-input bg-white/90 px-3 text-[15px]">
-                      <option>良かった</option>
-                      <option>普通</option>
-                      <option>いまいち</option>
+                    <select name={`block_${block.id}_reaction`} defaultValue={block.reaction} className="h-10 w-full rounded-md border border-input bg-white/90 px-2 text-[13px]">
+                      {blockReactionOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                     </select>
                   </Field>
                   <Field label="講師メモ">
-                    <Textarea defaultValue={result?.teacherMemo ?? ""} className="min-h-[100px] w-full bg-white/90 text-[14px]" />
+                    <Textarea name={`block_${block.id}_teacher_memo`} defaultValue={block.teacherMemo} className="min-h-[88px] bg-white/90 text-[13px]" />
                   </Field>
                   <Field label="改善メモ / セリフ直し">
-                    <Textarea defaultValue={result?.scriptRevision ?? result?.improvementMemo ?? ""} className="min-h-[100px] w-full bg-white/90 text-[14px]" />
+                    <Textarea name={`block_${block.id}_improvement_memo`} defaultValue={block.improvementMemo} className="min-h-[88px] bg-white/90 text-[13px]" />
                   </Field>
-                  <label className="flex items-center gap-2 text-[13px] font-bold"><input type="checkbox" defaultChecked={result?.useAgain ?? true} className="h-4 w-4 accent-[#5d956d]" />次回も使いたい</label>
-                  <label className="flex items-center gap-2 text-[13px] font-bold"><input type="checkbox" className="h-4 w-4 accent-[#ef6f5b]" />セリフを見直す</label>
+                </div>
+                <div className="mt-3 grid gap-3 md:grid-cols-[180px_180px_minmax(0,1fr)]">
+                  <label className="flex items-center gap-2 text-[12px] font-bold"><input name={`block_${block.id}_use_again`} type="checkbox" defaultChecked={block.useAgain} className="h-4 w-4 accent-[#5d956d]" />次回も使いたい</label>
+                  <label className="flex items-center gap-2 text-[12px] font-bold"><input name={`block_${block.id}_revise_script`} type="checkbox" defaultChecked={block.reviseScript} className="h-4 w-4 accent-[#ef6f5b]" />セリフを見直す</label>
+                  <Input name={`block_${block.id}_script_revision`} defaultValue={block.scriptRevision} placeholder="セリフ見直しメモ" className="h-10 bg-white/90 text-[13px]" />
                 </div>
               </article>
-            );
-          })}
-        </div>
-      </MobileCard>
+            ))}
+          </div>
+        ) : (
+          <EmptyMessage text="この予定に紐づくレッスンプランのブロックがありません。レッスンプランにブロックを追加すると、ここで評価できます。" />
+        )}
+      </SoftCard>
 
-      <MobileCard title="参加予定者と実際の参加者">
-        <div className="grid gap-3">
-          {plannedStudents.map((student) => {
-            const participant = lesson.participants.find((item) => item.studentId === student.id);
-            return (
-              <article key={student.id} className="rounded-2xl border border-[#eee4d8] bg-white/76 p-3">
-                <h3 className="text-[14px] font-extrabold">{student.name} さん</h3>
-                <p className="mt-1 line-clamp-2 text-[11px] font-medium leading-5 text-[#6b7468]">{student.caution}</p>
-                <div className="mt-3 grid gap-3">
+      <SoftCard className="p-4">
+        <SectionTitle icon={UserRound} title="参加生徒ごとのコメント" subtitle="出席ステータス・今日の様子・個別メモ・次回フォローだけを保存します" />
+        {students.length ? (
+          <div className="mt-4 grid gap-3">
+            {students.map((student) => (
+              <article key={student.id} className="rounded-2xl border border-[#eee4d8] bg-white/74 p-3">
+                <input type="hidden" name="student_ids" value={student.id} />
+                <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-[15px] font-extrabold">{student.name}</p>
+                    <p className="mt-1 line-clamp-2 text-[12px] font-semibold leading-5 text-[#6b7468]">注意点: {student.caution || "未登録"}</p>
+                  </div>
                   <Field label="出席ステータス">
-                    <select defaultValue={participant?.status ?? "参加"} className="h-11 w-full rounded-md border border-input bg-white/90 px-3 text-[15px]">
-                      <option>参加</option>
-                      <option>キャンセル</option>
-                      <option>無断欠席</option>
+                    <select name={`student_${student.id}_attendance_status`} defaultValue={student.attendanceStatus} className="h-10 w-full rounded-md border border-input bg-white/90 px-2 text-[13px] md:w-[150px]">
+                      {attendanceOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                     </select>
                   </Field>
-                  <Field label="今日の様子"><Textarea defaultValue={participant?.condition} className="min-h-[86px] bg-white/90 text-[14px]" /></Field>
-                  <Field label="個別メモ"><Textarea defaultValue={participant?.memo} className="min-h-[86px] bg-white/90 text-[14px]" /></Field>
-                  <Field label="次回フォロー"><Textarea defaultValue={participant?.nextFollow} className="min-h-[86px] bg-white/90 text-[14px]" /></Field>
+                </div>
+                <div className="grid gap-3 md:grid-cols-3">
+                  <Field label="今日の様子">
+                    <Textarea name={`student_${student.id}_today_note`} defaultValue={student.todayNote} className="min-h-[82px] bg-white/90 text-[13px]" />
+                  </Field>
+                  <Field label="個別メモ">
+                    <Textarea name={`student_${student.id}_personal_memo`} defaultValue={student.personalMemo} className="min-h-[82px] bg-white/90 text-[13px]" />
+                  </Field>
+                  <Field label="次回フォロー">
+                    <Textarea name={`student_${student.id}_next_follow`} defaultValue={student.nextFollow} className="min-h-[82px] bg-white/90 text-[13px]" />
+                  </Field>
                 </div>
               </article>
-            );
-          })}
-        </div>
-      </MobileCard>
+            ))}
+          </div>
+        ) : (
+          <EmptyMessage text="この予定には参加予定生徒が登録されていません。予定登録で生徒を紐づけると、生徒別コメントを残せます。" />
+        )}
+      </SoftCard>
 
-      <MobileCard title="レッスン全体の記録">
-        <div className="grid gap-3">
-          <Field label="全体の実施メモ"><Textarea defaultValue={lesson.actualContent} className="min-h-[120px] bg-white/90 text-[14px]" /></Field>
-          <Field label="生徒の反応・観察"><Textarea defaultValue={lesson.reaction} className="min-h-[120px] bg-white/90 text-[14px]" /></Field>
-          <Field label="次回への改善ポイント"><Textarea defaultValue={lesson.improvement} className="min-h-[120px] bg-white/90 text-[14px]" /></Field>
-        </div>
-      </MobileCard>
-
-      <div className="fixed inset-x-0 bottom-16 z-40 border-t border-[#e7dfd4] bg-[#fbfaf6]/96 px-4 py-3 shadow-[0_-10px_24px_rgba(91,76,53,0.10)] backdrop-blur md:hidden">
-        <div className="mx-auto grid max-w-[430px] grid-cols-2 gap-2">
-          <button className="inline-flex h-11 items-center justify-center rounded-2xl bg-[#ef6f5b] text-[12px] font-bold text-white">AIに相談</button>
-          <Link href={`/lessons/${lesson.id}`} className="inline-flex h-11 items-center justify-center gap-1 rounded-2xl bg-[#5d956d] text-[12px] font-bold text-white"><Save className="h-4 w-4" />記録を保存</Link>
-        </div>
+      <div className="sticky bottom-20 z-20 grid gap-2 rounded-2xl border border-[#e7dfd4] bg-[#fbfaf6]/95 p-3 shadow-[0_-8px_24px_rgba(91,76,53,0.10)] backdrop-blur md:bottom-4 md:flex md:justify-end">
+        <button name="status" value="draft" disabled={pending} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#d8e3d4] bg-white px-5 text-[13px] font-bold text-[#4f7b58] disabled:opacity-60">
+          <Save className="h-4 w-4" />
+          {pending ? "保存中..." : "下書き保存"}
+        </button>
+        <button name="status" value="completed" disabled={pending} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#5d956d] px-5 text-[13px] font-bold text-white disabled:opacity-60">
+          <CheckCircle2 className="h-4 w-4" />
+          {pending ? "保存中..." : "記録を完了する"}
+        </button>
       </div>
-    </div>
+    </form>
   );
 }
 
-function MobileCard({ title, children }: { title: string; children: ReactNode }) {
+function Info({ label, value }: { label: string; value: string }) {
   return (
-    <section className="rounded-[24px] border border-[#eee4d8] bg-white/84 p-4 shadow-[0_10px_24px_rgba(122,104,80,0.06)]">
-      <h2 className="mb-3 text-[16px] font-extrabold">{title}</h2>
-      {children}
-    </section>
+    <div className="min-w-0 rounded-xl border border-[#eee4d8] bg-white/65 p-3">
+      <p className="text-[11px] font-bold text-[#7c8476]">{label}</p>
+      <p className="mt-1 break-words text-[13px] font-extrabold">{value}</p>
+    </div>
   );
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="min-w-0">
+    <label className="block min-w-0">
       <Label className="mb-2 text-[12px] font-bold text-[#394238]">{label}</Label>
       {children}
+    </label>
+  );
+}
+
+function EmptyMessage({ text }: { text: string }) {
+  return (
+    <div className="mt-4 rounded-2xl border border-dashed border-[#d8e3d4] bg-[#f8fcf6] p-4 text-[13px] font-semibold leading-6 text-[#657064]">
+      {text}
     </div>
   );
 }
