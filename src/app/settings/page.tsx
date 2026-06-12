@@ -323,18 +323,24 @@ function MobileSettings({ categories, notice }: { categories: BlockCategory[]; n
 
         <div className="mt-3 space-y-2">
           {categories.length ? categories.map((category) => (
-            <form key={category.id} action={updateBlockCategoryAction.bind(null, category.id)} className="grid gap-2 rounded-2xl border border-[#eee4d8] bg-white/74 p-3">
-              <div className="grid grid-cols-[1fr_74px] gap-2">
-                <Input name="name" defaultValue={category.name} className="h-10 rounded-xl bg-white/90 text-[13px] font-bold" />
-                <Input name="sort_order" type="number" defaultValue={category.sort_order} className="h-10 rounded-xl bg-white/90 text-[13px]" />
-              </div>
-              {category.archived ? <Badge className="w-fit rounded-full bg-[#f0eee8] text-[#7c756b] shadow-none">アーカイブ中</Badge> : null}
+            <div key={category.id} className="grid gap-2 rounded-2xl border border-[#eee4d8] bg-white/74 p-3">
+              <form id={`mobile-category-${category.id}`} action={updateBlockCategoryAction.bind(null, category.id)} className="grid gap-2">
+                <div className="grid grid-cols-[1fr_74px] gap-2">
+                  <Input name="name" defaultValue={category.name} className="h-10 rounded-xl bg-white/90 text-[13px] font-bold" />
+                  <Input name="sort_order" type="number" defaultValue={category.sort_order} className="h-10 rounded-xl bg-white/90 text-[13px]" />
+                </div>
+                {category.archived ? <Badge className="w-fit rounded-full bg-[#f0eee8] text-[#7c756b] shadow-none">アーカイブ中</Badge> : null}
+              </form>
               <div className="grid grid-cols-3 gap-2">
-                <Button type="submit" variant="outline" className="h-9 rounded-xl border-[#cfe1ca] bg-[#f8fcf6] text-[12px] text-[#5d956d]">保存</Button>
-                <Button type="submit" formAction={archiveBlockCategoryAction.bind(null, category.id)} variant="outline" className="h-9 rounded-xl border-[#e3dbcf] bg-white text-[12px] text-[#6d716a]">保管</Button>
-                <Button type="submit" formAction={deleteBlockCategoryAction.bind(null, category.id)} variant="outline" className="h-9 rounded-xl border-[#f0c7b4] bg-[#fff3ec] text-[12px] text-[#e46b50]">削除</Button>
+                <Button type="submit" form={`mobile-category-${category.id}`} variant="outline" className="h-9 rounded-xl border-[#cfe1ca] bg-[#f8fcf6] text-[12px] text-[#5d956d]">保存</Button>
+                <form action={archiveBlockCategoryAction.bind(null, category.id)}>
+                  <Button type="submit" variant="outline" className="h-9 w-full rounded-xl border-[#e3dbcf] bg-white text-[12px] text-[#6d716a]">保管</Button>
+                </form>
+                <form action={deleteBlockCategoryAction.bind(null, category.id)}>
+                  <Button type="submit" variant="outline" className="h-9 w-full rounded-xl border-[#f0c7b4] bg-[#fff3ec] text-[12px] text-[#e46b50]">削除</Button>
+                </form>
               </div>
-            </form>
+            </div>
           )) : <EmptyCategoryState />}
         </div>
 
@@ -351,20 +357,26 @@ function MobileSettings({ categories, notice }: { categories: BlockCategory[]; n
 
         <div className="mt-3 space-y-2">
           {subcategories.length ? subcategories.map((subcategory) => (
-            <form key={subcategory.id} action={updateBlockSubcategoryAction.bind(null, subcategory.id)} className="grid gap-2 rounded-2xl border border-[#eee4d8] bg-white/74 p-3">
-              <select name="category_id" defaultValue={subcategory.category_id} className="h-10 rounded-xl border border-input bg-white/90 px-3 text-[13px]">
-                {categories.filter((category) => !category.archived).map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
-              </select>
-              <Input name="name" defaultValue={subcategory.name} className="h-10 rounded-xl bg-white/90 text-[13px] font-bold" />
-              <Input name="sort_order" type="number" defaultValue={subcategory.sort_order} className="h-10 rounded-xl bg-white/90 text-[13px]" />
-              <p className="text-[11px] font-semibold text-[#6d7469]">現在の大カテゴリー：{subcategory.categoryName}</p>
-              {subcategory.archived ? <Badge className="w-fit rounded-full bg-[#f0eee8] text-[#7c756b] shadow-none">アーカイブ中</Badge> : null}
+            <div key={subcategory.id} className="grid gap-2 rounded-2xl border border-[#eee4d8] bg-white/74 p-3">
+              <form id={`mobile-subcategory-${subcategory.id}`} action={updateBlockSubcategoryAction.bind(null, subcategory.id)} className="grid gap-2">
+                <select name="category_id" defaultValue={subcategory.category_id} className="h-10 rounded-xl border border-input bg-white/90 px-3 text-[13px]">
+                  {categories.filter((category) => !category.archived).map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+                </select>
+                <Input name="name" defaultValue={subcategory.name} className="h-10 rounded-xl bg-white/90 text-[13px] font-bold" />
+                <Input name="sort_order" type="number" defaultValue={subcategory.sort_order} className="h-10 rounded-xl bg-white/90 text-[13px]" />
+                <p className="text-[11px] font-semibold text-[#6d7469]">現在の大カテゴリー：{subcategory.categoryName}</p>
+                {subcategory.archived ? <Badge className="w-fit rounded-full bg-[#f0eee8] text-[#7c756b] shadow-none">アーカイブ中</Badge> : null}
+              </form>
               <div className="grid grid-cols-3 gap-2">
-                <Button type="submit" variant="outline" className="h-9 rounded-xl border-[#cfe1ca] bg-[#f8fcf6] text-[12px] text-[#5d956d]">保存</Button>
-                <Button type="submit" formAction={archiveBlockSubcategoryAction.bind(null, subcategory.id)} variant="outline" className="h-9 rounded-xl border-[#e3dbcf] bg-white text-[12px] text-[#6d716a]">保管</Button>
-                <Button type="submit" formAction={deleteBlockSubcategoryAction.bind(null, subcategory.id)} variant="outline" className="h-9 rounded-xl border-[#f0c7b4] bg-[#fff3ec] text-[12px] text-[#e46b50]">削除</Button>
+                <Button type="submit" form={`mobile-subcategory-${subcategory.id}`} variant="outline" className="h-9 rounded-xl border-[#cfe1ca] bg-[#f8fcf6] text-[12px] text-[#5d956d]">保存</Button>
+                <form action={archiveBlockSubcategoryAction.bind(null, subcategory.id)}>
+                  <Button type="submit" variant="outline" className="h-9 w-full rounded-xl border-[#e3dbcf] bg-white text-[12px] text-[#6d716a]">保管</Button>
+                </form>
+                <form action={deleteBlockSubcategoryAction.bind(null, subcategory.id)}>
+                  <Button type="submit" variant="outline" className="h-9 w-full rounded-xl border-[#f0c7b4] bg-[#fff3ec] text-[12px] text-[#e46b50]">削除</Button>
+                </form>
               </div>
-            </form>
+            </div>
           )) : categories.length ? (
             <p className="rounded-2xl border border-dashed border-[#d8e3d4] bg-[#f8fcf6] p-3 text-[12px] font-semibold text-[#657064]">
               まだ小カテゴリーが登録されていません。大カテゴリーを選択して追加できます。
@@ -427,18 +439,24 @@ function BlockCategoryManagement({ categories, notice }: { categories: BlockCate
               <span>大カテゴリー名</span><span>表示順</span><span className="text-right">操作</span>
             </div>
             {categories.map((category) => (
-              <form key={category.id} action={updateBlockCategoryAction.bind(null, category.id)} className="grid grid-cols-[minmax(0,1fr)_72px_132px] items-center gap-2 border-b border-[#eee4d8] px-3 py-2 last:border-b-0">
+              <div key={category.id} className="grid grid-cols-[minmax(0,1fr)_72px_132px] items-center gap-2 border-b border-[#eee4d8] px-3 py-2 last:border-b-0">
+                <form id={`category-${category.id}`} action={updateBlockCategoryAction.bind(null, category.id)} className="contents">
                 <div className="min-w-0">
                   <Input name="name" defaultValue={category.name} className="h-8 bg-white/80 text-[13px] font-bold" />
                   {category.archived ? <Badge className="mt-1 rounded-full bg-[#f0eee8] text-[#7c756b] shadow-none">アーカイブ中</Badge> : null}
                 </div>
                 <Input name="sort_order" type="number" defaultValue={category.sort_order} className="h-8 bg-white/80 text-[12px]" />
+                </form>
                 <div className="flex justify-end gap-1 text-[#6d716a]">
-                  <button type="submit" className="h-7 w-7 rounded-lg border border-[#e3dbcf] bg-white" aria-label="保存"><Pencil className="mx-auto h-3.5 w-3.5" /></button>
-                  <button type="submit" formAction={archiveBlockCategoryAction.bind(null, category.id)} className="h-7 w-7 rounded-lg border border-[#e3dbcf] bg-white" aria-label="アーカイブ"><Archive className="mx-auto h-3.5 w-3.5" /></button>
-                  <button type="submit" formAction={deleteBlockCategoryAction.bind(null, category.id)} className="h-7 w-7 rounded-lg border border-[#f0c7b4] bg-[#fff3ec] text-[#e46b50]" aria-label="削除"><Trash2 className="mx-auto h-3.5 w-3.5" /></button>
+                  <button type="submit" form={`category-${category.id}`} className="h-7 w-7 rounded-lg border border-[#e3dbcf] bg-white" aria-label="保存"><Pencil className="mx-auto h-3.5 w-3.5" /></button>
+                  <form action={archiveBlockCategoryAction.bind(null, category.id)}>
+                    <button type="submit" className="h-7 w-7 rounded-lg border border-[#e3dbcf] bg-white" aria-label="アーカイブ"><Archive className="mx-auto h-3.5 w-3.5" /></button>
+                  </form>
+                  <form action={deleteBlockCategoryAction.bind(null, category.id)}>
+                    <button type="submit" className="h-7 w-7 rounded-lg border border-[#f0c7b4] bg-[#fff3ec] text-[#e46b50]" aria-label="削除"><Trash2 className="mx-auto h-3.5 w-3.5" /></button>
+                  </form>
                 </div>
-              </form>
+              </div>
             ))}
           </div>
         ) : (
@@ -465,7 +483,8 @@ function BlockCategoryManagement({ categories, notice }: { categories: BlockCate
         {subcategories.length ? (
           <div className="grid gap-2">
             {subcategories.map((minor) => (
-              <form key={minor.id} action={updateBlockSubcategoryAction.bind(null, minor.id)} className="grid grid-cols-[130px_minmax(0,1fr)_70px_112px] items-center gap-2 rounded-lg border border-[#eee4d8] bg-white/78 px-2 py-2">
+              <div key={minor.id} className="grid grid-cols-[130px_minmax(0,1fr)_70px_112px] items-center gap-2 rounded-lg border border-[#eee4d8] bg-white/78 px-2 py-2">
+                <form id={`subcategory-${minor.id}`} action={updateBlockSubcategoryAction.bind(null, minor.id)} className="contents">
                 <select name="category_id" defaultValue={minor.category_id} className="h-8 rounded-md border border-input bg-white/80 px-2 text-[12px]">
                   {activeCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
                 </select>
@@ -475,12 +494,17 @@ function BlockCategoryManagement({ categories, notice }: { categories: BlockCate
                   {minor.archived ? <Badge className="mt-1 rounded-full bg-[#f0eee8] text-[#7c756b] shadow-none">アーカイブ中</Badge> : null}
                 </div>
                 <Input name="sort_order" type="number" defaultValue={minor.sort_order} className="h-8 bg-white/80 text-[12px]" />
+                </form>
                 <div className="flex justify-end gap-1">
-                  <button type="submit" className="h-7 w-7 rounded-lg border border-[#e3dbcf] bg-white text-[#6d716a]" aria-label="保存"><Pencil className="mx-auto h-3.5 w-3.5" /></button>
-                  <button type="submit" formAction={archiveBlockSubcategoryAction.bind(null, minor.id)} className="h-7 w-7 rounded-lg border border-[#e3dbcf] bg-white text-[#6d716a]" aria-label="アーカイブ"><Archive className="mx-auto h-3.5 w-3.5" /></button>
-                  <button type="submit" formAction={deleteBlockSubcategoryAction.bind(null, minor.id)} className="h-7 w-7 rounded-lg border border-[#f0c7b4] bg-[#fff3ec] text-[#e46b50]" aria-label="削除"><Trash2 className="mx-auto h-3.5 w-3.5" /></button>
+                  <button type="submit" form={`subcategory-${minor.id}`} className="h-7 w-7 rounded-lg border border-[#e3dbcf] bg-white text-[#6d716a]" aria-label="保存"><Pencil className="mx-auto h-3.5 w-3.5" /></button>
+                  <form action={archiveBlockSubcategoryAction.bind(null, minor.id)}>
+                    <button type="submit" className="h-7 w-7 rounded-lg border border-[#e3dbcf] bg-white text-[#6d716a]" aria-label="アーカイブ"><Archive className="mx-auto h-3.5 w-3.5" /></button>
+                  </form>
+                  <form action={deleteBlockSubcategoryAction.bind(null, minor.id)}>
+                    <button type="submit" className="h-7 w-7 rounded-lg border border-[#f0c7b4] bg-[#fff3ec] text-[#e46b50]" aria-label="削除"><Trash2 className="mx-auto h-3.5 w-3.5" /></button>
+                  </form>
                 </div>
-              </form>
+              </div>
             ))}
           </div>
         ) : categories.length ? (
