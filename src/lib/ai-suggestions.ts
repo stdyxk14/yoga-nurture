@@ -53,7 +53,11 @@ export async function getBlockAiSuggestionState(blockId: string): Promise<Studen
   return getAiSuggestionState("block", blockId);
 }
 
-async function getAiSuggestionState(targetType: "student" | "lesson_plan" | "block", targetId: string): Promise<StudentAiSuggestionState> {
+export async function getLessonRecordAiSuggestionState(recordId: string): Promise<StudentAiSuggestionState> {
+  return getAiSuggestionState("lesson_record", recordId);
+}
+
+async function getAiSuggestionState(targetType: "student" | "lesson_plan" | "block" | "lesson_record", targetId: string): Promise<StudentAiSuggestionState> {
   const { supabase, userId } = await requireUserId();
   const { data, error } = await supabase
     .from("ai_suggestions")
@@ -289,6 +293,75 @@ export async function generateBlockAiSuggestion(blockId: string): Promise<Studen
   revalidatePath(`/blocks/${blockId}`);
   revalidatePath(`/blocks/${blockId}/edit`);
   return { ok: true, message: "AIメンターのセリフ改善提案を更新しました。" };
+}
+
+export async function generateLessonRecordAiSuggestion(recordId: string): Promise<StudentAiActionState> {
+  const openai = getOpenAIClient();
+
+  if (!openai) {
+    return { error: "AI連携は未設定です。Vercel に OPENAI_API_KEY を設定すると、振り返り提案を生成できます。" };
+  }
+
+  let context: LessonRecordAiContext;
+
+  try {
+    context = await getLessonRecordAiContext(recordId);
+  } catch (error) {
+    return { error: `AI提案に必要な実施後記録を取得できませんでした。${getErrorMessage(error)}` };
+  }
+
+  const { prompt, sourceSummary } = buildLessonRecordSuggestionPrompt(context);
+  let response = "";
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: studentSuggestionModel,
+      messages: [
+        {
+          role: "system",
+          content:
+            "あなたはヨガインストラクターを支えるレッスン設計メンターです。実施後記録をもとに、次回改善・生徒フォロー・ブロック改善を整理します。医療診断や治療効果の断定は避け、痛みや違和感がある場合は軽減・中止・専門家相談を促してください。実践的でやさしい日本語で提案してください。",
+        },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.35,
+      max_tokens: 1200,
+    });
+
+    response = completion.choices[0]?.message?.content?.trim() ?? "";
+  } catch (error) {
+    return { error: `AI提案を生成できませんでした。${getErrorMessage(error)}` };
+  }
+
+  if (!response) {
+    return { error: "AI提案の生成結果が空でした。少し時間をおいて再実行してください。" };
+  }
+
+  try {
+    const { supabase, userId } = await requireUserId();
+    const { error } = await supabase.from("ai_suggestions").insert({
+      user_id: userId,
+      target_type: "lesson_record",
+      target_id: recordId,
+      mentor_type: "lesson_design",
+      prompt,
+      response,
+      source_summary: sourceSummary,
+    });
+
+    if (error) {
+      return { error: `AI提案は生成できましたが、履歴を保存できませんでした。${error.message}` };
+    }
+  } catch (error) {
+    return { error: `AI提案は生成できましたが、履歴を保存できませんでした。${getErrorMessage(error)}` };
+  }
+
+  revalidatePath("/lessons");
+  if (context.scheduleId) {
+    revalidatePath(`/lessons/${context.scheduleId}/record`);
+    revalidatePath(`/schedules/${context.scheduleId}`);
+  }
+  return { ok: true, message: "AIメンターの振り返り提案を更新しました。" };
 }
 
 function buildStudentSuggestionPrompt(
@@ -601,6 +674,237 @@ function buildBlockSuggestionPrompt(block: DbBlockTemplate, histories: Awaited<R
 ブロックデータ:
 ${sourceSummary}`,
   };
+}
+
+type LessonRecordAiContext = {
+  recordId: string;
+  scheduleId: string | null;
+  record: {
+    lessonDate: string;
+    lessonName: string;
+    lessonPlanName: string;
+    overallMemo: string;
+    overallReaction: string;
+    improvementPoints: string;
+    status: string;
+  };
+  blocks: Array<{
+    order: number;
+    name: string;
+    majorCategory: string;
+    minorCategory: string;
+    executionStatus: string;
+    actualMinutes: number;
+    studentReaction: string;
+    teacherMemo: string;
+    improvementMemo: string;
+    useNextTime: boolean;
+    reviseScript: boolean;
+    scriptRevision: string;
+  }>;
+  students: Array<{
+    label: string;
+    ageGroup: string;
+    gender: string;
+    experience: string;
+    caution: string;
+    memo: string;
+    attendanceStatus: string;
+    todayNote: string;
+    personalMemo: string;
+    nextFollow: string;
+  }>;
+};
+
+type RawAiLessonRecordDetail = {
+  id: string;
+  schedule_id: string | null;
+  lesson_name: string;
+  record_date: string;
+  overall_memo: string | null;
+  student_reaction: string | null;
+  improvement: string | null;
+  schedule?: {
+    id: string;
+    starts_at: string | null;
+    status: string | null;
+    lesson_plan?: { id: string; name: string | null } | null;
+  } | null;
+  lesson_record_blocks?: Array<{
+    sort_order: number | null;
+    done: boolean | null;
+    actual_duration_minutes: number | null;
+    reaction: string | null;
+    teacher_memo: string | null;
+    improvement_memo: string | null;
+    use_again: boolean | null;
+    script_revision: string | null;
+    block?: {
+      name: string | null;
+      category?: { name: string | null } | null;
+      subcategory?: { name: string | null } | null;
+    } | null;
+  }>;
+  lesson_record_students?: Array<{
+    attendance_status: string | null;
+    condition: string | null;
+    memo: string | null;
+    next_follow: string | null;
+    student?: {
+      age_group: string | null;
+      gender: string | null;
+      experience: string | null;
+      caution: string | null;
+      memo: string | null;
+    } | null;
+  }>;
+};
+
+async function getLessonRecordAiContext(recordId: string): Promise<LessonRecordAiContext> {
+  const { supabase, userId } = await requireUserId();
+  const { data, error } = await supabase
+    .from("lesson_records")
+    .select(`
+      id,
+      schedule_id,
+      lesson_name,
+      record_date,
+      overall_memo,
+      student_reaction,
+      improvement,
+      schedule:schedules(id,starts_at,status,lesson_plan:lesson_plans(id,name)),
+      lesson_record_blocks(
+        sort_order,
+        done,
+        actual_duration_minutes,
+        reaction,
+        teacher_memo,
+        improvement_memo,
+        use_again,
+        script_revision,
+        block:block_templates(
+          name,
+          category:block_categories(name),
+          subcategory:block_subcategories(name)
+        )
+      ),
+      lesson_record_students(
+        attendance_status,
+        condition,
+        memo,
+        next_follow,
+        student:students(age_group,gender,experience,caution,memo)
+      )
+    `)
+    .eq("id", recordId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("対象の実施後記録が見つかりません。");
+
+  const record = data as unknown as RawAiLessonRecordDetail;
+  const blocks = (record.lesson_record_blocks ?? [])
+    .map((block, index) => ({
+      order: block.sort_order ?? index + 1,
+      name: block.block?.name ?? "未設定ブロック",
+      majorCategory: block.block?.category?.name ?? "未設定",
+      minorCategory: block.block?.subcategory?.name ?? "未設定",
+      executionStatus: block.done === false ? "スキップした" : "実施した",
+      actualMinutes: block.actual_duration_minutes ?? 0,
+      studentReaction: formatRecordBlockReaction(block.reaction),
+      teacherMemo: block.teacher_memo ?? "",
+      improvementMemo: block.improvement_memo ?? "",
+      useNextTime: Boolean(block.use_again),
+      reviseScript: Boolean(block.script_revision?.trim()),
+      scriptRevision: block.script_revision ?? "",
+    }))
+    .sort((a, b) => a.order - b.order);
+
+  const students = (record.lesson_record_students ?? []).map((item, index) => ({
+    label: `生徒${String.fromCharCode(65 + index)}`,
+    ageGroup: item.student?.age_group ?? "未設定",
+    gender: item.student?.gender ?? "未設定",
+    experience: item.student?.experience ?? "未記録",
+    caution: item.student?.caution ?? "未記録",
+    memo: item.student?.memo ?? "未記録",
+    attendanceStatus: formatRecordAttendance(item.attendance_status),
+    todayNote: item.condition ?? "",
+    personalMemo: item.memo ?? "",
+    nextFollow: item.next_follow ?? "",
+  }));
+
+  return {
+    recordId: record.id,
+    scheduleId: record.schedule_id,
+    record: {
+      lessonDate: formatDateForAi(record.schedule?.starts_at ?? record.record_date),
+      lessonName: record.lesson_name,
+      lessonPlanName: record.schedule?.lesson_plan?.name ?? "未設定",
+      overallMemo: record.overall_memo ?? "",
+      overallReaction: record.student_reaction ?? "",
+      improvementPoints: record.improvement ?? "",
+      status: record.schedule?.status === "recorded" ? "記録済み" : "下書き",
+    },
+    blocks,
+    students,
+  };
+}
+
+function buildLessonRecordSuggestionPrompt(context: LessonRecordAiContext) {
+  const source = {
+    record: context.record,
+    blocks: context.blocks.map((block) => ({
+      ...block,
+      teacherMemo: truncateForPrompt(block.teacherMemo, 260),
+      improvementMemo: truncateForPrompt(block.improvementMemo, 260),
+      scriptRevision: truncateForPrompt(block.scriptRevision, 180),
+    })),
+    students: context.students.map((student) => ({
+      ...student,
+      todayNote: truncateForPrompt(student.todayNote, 220),
+      personalMemo: truncateForPrompt(student.personalMemo, 220),
+      nextFollow: truncateForPrompt(student.nextFollow, 160),
+    })),
+  };
+
+  const sourceSummary = JSON.stringify(source, null, 2);
+
+  return {
+    sourceSummary,
+    prompt: `以下の実施後記録をもとに、ヨガインストラクター向けの振り返り提案をしてください。
+
+出力形式:
+1. 今日のレッスン全体の振り返り
+2. 反応が良かった内容
+3. 改善した方がよい内容
+4. 次回レッスンに活かすポイント
+5. ブロックごとの改善候補
+6. 生徒ごとのフォロー案
+7. 次回のレッスンプラン作成時のヒント
+
+各項目は2〜3行程度で、実践しやすい日本語にしてください。
+生徒は匿名化されています。個人を特定する表現は避けてください。
+医療診断や治療効果の断定は避け、痛みや違和感がある場合は軽減・中止・専門家相談を促してください。
+次回改善・生徒フォロー・ブロック改善に使える形で整理してください。
+
+実施後記録データ:
+${sourceSummary}`,
+  };
+}
+
+function formatRecordBlockReaction(value: string | null | undefined) {
+  if (value === "good") return "良かった";
+  if (value === "poor") return "いまいち";
+  if (value === "neutral") return "普通";
+  return "未評価";
+}
+
+function formatRecordAttendance(value: string | null | undefined) {
+  if (value === "present") return "参加";
+  if (value === "cancelled") return "キャンセル";
+  if (value === "no_show") return "無断欠席";
+  return "未設定";
 }
 
 function truncateForPrompt(value: string, maxLength: number) {

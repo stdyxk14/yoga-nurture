@@ -8,7 +8,9 @@ import { saveLessonRecordAction } from "@/app/lessons/[id]/record/actions";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { LessonRecordAiSuggestionPanel } from "@/components/yoga/lesson-record-ai-suggestion-panel";
 import { PageHeader, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
+import type { StudentAiSuggestionState } from "@/lib/ai-suggestions";
 
 type LessonRecordFormState = {
   error?: string;
@@ -82,7 +84,13 @@ const attendanceOptions = [
 
 const initialState: LessonRecordFormState = {};
 
-export function LessonRecordForm({ data }: { data: LessonRecordFormData }) {
+export function LessonRecordForm({
+  data,
+  aiSuggestionState,
+}: {
+  data: LessonRecordFormData;
+  aiSuggestionState?: StudentAiSuggestionState;
+}) {
   const [state, formAction, pending] = useActionState(saveLessonRecordAction, initialState);
 
   if (!data.schedule) {
@@ -138,6 +146,8 @@ export function LessonRecordForm({ data }: { data: LessonRecordFormData }) {
           </label>
         </div>
       </SoftCard>
+
+      <LessonRecordAiSuggestionPanel recordId={record?.id} aiSuggestionState={aiSuggestionState} />
 
       <SoftCard className="p-4">
         <SectionTitle icon={MessageSquareText} title="レッスン全体の記録" subtitle="レッスン全体として残したいことを簡潔に記録します" />

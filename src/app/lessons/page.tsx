@@ -278,7 +278,8 @@ function MobileRecordsTab({ records }: { records: DbLessonRecord[] }) {
             <span className="shrink-0 rounded-full bg-[#edf5ef] px-2 py-1 text-[11px] font-bold text-[#4f875a]">{record.statusLabel}</span>
           </div>
           <p className="mt-2 line-clamp-2 text-[12px] font-medium leading-5 text-[#50584e]">{record.overallMemo || record.overallReaction || "記録メモは未入力です。"}</p>
-          <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            {record.scheduleId ? <Link href={`/lessons/${record.scheduleId}/record#ai-reflection`} className="inline-flex h-9 items-center justify-center rounded-xl bg-[#5d956d] text-[12px] font-bold text-white">AI振り返り</Link> : null}
             {record.scheduleId ? <Link href={`/lessons/${record.scheduleId}/record`} className="inline-flex h-9 items-center justify-center rounded-xl bg-[#ef6f5b] text-[12px] font-bold text-white">記録を見る</Link> : null}
             {record.lessonPlanId ? <Link href={`/lessons/${record.lessonPlanId}`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#cfe1ca] bg-[#f8fcf6] text-[12px] font-bold text-[#5d956d]">プラン</Link> : null}
           </div>
@@ -563,7 +564,7 @@ function RecordsTab({ records }: { records: DbLessonRecord[] }) {
       {records.length ? (
         <div className="grid gap-2">
         {records.map((record) => (
-          <div key={record.id} className="grid grid-cols-[110px_minmax(150px,0.9fr)_95px_90px_90px_minmax(140px,1fr)_170px] items-center gap-2 rounded-xl border border-[#eee4d8] bg-white/72 p-3">
+          <div key={record.id} className="grid grid-cols-[110px_minmax(150px,0.9fr)_95px_90px_90px_minmax(140px,1fr)_250px] items-center gap-2 rounded-xl border border-[#eee4d8] bg-white/72 p-3">
             <p className="text-[12px] font-bold">{record.recordDate}</p>
             <div className="min-w-0">
               <p className="truncate text-[14px] font-extrabold">{record.lessonName}</p>
@@ -573,7 +574,8 @@ function RecordsTab({ records }: { records: DbLessonRecord[] }) {
             <span className="inline-flex h-7 items-center justify-center rounded-full border border-[#cfe1ca] bg-[#edf5ef] px-2 text-[11px] font-bold text-[#4f875a]">{record.statusLabel}</span>
             <p className="text-[12px] font-bold text-[#7469bf]">{record.blockCount}件</p>
             <p className="line-clamp-2 text-[12px] font-medium leading-5">{record.overallMemo || record.overallReaction || "記録メモは未入力です。"}</p>
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-3 gap-1.5">
+              {record.scheduleId ? <Link href={`/lessons/${record.scheduleId}/record#ai-reflection`} className="inline-flex h-8 items-center justify-center rounded-lg bg-[#5d956d] text-[12px] font-bold text-white">AI振り返り</Link> : <span />}
               {record.scheduleId ? <Link href={`/lessons/${record.scheduleId}/record`} className="inline-flex h-8 items-center justify-center rounded-lg bg-[#ef6f5b] text-[12px] font-bold text-white">編集</Link> : <span />}
               {record.lessonPlanId ? <Link href={`/lessons/${record.lessonPlanId}`} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] text-[12px] font-bold text-[#5d956d]">プラン</Link> : <span />}
             </div>
