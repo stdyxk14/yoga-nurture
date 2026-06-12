@@ -6,7 +6,9 @@ import { FolderPlus, Plus, Save, Settings2, Tag, Trash2, X } from "lucide-react"
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { BlockAiSuggestionPanel } from "@/components/yoga/block-ai-suggestion-panel";
 import { PageHeader, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
+import type { StudentAiSuggestionState } from "@/lib/ai-suggestions";
 import type { BlockCategory, BlockFormState, DbBlockTemplate } from "@/lib/blocks";
 
 type BlockAction = (state: BlockFormState, formData: FormData) => Promise<BlockFormState>;
@@ -22,6 +24,7 @@ export function BlockForm({
   action,
   deleteAction,
   deleteError,
+  aiSuggestionState,
 }: {
   mode?: "new" | "edit";
   block?: DbBlockTemplate;
@@ -30,6 +33,7 @@ export function BlockForm({
   action: BlockAction;
   deleteAction?: DeleteAction;
   deleteError?: string;
+  aiSuggestionState?: StudentAiSuggestionState;
 }) {
   const [selectedTags, setSelectedTags] = useState(block?.tags ?? []);
   const [draftTag, setDraftTag] = useState("");
@@ -104,6 +108,12 @@ export function BlockForm({
           </div>
         </SoftCard>
       </form>
+
+      {mode === "edit" ? (
+        <div className="mt-4">
+          <BlockAiSuggestionPanel block={block} aiSuggestionState={aiSuggestionState} context="edit" />
+        </div>
+      ) : null}
     </>
   );
 }

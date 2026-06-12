@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import type { StudentAttendanceStats, StudentLessonHistory, StudentObservation, StudentRecord } from "@/components/yoga/records";
-import { getStudentRecordInsights } from "@/lib/lesson-records";
+import { getBlockUsageHistory, getStudentRecordInsights } from "@/lib/lesson-records";
+import { getBlockById, type DbBlockTemplate } from "@/lib/blocks";
 import { getLessonPlanById, type DbLessonPlan } from "@/lib/lesson-plans";
 import { getOpenAIClient, isOpenAIConfigured, studentSuggestionModel } from "@/lib/openai/server";
 import { getStudentById, requireUserId } from "@/lib/students";
@@ -48,7 +49,11 @@ export async function getLessonPlanAiSuggestionState(planId: string): Promise<St
   return getAiSuggestionState("lesson_plan", planId);
 }
 
-async function getAiSuggestionState(targetType: "student" | "lesson_plan", targetId: string): Promise<StudentAiSuggestionState> {
+export async function getBlockAiSuggestionState(blockId: string): Promise<StudentAiSuggestionState> {
+  return getAiSuggestionState("block", blockId);
+}
+
+async function getAiSuggestionState(targetType: "student" | "lesson_plan" | "block", targetId: string): Promise<StudentAiSuggestionState> {
   const { supabase, userId } = await requireUserId();
   const { data, error } = await supabase
     .from("ai_suggestions")
@@ -214,6 +219,76 @@ export async function generateLessonPlanAiSuggestion(planId: string): Promise<St
   revalidatePath(`/lessons/${planId}/edit`);
   revalidatePath(`/lessons/${planId}/script`);
   return { ok: true, message: "AIメンターのプラン改善提案を更新しました。" };
+}
+
+export async function generateBlockAiSuggestion(blockId: string): Promise<StudentAiActionState> {
+  const openai = getOpenAIClient();
+
+  if (!openai) {
+    return { error: "AI連携は未設定です。Vercel に OPENAI_API_KEY を設定すると、セリフ改善提案を生成できます。" };
+  }
+
+  let block: DbBlockTemplate;
+  let histories: Awaited<ReturnType<typeof getBlockUsageHistory>>;
+
+  try {
+    [block, histories] = await Promise.all([
+      getBlockById(blockId),
+      getBlockUsageHistory(blockId),
+    ]);
+  } catch (error) {
+    return { error: `AI提案に必要なブロック情報を取得できませんでした。${getErrorMessage(error)}` };
+  }
+
+  const { prompt, sourceSummary } = buildBlockSuggestionPrompt(block, histories);
+  let response = "";
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: studentSuggestionModel,
+      messages: [
+        {
+          role: "system",
+          content:
+            "あなたはヨガインストラクターを支えるレッスン設計メンターです。医療診断や治療効果の断定は避け、痛みや違和感がある場合は中止・軽減・専門家相談を促してください。安全で自然な日本語の誘導セリフ改善案を、実践しやすく簡潔に提案してください。",
+        },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.35,
+      max_tokens: 1200,
+    });
+
+    response = completion.choices[0]?.message?.content?.trim() ?? "";
+  } catch (error) {
+    return { error: `AI提案を生成できませんでした。${getErrorMessage(error)}` };
+  }
+
+  if (!response) {
+    return { error: "AI提案の生成結果が空でした。少し時間をおいて再実行してください。" };
+  }
+
+  try {
+    const { supabase, userId } = await requireUserId();
+    const { error } = await supabase.from("ai_suggestions").insert({
+      user_id: userId,
+      target_type: "block",
+      target_id: blockId,
+      mentor_type: "lesson_design",
+      prompt,
+      response,
+      source_summary: sourceSummary,
+    });
+
+    if (error) {
+      return { error: `AI提案は生成できましたが、履歴を保存できませんでした。${error.message}` };
+    }
+  } catch (error) {
+    return { error: `AI提案は生成できましたが、履歴を保存できませんでした。${getErrorMessage(error)}` };
+  }
+
+  revalidatePath(`/blocks/${blockId}`);
+  revalidatePath(`/blocks/${blockId}/edit`);
+  return { ok: true, message: "AIメンターのセリフ改善提案を更新しました。" };
 }
 
 function buildStudentSuggestionPrompt(
@@ -471,6 +546,59 @@ function buildLessonPlanSuggestionPrompt(plan: DbLessonPlan, context: LessonPlan
 コスト対策のため、誘導セリフは冒頭のみ渡しています。必要な場合は「原稿全体を見直す」ではなく、流れ・安全面・時間配分の観点で助言してください。
 
 レッスンプランデータ:
+${sourceSummary}`,
+  };
+}
+
+function buildBlockSuggestionPrompt(block: DbBlockTemplate, histories: Awaited<ReturnType<typeof getBlockUsageHistory>>) {
+  const recentHistories = histories.slice(0, 5).map((history) => ({
+    lessonDate: history.lessonDate,
+    lessonName: history.lessonName,
+    executionStatus: history.done ? "実施した" : "スキップした",
+    actualMinutes: history.actualDuration,
+    studentReaction: history.reaction || "未評価",
+    teacherMemo: history.teacherMemo || "",
+    improvementMemo: history.improvementMemo || "",
+    useNextTime: history.useAgain,
+    reviseScript: history.scriptReviewRequired,
+    scriptRevisionMemo: history.scriptRevision || "",
+  }));
+
+  const source = {
+    block: {
+      name: block.name,
+      majorCategory: block.majorCategory,
+      minorCategory: block.minorCategory,
+      duration: block.duration,
+      purpose: block.purpose || "未設定",
+      level: block.level || "未設定",
+      cautions: block.cautions || "未設定",
+      tags: block.tags,
+      memo: block.memo || "未設定",
+      script: truncateForPrompt(block.script || "", 2400),
+    },
+    recentUsageHistory: recentHistories,
+  };
+
+  const sourceSummary = JSON.stringify(source, null, 2);
+
+  return {
+    sourceSummary,
+    prompt: `以下のブロックテンプレート情報をもとに、ヨガインストラクター向けの誘導セリフ改善提案をしてください。
+
+出力形式:
+1. 現在のセリフの良い点
+2. 改善した方がよい点
+3. 改善後のセリフ案
+4. 初心者向けの言い換え案
+5. 安全面の注意・補足
+6. 声かけのコツ
+
+各項目は2〜3行程度で、実践しやすい日本語にしてください。
+医療診断や治療効果の断定は避け、痛みや違和感がある場合は中止・軽減・専門家相談を促してください。
+改善後のセリフ案は、現在の原稿を自動上書きするものではなく、講師がコピーして編集できる提案として書いてください。
+
+ブロックデータ:
 ${sourceSummary}`,
   };
 }

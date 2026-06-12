@@ -1,5 +1,6 @@
 import { BlockForm } from "@/components/yoga/block-form";
 import { deleteBlockAction, updateBlockAction } from "@/app/blocks/actions";
+import { getBlockAiSuggestionState } from "@/lib/ai-suggestions";
 import { getBlockById, getBlockCategories, getBlockTags } from "@/lib/blocks";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +14,12 @@ export default async function EditBlockPage({
 }) {
   const { id } = await params;
   const { error } = await searchParams;
-  const [block, categories, tags] = await Promise.all([getBlockById(id), getBlockCategories(), getBlockTags()]);
+  const [block, categories, tags, aiSuggestionState] = await Promise.all([
+    getBlockById(id),
+    getBlockCategories(),
+    getBlockTags(),
+    getBlockAiSuggestionState(id),
+  ]);
   const updateAction = updateBlockAction.bind(null, id);
   const deleteAction = deleteBlockAction.bind(null, id);
 
@@ -26,6 +32,7 @@ export default async function EditBlockPage({
       action={updateAction}
       deleteAction={deleteAction}
       deleteError={error}
+      aiSuggestionState={aiSuggestionState}
     />
   );
 }

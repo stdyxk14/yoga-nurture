@@ -1,10 +1,20 @@
 import Link from "next/link";
 import { ArrowLeft, BarChart3, FileText, History, MessageSquareText, Pencil, Sparkles } from "lucide-react";
+import { BlockAiSuggestionPanel } from "@/components/yoga/block-ai-suggestion-panel";
 import { PageHeader, Pill, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
 import type { BlockUsageHistory } from "@/components/yoga/records";
+import type { StudentAiSuggestionState } from "@/lib/ai-suggestions";
 import type { DbBlockTemplate } from "@/lib/blocks";
 
-export function BlockDetail({ block, histories }: { block: DbBlockTemplate; histories: BlockUsageHistory[] }) {
+export function BlockDetail({
+  block,
+  histories,
+  aiSuggestionState,
+}: {
+  block: DbBlockTemplate;
+  histories: BlockUsageHistory[];
+  aiSuggestionState?: StudentAiSuggestionState;
+}) {
   const usageCount = histories.length;
   const lastUsed = histories[0]?.lessonDate ?? "未使用";
   const reviewCount = histories.filter((history) => history.scriptReviewRequired).length;
@@ -16,7 +26,7 @@ export function BlockDetail({ block, histories }: { block: DbBlockTemplate; hist
   return (
     <>
       <div className="md:hidden">
-        <MobileBlockDetail block={block} histories={histories} />
+        <MobileBlockDetail block={block} histories={histories} aiSuggestionState={aiSuggestionState} />
       </div>
       <div className="hidden md:block">
       <PageHeader title="ブロック詳細" subtitle="原稿・利用実績・改善履歴をまとめて確認" />
@@ -68,6 +78,10 @@ export function BlockDetail({ block, histories }: { block: DbBlockTemplate; hist
             {block.tags.map((tag) => (
               <Pill key={tag}>{tag}</Pill>
             ))}
+          </div>
+
+          <div className="mt-4">
+            <BlockAiSuggestionPanel block={block} aiSuggestionState={aiSuggestionState} />
           </div>
         </SoftCard>
 
@@ -135,9 +149,11 @@ export function BlockDetail({ block, histories }: { block: DbBlockTemplate; hist
 function MobileBlockDetail({
   block,
   histories,
+  aiSuggestionState,
 }: {
   block: DbBlockTemplate;
   histories: BlockUsageHistory[];
+  aiSuggestionState?: StudentAiSuggestionState;
 }) {
   const usageCount = histories.length;
   const lastUsed = histories[0]?.lessonDate ?? "未使用";
@@ -184,6 +200,8 @@ function MobileBlockDetail({
           </div>
         </div>
       </section>
+
+      <BlockAiSuggestionPanel block={block} aiSuggestionState={aiSuggestionState} />
 
       <section id="summary" className="rounded-3xl border border-[#eee4d8] bg-white/80 p-4">
         <h2 className="text-[16px] font-extrabold">利用サマリー</h2>
