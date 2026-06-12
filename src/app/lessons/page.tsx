@@ -18,10 +18,10 @@ import {
   blockAnalysis,
   lessonRecordSummaries,
   lessonSchedules,
-  lessons,
 } from "@/components/yoga/records";
 import type { LessonSchedule, LessonStatus } from "@/components/yoga/records";
 import { getBlockCategories, getBlocks, getBlockTags, type BlockCategory, type DbBlockTemplate } from "@/lib/blocks";
+import { getLessonPlans, type DbLessonPlan } from "@/lib/lesson-plans";
 
 type LessonTab = "schedule" | "plans" | "blocks" | "records" | "analysis";
 
@@ -42,16 +42,17 @@ export default async function LessonsPage({
   const { tab } = params;
   const activeTab: LessonTab =
     tab === "plans" || tab === "blocks" || tab === "records" || tab === "analysis" ? tab : "schedule";
-  const [blocks, categories, tags] = await Promise.all([
+  const [blocks, categories, tags, plans] = await Promise.all([
     getBlocks(params),
     getBlockCategories(),
     getBlockTags(),
+    getLessonPlans(),
   ]);
 
   return (
     <>
       <div className="md:hidden">
-        <MobileLessonsPage activeTab={activeTab} blocks={blocks} categories={categories} tags={tags.map((tag) => tag.name)} />
+        <MobileLessonsPage activeTab={activeTab} blocks={blocks} categories={categories} tags={tags.map((tag) => tag.name)} plans={plans} />
       </div>
       <div className="hidden md:block">
       <PageHeader
@@ -84,7 +85,7 @@ export default async function LessonsPage({
       </SoftCard>
 
       {activeTab === "schedule" ? <ScheduleTab /> : null}
-      {activeTab === "plans" ? <PlansTab /> : null}
+      {activeTab === "plans" ? <PlansTab plans={plans} /> : null}
       {activeTab === "blocks" ? <BlocksTab blocks={blocks} categories={categories} tags={tags.map((tag) => tag.name)} /> : null}
       {activeTab === "records" ? <RecordsTab /> : null}
       {activeTab === "analysis" ? <AnalysisTab /> : null}
@@ -95,7 +96,7 @@ export default async function LessonsPage({
 
 export const dynamic = "force-dynamic";
 
-function MobileLessonsPage({ activeTab, blocks, categories, tags }: { activeTab: LessonTab; blocks: DbBlockTemplate[]; categories: BlockCategory[]; tags: string[] }) {
+function MobileLessonsPage({ activeTab, blocks, categories, tags, plans }: { activeTab: LessonTab; blocks: DbBlockTemplate[]; categories: BlockCategory[]; tags: string[]; plans: DbLessonPlan[] }) {
   return (
     <div className="mx-auto max-w-[430px] space-y-4">
       <div className="flex gap-2 overflow-x-auto pb-1">
@@ -111,7 +112,7 @@ function MobileLessonsPage({ activeTab, blocks, categories, tags }: { activeTab:
       </div>
 
       {activeTab === "schedule" ? <MobileScheduleTab /> : null}
-      {activeTab === "plans" ? <MobilePlansTab /> : null}
+      {activeTab === "plans" ? <MobilePlansTab plans={plans} /> : null}
       {activeTab === "blocks" ? <MobileBlocksList blocks={blocks} categories={categories} tags={tags} /> : null}
       {activeTab === "records" ? <MobileRecordsTab /> : null}
       {activeTab === "analysis" ? <MobileAnalysisTab /> : null}
@@ -150,30 +151,30 @@ function MobileScheduleTab() {
   );
 }
 
-function MobilePlansTab() {
+function MobilePlansTab({ plans }: { plans: DbLessonPlan[] }) {
   return (
     <div className="space-y-3">
-      <MobileTabIntro title="レッスンプラン" body="ブロックを組み合わせた完成済みプランを確認します。" primaryHref="/lessons/new" primaryLabel="レッスンプランを作成" />
-      {lessons.map((lesson) => (
-        <article key={lesson.id} className="rounded-3xl border border-[#eee4d8] bg-white/78 p-4 shadow-[0_8px_18px_rgba(91,76,53,0.05)]">
+      <MobileTabIntro title="レッスンプラン" body="保存済みのレッスンプランを確認します。" primaryHref="/lessons/new" primaryLabel="レッスンプランを作成" />
+      {plans.length ? plans.map((plan) => (
+        <article key={plan.id} className="rounded-3xl border border-[#eee4d8] bg-white/78 p-4 shadow-[0_8px_18px_rgba(91,76,53,0.05)]">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h2 className="truncate text-[15px] font-extrabold">{lesson.title}</h2>
-              <p className="mt-1 text-[12px] font-bold text-[#5d956d]">{lesson.date} {lesson.startTime}-{lesson.endTime}</p>
-              <p className="mt-1 truncate text-[11px] font-medium text-[#6b7468]">{lesson.blockIds.length}ブロック / {lesson.duration}</p>
+              <h2 className="truncate text-[15px] font-extrabold">{plan.name}</h2>
+              <p className="mt-1 text-[12px] font-bold text-[#5d956d]">{plan.theme || "テーマ未設定"}</p>
+              <p className="mt-1 truncate text-[11px] font-medium text-[#6b7468]">{plan.blockCount}ブロック / {plan.totalMinutes}分 / 更新 {formatShortDate(plan.updatedAt)}</p>
             </div>
-            <StatusBadge status={lesson.status} />
+            <span className="shrink-0 rounded-full bg-[#edf5ef] px-2 py-1 text-[11px] font-bold text-[#4f875a]">{plan.statusLabel}</span>
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {lesson.tags.slice(0, 3).map((tag) => <Pill key={tag}>{tag}</Pill>)}
+            {plan.tags.length ? plan.tags.slice(0, 3).map((tag) => <Pill key={tag}>{tag}</Pill>) : <Pill>タグ未設定</Pill>}
           </div>
           <div className="mt-3 grid grid-cols-3 gap-2">
-            <Link href={`/lessons/${lesson.id}`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#cfe1ca] bg-[#f8fcf6] text-[12px] font-bold text-[#5d956d]">詳細</Link>
-            <Link href={`/lessons/${lesson.id}/script`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#e6dff2] bg-[#faf7ff] text-[12px] font-bold text-[#7469bf]">原稿</Link>
-            <Link href={`/lessons/${lesson.id}/edit`} className="inline-flex h-9 items-center justify-center rounded-xl bg-[#7ea06f] text-[12px] font-bold text-white">編集</Link>
+            <Link href={`/lessons/${plan.id}`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#cfe1ca] bg-[#f8fcf6] text-[12px] font-bold text-[#5d956d]">詳細</Link>
+            <Link href={`/lessons/${plan.id}/script`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#e6dff2] bg-[#faf7ff] text-[12px] font-bold text-[#7469bf]">原稿</Link>
+            <Link href={`/lessons/${plan.id}/edit`} className="inline-flex h-9 items-center justify-center rounded-xl bg-[#7ea06f] text-[12px] font-bold text-white">編集</Link>
           </div>
         </article>
-      ))}
+      )) : <PlansEmptyState />}
     </div>
   );
 }
@@ -342,7 +343,7 @@ function ScheduleTab() {
   );
 }
 
-function PlansTab() {
+function PlansTab({ plans }: { plans: DbLessonPlan[] }) {
   return (
     <>
       <div className="mb-3 flex justify-end gap-2">
@@ -351,35 +352,38 @@ function PlansTab() {
           レッスンプランを作成
         </Link>
       </div>
-      <div className="grid gap-3">
-        {lessons.map((lesson) => (
-          <SoftCard key={lesson.id} className="p-3.5">
-            <div className="grid grid-cols-[minmax(0,1fr)_130px_190px] items-center gap-3">
-              <div className="min-w-0">
-                <div className="mb-1 flex items-center gap-2">
-                  <h2 className="truncate text-[17px] font-extrabold">{lesson.title}</h2>
-                  <StatusBadge status={lesson.status} />
+      {plans.length ? (
+        <div className="grid gap-3">
+          {plans.map((plan) => (
+            <SoftCard key={plan.id} className="p-3.5">
+              <div className="grid grid-cols-[minmax(0,1fr)_130px_190px] items-center gap-3">
+                <div className="min-w-0">
+                  <div className="mb-1 flex items-center gap-2">
+                    <h2 className="truncate text-[17px] font-extrabold">{plan.name}</h2>
+                    <span className="shrink-0 rounded-full bg-[#edf5ef] px-2 py-1 text-[11px] font-bold text-[#4f875a]">{plan.statusLabel}</span>
+                  </div>
+                  <p className="text-[12px] font-semibold text-[#5f665c]">
+                    {plan.theme || "テーマ未設定"} / {plan.place || "場所未設定"} / {plan.formatLabel} / 更新 {formatShortDate(plan.updatedAt)}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {plan.tags.length ? plan.tags.map((tag) => <Pill key={tag}>{tag}</Pill>) : <Pill>タグ未設定</Pill>}
+                  </div>
                 </div>
-                <p className="text-[12px] font-semibold text-[#5f665c]">
-                  {lesson.date} {lesson.startTime}-{lesson.endTime} / {lesson.place} / {lesson.format}
-                </p>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {lesson.tags.map((tag) => <Pill key={tag}>{tag}</Pill>)}
+                <div className="rounded-xl border border-[#eee4d8] bg-white/65 p-2 text-center">
+                  <p className="text-[11px] font-bold text-[#7c8476]">使用ブロック</p>
+                  <p className="text-[28px] font-extrabold text-[#4f875a]">{plan.blockCount}</p>
+                  <p className="text-[11px] font-bold text-[#7c8476]">{plan.totalMinutes}分</p>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <Link href={`/lessons/${plan.id}`} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] px-2 text-center text-[12px] font-bold text-[#5d956d]">詳細</Link>
+                  <Link href={`/lessons/${plan.id}/edit`} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#cfe1ca] bg-white text-[12px] font-bold text-[#5d956d]">編集</Link>
+                  <Link href={`/lessons/${plan.id}/script`} className="col-span-2 inline-flex h-8 items-center justify-center rounded-lg bg-[#5d956d] text-[12px] font-bold text-white">原稿を見る</Link>
                 </div>
               </div>
-              <div className="rounded-xl border border-[#eee4d8] bg-white/65 p-2 text-center">
-                <p className="text-[11px] font-bold text-[#7c8476]">使用ブロック</p>
-                <p className="text-[28px] font-extrabold text-[#4f875a]">{lesson.blockIds.length}</p>
-              </div>
-              <div className="grid grid-cols-2 gap-1.5">
-                <Link href={`/lessons/${lesson.id}`} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] px-2 text-center text-[12px] font-bold text-[#5d956d]">詳細</Link>
-                <Link href={`/lessons/${lesson.id}/edit`} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#cfe1ca] bg-white text-[12px] font-bold text-[#5d956d]">編集</Link>
-                <Link href={`/lessons/${lesson.id}/script`} className="col-span-2 inline-flex h-8 items-center justify-center rounded-lg bg-[#5d956d] text-[12px] font-bold text-white">原稿を表示・印刷</Link>
-              </div>
-            </div>
-          </SoftCard>
-        ))}
-      </div>
+            </SoftCard>
+          ))}
+        </div>
+      ) : <PlansEmptyState />}
     </>
   );
 }
@@ -479,6 +483,22 @@ function BlocksEmptyState() {
   );
 }
 
+function PlansEmptyState() {
+  return (
+    <SoftCard className="p-6 text-center">
+      <ClipboardList className="mx-auto h-10 w-10 text-[#5d956d]" />
+      <p className="mt-3 text-[15px] font-extrabold">まだレッスンプランがありません。</p>
+      <p className="mx-auto mt-1 max-w-xl text-[13px] font-semibold leading-6 text-[#6b7468]">
+        ブロックを組み合わせて、印刷できるレッスン原稿を作成しましょう。
+      </p>
+      <Link href="/lessons/new" className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-[#5d956d] px-4 text-[13px] font-bold text-white">
+        <Plus className="h-4 w-4" />
+        レッスンプランを作成
+      </Link>
+    </SoftCard>
+  );
+}
+
 function RecordsTab() {
   return (
     <SoftCard className="p-3.5">
@@ -574,4 +594,8 @@ function MiniStat({ label, value }: { label: string; value: string }) {
       <p className="truncate text-[12px] font-extrabold">{value}</p>
     </div>
   );
+}
+
+function formatShortDate(value: string) {
+  return new Intl.DateTimeFormat("ja-JP", { month: "numeric", day: "numeric" }).format(new Date(value));
 }

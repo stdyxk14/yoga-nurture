@@ -1,12 +1,17 @@
-import { LessonForm } from "@/components/yoga/lesson-form";
-import { getLesson, lessons } from "@/components/yoga/records";
+import { LessonPlanForm } from "@/components/yoga/lesson-plan-form";
+import { getBlockCategories, getBlocks, getBlockTags } from "@/lib/blocks";
+import { getLessonPlanById } from "@/lib/lesson-plans";
 
-export function generateStaticParams() {
-  return lessons.map((lesson) => ({ id: lesson.id }));
-}
+export const dynamic = "force-dynamic";
 
 export default async function EditLessonPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const [plan, blocks, categories, tags] = await Promise.all([
+    getLessonPlanById(id),
+    getBlocks(),
+    getBlockCategories(),
+    getBlockTags(),
+  ]);
 
-  return <LessonForm mode="edit" lesson={getLesson(id)} />;
+  return <LessonPlanForm mode="edit" initialPlan={plan} blocks={blocks} categories={categories} tags={tags.map((tag) => tag.name)} />;
 }
