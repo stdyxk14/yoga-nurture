@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import Link from "next/link";
 import {
   Archive,
   ArrowDown,
@@ -9,6 +10,7 @@ import {
   FolderTree,
   Heart,
   LockKeyhole,
+  LogOut,
   Palette,
   Pencil,
   Plus,
@@ -96,7 +98,13 @@ export default function SettingsPage() {
             </div>
             <div className="mt-4 flex items-center justify-between">
               <p className="text-[12px] font-medium text-[#696d66]">メールアドレスはログインや各種通知に使用されます。</p>
-              <Button className="h-10 rounded-lg bg-[#5d956d] px-10 text-white hover:bg-[#4f835d]">保存する</Button>
+              <div className="flex items-center gap-2">
+                <Link href="/auth/sign-out" className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#e0d4c7] bg-white px-4 text-[13px] font-bold text-[#6b7468]">
+                  <LogOut className="h-4 w-4" />
+                  ログアウト
+                </Link>
+                <Button className="h-10 rounded-lg bg-[#5d956d] px-10 text-white hover:bg-[#4f835d]">保存する</Button>
+              </div>
             </div>
           </div>
         </div>
@@ -346,6 +354,10 @@ function MobileSettings() {
             <Input defaultValue="maizaki.satomi@yoganurture.jp" className="h-10 rounded-xl border-[#ded7cb] bg-white/90 text-[13px]" />
           </label>
           <Button className="h-10 w-full rounded-xl bg-[#5d956d] text-white hover:bg-[#4f835d]">保存する</Button>
+          <Link href="/auth/sign-out" className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#e0d4c7] bg-white text-[13px] font-bold text-[#6b7468]">
+            <LogOut className="h-4 w-4" />
+            ログアウト
+          </Link>
         </div>
       </MobileSettingCard>
 

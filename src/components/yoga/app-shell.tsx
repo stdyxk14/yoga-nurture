@@ -21,6 +21,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [aiSheetOpen, setAiSheetOpen] = useState(false);
   const current = navItems.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`) || (item.href === "/lessons" && (pathname.startsWith("/schedules") || pathname.startsWith("/templates") || pathname.startsWith("/blocks"))));
 
+  if (pathname === "/login") {
+    return <>{children}</>;
+  }
+
   return (
     <div className="min-h-screen overflow-x-hidden bg-[var(--yoga-bg)] text-[#20231e] md:min-w-[1180px]">
       <MobileTopBar title={current?.label ?? "YOGA NURTURE"} onMenuClick={() => setMobileMenuOpen(true)} />
