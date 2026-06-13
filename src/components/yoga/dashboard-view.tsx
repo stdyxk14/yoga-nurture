@@ -23,7 +23,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
 
   return (
     <div className="mx-auto w-full max-w-full space-y-4 overflow-x-hidden">
-      <DashboardHeader todayLabel={data.todayLabel} />
+      <DashboardHeader greeting={data.greeting} todayLabel={data.todayLabel} />
 
       {data.error ? (
         <SoftCard className="border-[#f2c7be] bg-[#fff0ea] p-4 text-[13px] font-bold leading-6 text-[#c4523d]">
@@ -62,11 +62,11 @@ export function DashboardView({ data }: { data: DashboardData }) {
   );
 }
 
-function DashboardHeader({ todayLabel }: { todayLabel: string }) {
+function DashboardHeader({ greeting, todayLabel }: { greeting: string; todayLabel: string }) {
   return (
     <header className="flex flex-col gap-3 rounded-[24px] border border-[#eee4d8] bg-white/72 p-4 shadow-[0_10px_24px_rgba(91,76,53,0.06)] md:flex-row md:items-start md:justify-between md:border-0 md:bg-transparent md:p-0 md:shadow-none">
       <div>
-        <p className="mb-1 text-[14px] font-bold text-[#4f7b58]">おはようございます</p>
+        <p className="mb-1 text-[14px] font-bold text-[#4f7b58]">{greeting}</p>
         <div className="flex flex-col gap-1 md:flex-row md:items-end md:gap-4">
           <h1 className="text-[24px] font-extrabold leading-tight">今日のホーム</h1>
           <p className="text-[13px] font-semibold text-[#5d5d58] md:pb-1 md:text-[14px]">予定・準備・記録待ちをここで確認しましょう。</p>

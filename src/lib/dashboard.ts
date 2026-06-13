@@ -42,6 +42,7 @@ export type DashboardAttentionStudent = {
 };
 
 export type DashboardData = {
+  greeting: string;
   todayLabel: string;
   monthLabel: string;
   todayKey: string;
@@ -119,6 +120,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     const now = new Date();
     const todayKey = dateKeyInTokyo(now);
     return {
+      greeting: getGreetingJa(now),
       todayLabel: formatDateJa(now),
       monthLabel: formatMonthJa(now),
       todayKey,
@@ -200,6 +202,7 @@ async function fetchDashboardData(): Promise<DashboardData> {
   const attentionStudents = buildAttentionStudents(students, records, schedules, todayKey);
 
   return {
+    greeting: getGreetingJa(now),
     todayLabel: formatDateJa(now),
     monthLabel: formatMonthJa(now),
     todayKey,
@@ -449,11 +452,40 @@ function formatTimeJa(value: string) {
 }
 
 function formatDateJa(date: Date) {
-  return new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "short", timeZone: "Asia/Tokyo" }).format(date);
+  const parts = new Intl.DateTimeFormat("ja-JP", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    weekday: "short",
+    timeZone: "Asia/Tokyo",
+  }).formatToParts(date);
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${get("year")}年${get("month")}${get("day")}日（${get("weekday")}）`;
 }
 
 function formatMonthJa(date: Date) {
   return new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "long", timeZone: "Asia/Tokyo" }).format(date);
+}
+
+function getGreetingJa(date: Date) {
+  const hourPart = new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    hour12: false,
+    timeZone: "Asia/Tokyo",
+  })
+    .formatToParts(date)
+    .find((part) => part.type === "hour")?.value;
+  const hour = Number(hourPart ?? "0") % 24;
+
+  if (hour >= 5 && hour <= 10) {
+    return "おはようございます";
+  }
+
+  if (hour >= 11 && hour <= 16) {
+    return "こんにちは";
+  }
+
+  return "こんばんは";
 }
 
 function displayScheduleName(schedule: DashboardSchedule) {
