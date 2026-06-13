@@ -9,12 +9,15 @@ import { Input } from "@/components/ui/input";
 import type { StudentRecord } from "@/components/yoga/records";
 import { PageHeader, Pill, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
 import type { DbLessonPlan } from "@/lib/lesson-plans";
-import type { ScheduleFormState } from "@/lib/schedules";
+import type { DbSchedule, ScheduleFormState } from "@/lib/schedules";
 
 type Props = {
   plans: DbLessonPlan[];
   students: StudentRecord[];
   initialPlanId?: string;
+  schedule?: DbSchedule;
+  action?: (state: ScheduleFormState, formData: FormData) => Promise<ScheduleFormState>;
+  mode?: "create" | "edit";
 };
 
 const initialState: ScheduleFormState = {};
@@ -27,20 +30,32 @@ const lessonFormatOptions = [
 
 const scheduleStatusOptions = [
   { value: "scheduled", label: "予定" },
+  { value: "preparing", label: "事前準備中" },
   { value: "prepared", label: "事前準備済み" },
   { value: "record_pending", label: "記録待ち" },
   { value: "recorded", label: "記録済み" },
 ] as const;
 
-export function ScheduleForm({ plans, students, initialPlanId }: Props) {
-  const [state, formAction, pending] = useActionState(createScheduleAction, initialState);
-  const [selectedPlanId, setSelectedPlanId] = useState(initialPlanId && plans.some((plan) => plan.id === initialPlanId) ? initialPlanId : plans[0]?.id ?? "");
+export function ScheduleForm({ plans, students, initialPlanId, schedule, action = createScheduleAction, mode = "create" }: Props) {
+  const [state, formAction, pending] = useActionState(action, initialState);
+  const initialSelectedPlanId = schedule?.lessonPlanId ?? initialPlanId;
+  const [selectedPlanId, setSelectedPlanId] = useState(
+    initialSelectedPlanId && plans.some((plan) => plan.id === initialSelectedPlanId) ? initialSelectedPlanId : plans[0]?.id ?? "",
+  );
   const selectedPlan = useMemo(() => plans.find((plan) => plan.id === selectedPlanId), [plans, selectedPlanId]);
   const defaultDate = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(new Date());
+  const selectedStudentIds = new Set(schedule?.participants.map((student) => student.id) ?? []);
+  const startsAt = schedule ? toTokyoInputValues(schedule.startsAt) : null;
+  const endsAt = schedule ? toTokyoInputValues(schedule.endsAt) : null;
+  const title = mode === "edit" ? "予定編集" : "予定登録";
+  const subtitle = mode === "edit" ? "レッスン予定の日時・場所・参加予定生徒を更新します。" : "作成済みレッスンプランに日時・場所・参加予定生徒を紐づけます。";
+  const submitLabel = mode === "edit" ? "予定を更新" : "この内容で予定を登録";
+  const pendingLabel = mode === "edit" ? "更新中..." : "保存中...";
+  const cancelHref = schedule ? `/schedules/${schedule.id}` : "/lessons";
 
   return (
     <form action={formAction} className="space-y-4 pb-24 md:pb-0">
-      <PageHeader title="予定登録" subtitle="作成済みレッスンプランに日時・場所・参加予定生徒を紐づけます。" />
+      <PageHeader title={title} subtitle={subtitle} />
 
       {state.error ? (
         <p className="rounded-xl border border-[#f2c7be] bg-[#fff0ea] px-4 py-3 text-[13px] font-bold text-[#c4523d]">{state.error}</p>
@@ -97,24 +112,24 @@ export function ScheduleForm({ plans, students, initialPlanId }: Props) {
             <SectionTitle icon={CalendarDays} title="日時・場所" subtitle="60分以外の予定も、開始と終了で登録できます。" />
             <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               <Field label="日付">
-                <Input name="date" type="date" defaultValue={defaultDate} required className="h-10 bg-white/90" />
+                <Input name="date" type="date" defaultValue={startsAt?.date ?? defaultDate} required className="h-10 bg-white/90" />
               </Field>
               <Field label="開始時間">
-                <Input name="start_time" type="time" defaultValue="10:00" required className="h-10 bg-white/90" />
+                <Input name="start_time" type="time" defaultValue={startsAt?.time ?? "10:00"} required className="h-10 bg-white/90" />
               </Field>
               <Field label="終了時間">
-                <Input name="end_time" type="time" defaultValue="11:00" required className="h-10 bg-white/90" />
+                <Input name="end_time" type="time" defaultValue={endsAt?.time ?? "11:00"} required className="h-10 bg-white/90" />
               </Field>
               <Field label="場所">
-                <Input name="place" defaultValue={selectedPlan?.place || "スタジオA"} required className="h-10 bg-white/90" />
+                <Input name="place" defaultValue={schedule?.place || selectedPlan?.place || "スタジオA"} required className="h-10 bg-white/90" />
               </Field>
               <Field label="形式">
-                <select name="format" defaultValue={selectedPlan?.format || "group"} className="h-10 w-full rounded-xl border border-[#e1d9ce] bg-white/90 px-3 text-[13px] font-semibold">
+                <select name="format" defaultValue={schedule?.format || selectedPlan?.format || "group"} className="h-10 w-full rounded-xl border border-[#e1d9ce] bg-white/90 px-3 text-[13px] font-semibold">
                   {lessonFormatOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
               </Field>
               <Field label="ステータス">
-                <select name="status" defaultValue="scheduled" className="h-10 w-full rounded-xl border border-[#e1d9ce] bg-white/90 px-3 text-[13px] font-semibold">
+                <select name="status" defaultValue={schedule?.status ?? "scheduled"} className="h-10 w-full rounded-xl border border-[#e1d9ce] bg-white/90 px-3 text-[13px] font-semibold">
                   {scheduleStatusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
               </Field>
@@ -129,7 +144,7 @@ export function ScheduleForm({ plans, students, initialPlanId }: Props) {
               <div className="mt-4 grid gap-2">
                 {students.map((student) => (
                   <label key={student.id} className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[#eee4d8] bg-white/75 p-3">
-                    <input name="student_ids" value={student.id} type="checkbox" className="mt-1 h-4 w-4 shrink-0 accent-[#5d956d]" />
+                    <input name="student_ids" value={student.id} type="checkbox" defaultChecked={selectedStudentIds.has(student.id)} className="mt-1 h-4 w-4 shrink-0 accent-[#5d956d]" />
                     <span className="min-w-0">
                       <span className="block text-[13px] font-extrabold">{student.name}</span>
                       <span className="mt-1 block line-clamp-2 text-[11px] font-medium leading-5 text-[#6b7468]">注意点: {student.caution || "未登録"}</span>
@@ -158,9 +173,9 @@ export function ScheduleForm({ plans, students, initialPlanId }: Props) {
             <div className="mt-4 grid gap-2">
               <button type="submit" disabled={pending || !plans.length} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#5d956d] px-5 text-[13px] font-bold text-white shadow-[0_8px_18px_rgba(64,113,77,0.2)] disabled:opacity-60">
                 <Save className="h-4 w-4" />
-                {pending ? "保存中..." : "この内容で予定を登録"}
+                {pending ? pendingLabel : submitLabel}
               </button>
-              <Link href="/lessons" className="inline-flex h-10 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white px-4 text-[13px] font-bold text-[#4f7b58]">
+              <Link href={cancelHref} className="inline-flex h-10 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white px-4 text-[13px] font-bold text-[#4f7b58]">
                 キャンセル
               </Link>
             </div>
@@ -178,6 +193,24 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
       {children}
     </label>
   );
+}
+
+function toTokyoInputValues(value: string) {
+  const parts = new Intl.DateTimeFormat("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(value));
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+
+  return {
+    date: `${get("year")}-${get("month")}-${get("day")}`,
+    time: `${get("hour")}:${get("minute")}`,
+  };
 }
 
 function MiniInfo({ label, value }: { label: string; value: string }) {

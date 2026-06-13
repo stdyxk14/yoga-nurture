@@ -40,10 +40,10 @@ export function ScheduleDetail({ schedule }: { schedule: DbSchedule }) {
               <FileText className="h-3.5 w-3.5" />
               記録を書く
             </Link>
-            <span className="inline-flex h-9 items-center justify-center gap-1 rounded-xl border border-[#e7dfd4] bg-[#f4f1ea] px-3 text-[12px] font-bold text-[#9b8c7b]">
+            <Link href={`/schedules/${schedule.id}/edit`} className="inline-flex h-9 items-center justify-center gap-1 rounded-xl border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
               <Pencil className="h-3.5 w-3.5" />
-              編集は次フェーズ
-            </span>
+              編集する
+            </Link>
           </div>
         </div>
       </SoftCard>
