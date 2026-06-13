@@ -1,4 +1,5 @@
-import { Archive, FolderTree, LogOut, Pencil, Plus, Sparkles, Trash2, UserRound } from "lucide-react";
+import { Archive, BookOpenText, FolderTree, LogOut, Pencil, Plus, Sparkles, Trash2, UploadCloud, UserRound } from "lucide-react";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,7 @@ import {
 import { updateAiSettingsAction, updateProfileAction } from "@/app/settings/profile-actions";
 import { getAiSettings } from "@/lib/ai-settings";
 import { getBlockCategories, type BlockCategory } from "@/lib/blocks";
+import { getKnowledgeStats, type KnowledgeStats } from "@/lib/knowledge";
 import { requireUserId } from "@/lib/students";
 
 export const dynamic = "force-dynamic";
@@ -37,9 +39,10 @@ export default async function SettingsPage({
 }) {
   const params = await searchParams;
   const { supabase, userId, user } = await requireUserId();
-  const [{ data: profile, error: profileError }, blockCategories] = await Promise.all([
+  const [{ data: profile, error: profileError }, blockCategories, knowledgeStats] = await Promise.all([
     supabase.from("profiles").select("display_name,email").eq("id", userId).maybeSingle(),
     getBlockCategories(),
+    getKnowledgeStats(),
   ]);
   const aiSettings = getAiSettings(user.user_metadata?.ai_settings);
   const email = profile?.email ?? user.email ?? "";
@@ -56,6 +59,8 @@ export default async function SettingsPage({
         <AiSettingsPanel settings={aiSettings} message={params.aiMessage} error={params.aiError} />
       </section>
 
+      <KnowledgeSettingsPanel stats={knowledgeStats} />
+
       <BlockCategoryManagement
         categories={blockCategories}
         notice={{
@@ -63,6 +68,52 @@ export default async function SettingsPage({
           error: params.categoryError,
         }}
       />
+    </div>
+  );
+}
+
+function KnowledgeSettingsPanel({ stats }: { stats: KnowledgeStats }) {
+  return (
+    <SoftCard className="p-4 md:p-5">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <SectionTitle icon={BookOpenText} title="AIメンター学習メモ" subtitle="手書きメモや指導ノートを知識として整理" />
+          <p className="max-w-3xl text-[13px] font-semibold leading-6 text-[#667063]">
+            手書きメモやPDFをアップロードし、読み取り結果を確認してからAIメンターが参照できる知識カードにします。
+          </p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Link
+            href="/settings/knowledge/upload"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#5d956d] px-4 text-[13px] font-bold text-white hover:bg-[#4f835d]"
+          >
+            <UploadCloud className="h-4 w-4" />
+            手書きメモをアップロード
+          </Link>
+          <Link
+            href="/settings/knowledge"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#dfe7d9] bg-white/85 px-4 text-[13px] font-bold text-[#4f835d]"
+          >
+            学習メモ一覧を見る
+          </Link>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <KnowledgeMetric label="アップロード済みメモ" value={`${stats.documents}件`} />
+        <KnowledgeMetric label="確認待ち" value={`${stats.reviewNeeded}件`} tone="beige" />
+        <KnowledgeMetric label="有効化済み知識カード" value={`${stats.activeCards}件`} />
+      </div>
+    </SoftCard>
+  );
+}
+
+function KnowledgeMetric({ label, value, tone = "green" }: { label: string; value: string; tone?: "green" | "beige" }) {
+  return (
+    <div className="rounded-2xl border border-[#eee4d8] bg-white/72 p-3">
+      <p className="text-[12px] font-bold text-[#6d7469]">{label}</p>
+      <p className={tone === "beige" ? "mt-1 text-[24px] font-extrabold text-[#8b704c]" : "mt-1 text-[24px] font-extrabold text-[#4f835d]"}>
+        {value}
+      </p>
     </div>
   );
 }
