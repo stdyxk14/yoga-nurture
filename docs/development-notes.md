@@ -20,14 +20,30 @@ When a command still renders Japanese as `????` or mojibake, prefer one of these
 - Run short Node.js scripts from UTF-8 files instead of inline PowerShell strings for Japanese-heavy checks.
 - If a command only fails because the terminal cannot display Japanese, confirm in the browser before changing application code.
 
+On this Windows environment, use `npm.cmd` if PowerShell blocks `npm.ps1`:
+
+```powershell
+npm.cmd run lint
+npm.cmd run build
+npm.cmd run test:e2e:smoke
+```
+
 ## E2E Environment Variables
 
-Playwright smoke tests can run in two modes:
+Playwright smoke tests can run in two modes.
 
-- Without credentials: `/login` and unauthenticated redirects are checked.
-- With credentials: authenticated pages are checked after logging in.
+Without credentials:
 
-Optional variables:
+- `/login` renders
+- protected pages redirect to `/login`
+
+With credentials:
+
+- `/login` accepts the test account
+- `/dashboard`, `/students`, `/lessons`, `/reports`, and `/settings` render
+- logout from `/settings` works
+
+Authenticated tests require all three values:
 
 ```text
 E2E_BASE_URL=https://yoga-nurture.vercel.app
@@ -35,11 +51,22 @@ E2E_TEST_EMAIL=
 E2E_TEST_PASSWORD=
 ```
 
-Never commit real passwords. Keep real values in a local `.env` file, shell environment, or CI/Vercel secrets.
+If any value is missing, the authenticated test group is skipped and Playwright prints the missing variable names.
+
+Never commit real passwords or test account email addresses. Keep real values in a local `.env.local` file, shell environment, or CI secrets. Playwright loads `.env.local` through `@next/env`.
+
+PowerShell example:
+
+```powershell
+$env:E2E_BASE_URL = "https://yoga-nurture.vercel.app"
+$env:E2E_TEST_EMAIL = "<test email>"
+$env:E2E_TEST_PASSWORD = "<test password>"
+npm.cmd run test:e2e:smoke
+```
 
 ## AI Mentor Environment Variables
 
-AI mentor calls must run on the server only. Use this variable name in local `.env` files and Vercel Environment Variables:
+AI mentor calls must run on the server only. Use this variable name in local `.env.local` files and Vercel Environment Variables:
 
 ```text
 OPENAI_API_KEY=
@@ -62,7 +89,7 @@ npm run lint
 npm run build
 ```
 
-UI or routing changes:
+UI, routing, or auth changes:
 
 ```bash
 npm run lint
@@ -70,21 +97,15 @@ npm run build
 npm run test:e2e:smoke
 ```
 
-DB-connected changes:
-
-```bash
-npm run lint
-npm run build
-E2E_BASE_URL=https://yoga-nurture.vercel.app npm run test:e2e:smoke
-```
-
-On Windows PowerShell, set env vars separately if needed:
+DB-connected changes against production:
 
 ```powershell
 $env:E2E_BASE_URL = "https://yoga-nurture.vercel.app"
 $env:E2E_TEST_EMAIL = "<test email>"
 $env:E2E_TEST_PASSWORD = "<test password>"
-npm run test:e2e:smoke
+npm.cmd run lint
+npm.cmd run build
+npm.cmd run test:e2e:smoke
 ```
 
 ## Deployment Rule

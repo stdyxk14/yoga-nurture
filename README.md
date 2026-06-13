@@ -1,63 +1,101 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# YOGA NURTURE
 
-## Getting Started
+Yoga instructor management app built with Next.js, TypeScript, Tailwind CSS, shadcn/ui, Supabase, and OpenAI server-side AI helpers.
 
-First, run the development server:
+## Development
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Required Local Environment
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Create a local `.env.local` file when running the app locally. Do not commit real secrets.
 
-## Learn More
+```text
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+OPENAI_API_KEY=
+```
 
-To learn more about Next.js, take a look at the following resources:
+`OPENAI_API_KEY` is server-side only. Never expose it with a `NEXT_PUBLIC_` prefix.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## E2E Smoke Tests
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The smoke test can run in two modes.
 
-## Deploy on Vercel
+Without credentials, it checks:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `/login`
+- unauthenticated redirects from protected pages
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+With credentials, it also checks:
+
+- login from `/login`
+- `/dashboard`
+- `/students`
+- `/lessons`
+- `/reports`
+- `/settings`
+- logout from `/settings`
+
+Set these values only in your local shell or local `.env.local`. Never commit real email addresses or passwords.
+
+```text
+E2E_BASE_URL=https://yoga-nurture.vercel.app
+E2E_TEST_EMAIL=
+E2E_TEST_PASSWORD=
+```
+
+PowerShell example:
+
+```powershell
+$env:E2E_BASE_URL = "https://yoga-nurture.vercel.app"
+$env:E2E_TEST_EMAIL = "<test email>"
+$env:E2E_TEST_PASSWORD = "<test password>"
+npm.cmd run test:e2e:smoke
+```
+
+Alternatively, put those three values in `.env.local`; Playwright loads local env files through `@next/env`.
+
+If any of the three E2E variables is missing, authenticated tests are skipped with a message listing the missing variables.
 
 ## Project Checks
 
-通常の変更後:
+Normal code changes:
 
 ```bash
 npm run lint
 npm run build
 ```
 
-UIや導線を変更した後:
+UI, routing, or auth changes:
 
 ```bash
+npm run lint
+npm run build
 npm run test:e2e:smoke
 ```
 
-Playwright の認証付き確認を行う場合は、実値をコードに書かずに環境変数で渡してください。
+On Windows PowerShell, use `npm.cmd` if `npm.ps1` is blocked by execution policy:
 
-```text
-E2E_BASE_URL=https://yoga-nurture.vercel.app
-E2E_TEST_EMAIL=<test email>
-E2E_TEST_PASSWORD=<test password>
+```powershell
+npm.cmd run lint
+npm.cmd run build
+npm.cmd run test:e2e:smoke
 ```
 
-Windows / PowerShell の日本語表示や Codex 作業時の確認手順は [docs/development-notes.md](./docs/development-notes.md) を参照してください。
+See [docs/development-notes.md](./docs/development-notes.md) for Windows UTF-8 notes and Codex verification guidance.
 
-Vercel は CLI 手動デプロイではなく、GitHub `main` push から `yoga-nurture` プロジェクトの自動デプロイを使います。
+## Deployment Rule
+
+Do not use Vercel CLI manual deploys for this project.
+
+Expected deployment flow:
+
+1. Commit locally.
+2. Push to GitHub `main`.
+3. Let the Vercel `yoga-nurture` project deploy automatically from Git integration.
+4. Confirm production at [https://yoga-nurture.vercel.app](https://yoga-nurture.vercel.app).
