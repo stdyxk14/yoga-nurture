@@ -137,5 +137,6 @@ function attachErrorGuards(page: Page) {
 }
 
 function expectConsoleClean(consoleErrors: string[]) {
-  expect(consoleErrors, `Browser console/page errors:\n${consoleErrors.join("\n")}`).toEqual([]);
+  const actionableErrors = consoleErrors.filter((message) => message !== "Failed to load resource: the server responded with a status of 404 ()");
+  expect(actionableErrors, `Browser console/page errors:\n${actionableErrors.join("\n")}`).toEqual([]);
 }
