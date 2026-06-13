@@ -4,18 +4,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-
-function getTodayLabel() {
-  const parts = new Intl.DateTimeFormat("ja-JP", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    weekday: "short",
-    timeZone: "Asia/Tokyo",
-  }).formatToParts(new Date());
-  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
-  return `${get("year")}年${get("month")}${get("day")}日（${get("weekday")}）`;
-}
+import { formatJapaneseDate } from "@/lib/date-format";
 
 export function PageHeader({
   title,
@@ -37,7 +26,7 @@ export function PageHeader({
       </div>
       <div suppressHydrationWarning className="flex h-9 items-center gap-2 rounded-xl bg-white/70 px-3 text-[13px] font-semibold text-[#30362f]">
         <CalendarDays className="h-4 w-4" />
-        {getTodayLabel()}
+        {formatJapaneseDate()}
       </div>
     </header>
   );

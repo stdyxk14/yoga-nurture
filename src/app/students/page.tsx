@@ -9,29 +9,33 @@ const filterItems = ["すべて", "最近受講", "要フォロー", "注意点�
 
 export const dynamic = "force-dynamic";
 
-export default async function StudentsPage() {
-  const students = await getStudents();
+export default async function StudentsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  const params = await searchParams;
+  const query = params.q ?? "";
+  const students = await getStudents(query);
   const cautionCount = students.filter((student) => student.caution).length;
 
   return (
     <>
       <div className="md:hidden">
-        <MobileStudents students={students} />
+        <MobileStudents students={students} query={query} />
       </div>
 
       <div className="hidden md:block">
         <PageHeader title="生徒カルテ" subtitle="生徒一人ひとりの状態・記録を管理" />
 
-        <div className="mb-3 flex items-center justify-between gap-3">
+        <form action="/students" className="mb-3 flex items-center justify-between gap-3">
           <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-[#e7dfd4] bg-white/80 px-3 py-2">
             <Search className="h-4 w-4 shrink-0 text-[#6b7468]" />
-            <Input placeholder="生徒名、年代、経験、注意点で検索" className="h-8 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0" />
+            <Input name="q" defaultValue={query} placeholder="名前・ふりがな・年代・経験・注意点で検索" className="h-8 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0" />
           </div>
+          <button className="inline-flex h-10 items-center rounded-xl border border-[#d8e3d4] bg-white px-4 text-[13px] font-bold text-[#4f7b58]">検索</button>
+          {query ? <Link href="/students" className="inline-flex h-10 items-center rounded-xl border border-[#eadbd2] bg-[#fff8f4] px-4 text-[13px] font-bold text-[#c86b55]">クリア</Link> : null}
           <Link href="/students/new" className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#5d956d] px-4 text-[13px] font-bold text-white">
             <Plus className="h-4 w-4" />
             生徒を登録
           </Link>
-        </div>
+        </form>
 
         <SoftCard className="p-3.5">
           <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -41,7 +45,7 @@ export default async function StudentsPage() {
           {students.length ? (
             <div className="grid gap-2">
               {students.map((student) => (
-              <div key={student.id} className="grid min-w-0 grid-cols-[170px_74px_70px_minmax(90px,0.9fr)_minmax(92px,1fr)_minmax(90px,1fr)_70px_42px_118px] items-center gap-2 rounded-xl border border-[#eee4d8] bg-white/70 px-3 py-3">
+              <div key={student.id} className="grid min-w-0 grid-cols-[170px_74px_70px_minmax(90px,0.9fr)_minmax(92px,1fr)_minmax(90px,1fr)_72px_92px_92px_118px] items-center gap-2 rounded-xl border border-[#eee4d8] bg-white/70 px-3 py-3">
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#edf4ea] text-[#4f875a]">
                     <UserRound className="h-5 w-5" />
@@ -56,8 +60,9 @@ export default async function StudentsPage() {
                 <p className="line-clamp-2 text-[12px] font-medium leading-5">{student.experience}</p>
                 <p className="line-clamp-2 text-[12px] font-medium leading-5">{student.caution}</p>
                 <p className="line-clamp-2 text-[12px] font-medium leading-5 text-[#5f665c]">{student.memo}</p>
-                <p className="text-[12px] font-bold">{student.lastLessonDate}</p>
-                <p className="text-[12px] font-bold text-[#4f875a]">{student.linkedLessonCount}件</p>
+                <p className="text-[12px] font-bold text-[#4f875a]">{student.linkedLessonCount}回</p>
+                <p className="text-[12px] font-bold text-[#c86b55]">キャンセル {student.cancelCount ?? 0}回</p>
+                <p className="line-clamp-2 text-[11px] font-bold">{student.lastLessonDate}<br />次回 {student.nextLessonDate ?? "未定"}</p>
                 <div className="flex justify-end gap-1.5">
                   <Link href={`/students/${student.id}`} className="inline-flex h-8 items-center whitespace-nowrap rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] px-2.5 text-[12px] font-bold text-[#5d956d]">
                     詳細を見る
@@ -112,7 +117,7 @@ function EmptyStudents() {
   );
 }
 
-function MobileStudents({ students }: { students: StudentRecord[] }) {
+function MobileStudents({ students, query }: { students: StudentRecord[]; query: string }) {
   return (
     <div className="mx-auto max-w-[430px] space-y-4 overflow-x-hidden">
       <div className="rounded-[24px] border border-[#eee4d8] bg-white/82 p-4 shadow-[0_12px_26px_rgba(122,104,80,0.08)]">
@@ -126,10 +131,16 @@ function MobileStudents({ students }: { students: StudentRecord[] }) {
             登録
           </Link>
         </div>
-        <div className="flex items-center gap-2 rounded-2xl border border-[#e7dfd4] bg-[#fffdf8] px-3 py-2">
-          <Search className="h-4 w-4 shrink-0 text-[#6b7468]" />
-          <Input placeholder="名前・年代・注意点で検索" className="h-8 min-w-0 border-0 bg-transparent px-0 text-[13px] shadow-none focus-visible:ring-0" />
-        </div>
+        <form action="/students" className="grid gap-2">
+          <div className="flex items-center gap-2 rounded-2xl border border-[#e7dfd4] bg-[#fffdf8] px-3 py-2">
+            <Search className="h-4 w-4 shrink-0 text-[#6b7468]" />
+            <Input name="q" defaultValue={query} placeholder="名前・年代・注意点で検索" className="h-8 min-w-0 border-0 bg-transparent px-0 text-[13px] shadow-none focus-visible:ring-0" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button className="h-10 rounded-xl bg-[#5d956d] text-[13px] font-bold text-white">検索</button>
+            <Link href="/students" className="inline-flex h-10 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white text-[13px] font-bold text-[#4f7b58]">クリア</Link>
+          </div>
+        </form>
         <div className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1">
           {filterItems.map((item, index) => (
             <button key={item} className={`h-8 shrink-0 rounded-full px-3 text-[12px] font-bold ${index === 0 ? "bg-[#7fa06f] text-white" : "border border-[#e7dfd4] bg-white/80 text-[#5f665c]"}`}>
@@ -162,9 +173,10 @@ function MobileStudents({ students }: { students: StudentRecord[] }) {
               </div>
             </div>
             <div className="mt-3 flex items-center justify-between rounded-2xl bg-[#faf7ef] px-3 py-2 text-[11px] font-bold text-[#667061]">
-              <span>最終受講 {student.lastLessonDate}</span>
-              <span>{student.linkedLessonCount}件のレッスン</span>
+              <span>受講 {student.linkedLessonCount}回 / キャンセル {student.cancelCount ?? 0}回</span>
+              <span>最終 {student.lastLessonDate}</span>
             </div>
+            <p className="mt-2 rounded-xl bg-[#f8fcf6] px-3 py-2 text-[11px] font-bold text-[#5d6b58]">次回予定：{student.nextLessonDate ?? "未定"}</p>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <Link href={`/students/${student.id}`} className="inline-flex h-10 items-center justify-center rounded-xl border border-[#cfe1ca] bg-[#f8fcf6] text-[13px] font-bold text-[#5d956d]">
                 詳細を見る

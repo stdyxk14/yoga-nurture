@@ -1,4 +1,5 @@
 import type { AttendanceStatus, BlockUsageHistory, StudentAttendanceStats, StudentLessonHistory, StudentObservation } from "@/components/yoga/records";
+import { formatJapaneseDate } from "@/lib/date-format";
 import { getScheduleById, type DbSchedule } from "@/lib/schedules";
 import { requireUserId } from "@/lib/students";
 import { mapBlock, type DbBlockTemplate } from "@/lib/blocks";
@@ -170,7 +171,7 @@ export const attendanceOptions = [
 
 function formatDate(value: string | null | undefined) {
   if (!value) return "未記録";
-  return new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "numeric", day: "numeric", timeZone: "Asia/Tokyo" }).format(new Date(value));
+  return formatJapaneseDate(new Date(value));
 }
 
 function statusFromSchedule(status?: string | null): LessonRecordStatus {

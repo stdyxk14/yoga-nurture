@@ -1,3 +1,4 @@
+import { formatJapaneseDate } from "@/lib/date-format";
 import { requireUserId } from "@/lib/students";
 
 export type ReportPeriodKey = "week" | "month" | "3months" | "half" | "year" | "custom";
@@ -412,7 +413,7 @@ function percent(part: number, total: number) {
 
 function formatDate(value: string | null | undefined) {
   if (!value) return "未記録";
-  return new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "numeric", day: "numeric", timeZone: "Asia/Tokyo" }).format(new Date(value));
+  return formatJapaneseDate(new Date(value));
 }
 
 function buildRatioRows(values: string[]): RatioRow[] {

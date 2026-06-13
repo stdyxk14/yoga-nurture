@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import type { BlockTemplate } from "@/components/yoga/records";
+import { formatJapaneseDate } from "@/lib/date-format";
 import { requireUserId } from "@/lib/students";
 
 export type BlockCategory = {
@@ -66,6 +67,14 @@ type RawBlock = {
   block_template_tags?: Array<{ tag?: { id: string; name: string | null } | null }>;
 };
 
+type BlockUsageStats = {
+  usageCount: number;
+  reactionCount: number;
+  goodCount: number;
+  improvementCount: number;
+  latestDate: string;
+};
+
 export const defaultBlockCategories = [
   "事前準備",
   "雑談",
@@ -88,7 +97,7 @@ export const defaultSubcategories: Record<string, string[]> = {
   クールダウン: ["首のストレッチ", "セツヴァンダサルヴァンガ", "ハラアーサナ", "ジャタラパリブルッタアーサナ", "シャヴァーサナ"],
 };
 
-export function mapBlock(row: RawBlock): DbBlockTemplate {
+export function mapBlock(row: RawBlock, stats?: BlockUsageStats): DbBlockTemplate {
   const tags = (row.block_template_tags ?? [])
     .map((item) => item.tag?.name)
     .filter((tag): tag is string => Boolean(tag));
@@ -108,9 +117,11 @@ export function mapBlock(row: RawBlock): DbBlockTemplate {
     script: row.script ?? "",
     tags,
     memo: row.memo ?? "",
-    usageCount: 0,
-    averageRating: 0,
-    lastUsed: "未使用",
+    usageCount: stats?.usageCount ?? 0,
+    averageRating: stats?.reactionCount ? Math.round(((stats.goodCount / stats.reactionCount) * 5) * 10) / 10 : 0,
+    goodRate: stats?.reactionCount ? Math.round((stats.goodCount / stats.reactionCount) * 100) : null,
+    improvementCount: stats?.improvementCount ?? 0,
+    lastUsed: stats?.latestDate ? formatJapaneseDate(new Date(stats.latestDate)) : "未使用",
     archived: row.archived,
     favorite: row.favorite,
     createdAt: row.created_at,
@@ -177,7 +188,8 @@ export async function getBlocks(filters: BlockListFilters = {}) {
 
   if (error) throw new Error(`ブロックテンプレートを取得できませんでした: ${error.message}`);
 
-  let blocks = ((data ?? []) as unknown as RawBlock[]).map(mapBlock);
+  const statsByBlock = await getBlockUsageStats(((data ?? []) as unknown as RawBlock[]).map((row) => row.id));
+  let blocks = ((data ?? []) as unknown as RawBlock[]).map((row) => mapBlock(row, statsByBlock.get(row.id)));
   const q = filters.q?.trim().toLowerCase();
 
   if (q) {
@@ -202,6 +214,48 @@ export async function getBlocks(filters: BlockListFilters = {}) {
   }
 
   return blocks;
+}
+
+async function getBlockUsageStats(blockIds: string[]) {
+  const stats = new Map<string, BlockUsageStats>();
+  for (const blockId of blockIds) {
+    stats.set(blockId, { usageCount: 0, reactionCount: 0, goodCount: 0, improvementCount: 0, latestDate: "" });
+  }
+  if (!blockIds.length) return stats;
+
+  const { supabase } = await requireUserId();
+  const { data, error } = await supabase
+    .from("lesson_record_blocks")
+    .select("block_template_id,done,reaction,improvement_memo,record:lesson_records(record_date,schedule:schedules(starts_at))")
+    .in("block_template_id", blockIds);
+
+  if (error) throw new Error(`ブロック使用実績を取得できませんでした: ${error.message}`);
+
+  for (const row of (data ?? []) as Array<{
+    block_template_id: string;
+    done: boolean | null;
+    reaction: "good" | "neutral" | "poor" | null;
+    improvement_memo: string | null;
+    record?: { record_date: string | null; schedule?: { starts_at: string | null } | Array<{ starts_at: string | null }> | null } | Array<{ record_date: string | null; schedule?: { starts_at: string | null } | Array<{ starts_at: string | null }> | null }> | null;
+  }>) {
+    const current = stats.get(row.block_template_id);
+    if (!current) continue;
+    if (row.done !== false) current.usageCount += 1;
+    if (row.reaction) current.reactionCount += 1;
+    if (row.reaction === "good") current.goodCount += 1;
+    if (row.improvement_memo?.trim()) current.improvementCount += 1;
+    const record = firstRelation(row.record);
+    const schedule = firstRelation(record?.schedule);
+    const dateValue = schedule?.starts_at ?? record?.record_date ?? "";
+    if (dateValue && dateValue > current.latestDate) current.latestDate = dateValue;
+  }
+
+  return stats;
+}
+
+function firstRelation<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value ?? null;
 }
 
 export async function getBlockById(id: string) {

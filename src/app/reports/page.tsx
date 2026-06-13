@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BarChart3, CalendarDays, ClipboardList, PieChart, Repeat2, UsersRound } from "lucide-react";
 import { CircleBadge, MetricCard, MiniBar, PageHeader, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
+import { formatJapaneseDate } from "@/lib/date-format";
 import { getReportData, normalizeReportPeriod, type BlockReportRow, type ClassReportRow, type PlanReportRow, type RatioRow, type ReportPeriodKey } from "@/lib/reports";
 
 export const dynamic = "force-dynamic";
@@ -293,5 +294,5 @@ function EmptySmall({ text }: { text: string }) {
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "numeric", day: "numeric", timeZone: "Asia/Tokyo" }).format(new Date(value));
+  return formatJapaneseDate(new Date(value));
 }

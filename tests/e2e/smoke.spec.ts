@@ -27,6 +27,12 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(scrollWidth).toBeLessThanOrEqual(clientWidth + 1);
 }
 
+async function expectJapaneseDateFormat(page: Page) {
+  const bodyText = await page.locator("body").innerText();
+  expect(bodyText).not.toMatch(/\d{4}年\d{1,2}\d{1,2}日/);
+  expect(bodyText).toMatch(/\d{4}年\d{1,2}月\d{1,2}日（[日月火水木金土]）/);
+}
+
 async function login(page: Page) {
   const email = process.env.E2E_TEST_EMAIL;
   const password = process.env.E2E_TEST_PASSWORD;
@@ -84,6 +90,7 @@ test.describe(hasAuthenticatedEnv ? "authenticated smoke" : `authenticated smoke
       await page.goto(path);
       await expect(page.locator("body")).toContainText(text);
       await expectNoMojibake(page);
+      await expectJapaneseDateFormat(page);
     });
   }
 

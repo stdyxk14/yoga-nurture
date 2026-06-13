@@ -66,42 +66,50 @@ export function ScheduleForm({ plans, students, initialPlanId, schedule, action 
           <SoftCard className="p-4">
             <SectionTitle icon={FileText} title="使用するレッスンプランを選択" subtitle="保存済みのレッスンプランから予定に使う内容を選びます。" />
             {plans.length ? (
-              <div className="mt-4 grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
-                {plans.map((plan) => {
-                  const active = selectedPlanId === plan.id;
-                  return (
-                    <button
-                      key={plan.id}
-                      type="button"
-                      onClick={() => setSelectedPlanId(plan.id)}
-                      className={
-                        active
-                          ? "min-h-[176px] rounded-2xl border border-[#5d956d] bg-[#edf5ef] p-3 text-left shadow-[0_8px_18px_rgba(64,113,77,0.12)]"
-                          : "min-h-[176px] rounded-2xl border border-[#eee4d8] bg-white/75 p-3 text-left"
-                      }
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <h2 className="line-clamp-2 text-[15px] font-extrabold leading-5">{plan.name}</h2>
-                        {active ? <CheckCircle2 className="h-4 w-4 shrink-0 text-[#5d956d]" /> : null}
-                      </div>
-                      <p className="mt-2 line-clamp-2 text-[12px] font-semibold leading-5 text-[#5f665c]">{plan.theme || "テーマ未設定"}</p>
-                      <div className="mt-3 grid grid-cols-2 gap-2">
-                        <MiniInfo label="合計時間" value={`${plan.totalMinutes}分`} />
-                        <MiniInfo label="ブロック数" value={`${plan.blockCount}個`} />
-                      </div>
-                      <div className="mt-3 flex flex-wrap gap-1.5">
-                        {plan.tags.length ? plan.tags.slice(0, 3).map((tag) => <Pill key={tag}>{tag}</Pill>) : <Pill>タグ未設定</Pill>}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+              <>
+                <div className="mt-4 rounded-2xl border border-[#eee4d8] bg-[#fbfaf6] p-3 text-[12px] font-semibold leading-5 text-[#6b7468]">
+                  使いたいレッスンプランがまだない場合は、先にレッスンプランを作成してください。
+                  <Link href="/lessons/new" className="ml-2 inline-flex h-8 items-center rounded-lg bg-[#5d956d] px-3 text-[12px] font-bold text-white">
+                    新しくレッスンプランを作成
+                  </Link>
+                </div>
+                <div className="mt-4 grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+                  {plans.map((plan) => {
+                    const active = selectedPlanId === plan.id;
+                    return (
+                      <button
+                        key={plan.id}
+                        type="button"
+                        onClick={() => setSelectedPlanId(plan.id)}
+                        className={
+                          active
+                            ? "min-h-[176px] rounded-2xl border border-[#5d956d] bg-[#edf5ef] p-3 text-left shadow-[0_8px_18px_rgba(64,113,77,0.12)]"
+                            : "min-h-[176px] rounded-2xl border border-[#eee4d8] bg-white/75 p-3 text-left"
+                        }
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <h2 className="line-clamp-2 text-[15px] font-extrabold leading-5">{plan.name}</h2>
+                          {active ? <CheckCircle2 className="h-4 w-4 shrink-0 text-[#5d956d]" /> : null}
+                        </div>
+                        <p className="mt-2 line-clamp-2 text-[12px] font-semibold leading-5 text-[#5f665c]">{plan.theme || "テーマ未設定"}</p>
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          <MiniInfo label="合計時間" value={`${plan.totalMinutes}分`} />
+                          <MiniInfo label="ブロック数" value={`${plan.blockCount}個`} />
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {plan.tags.length ? plan.tags.slice(0, 3).map((tag) => <Pill key={tag}>{tag}</Pill>) : <Pill>タグ未設定</Pill>}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
             ) : (
               <div className="mt-4 rounded-2xl border border-dashed border-[#d8e3d4] bg-white/60 p-6 text-center">
                 <p className="text-[15px] font-extrabold">まだレッスンプランがありません。</p>
                 <p className="mt-2 text-[13px] font-medium leading-6 text-[#6b7468]">先にブロックを組み合わせて、予定に紐づけるレッスンプランを作成してください。</p>
                 <Link href="/lessons/new" className="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-[#5d956d] px-4 text-[13px] font-bold text-white">
-                  レッスンプランを作成
+                  新しくレッスンプランを作成
                 </Link>
               </div>
             )}

@@ -17,6 +17,8 @@ export type StudentRecord = {
   memo: string;
   lastLessonDate: string;
   linkedLessonCount: number;
+  cancelCount?: number;
+  nextLessonDate?: string;
   status: "recent" | "follow" | "caution";
 };
 
@@ -34,6 +36,8 @@ export type BlockTemplate = {
   memo: string;
   usageCount: number;
   averageRating: number;
+  goodRate?: number | null;
+  improvementCount?: number;
   lastUsed: string;
 };
 

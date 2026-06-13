@@ -6,6 +6,7 @@ import type { LucideIcon } from "lucide-react";
 import { AlertCircle, Blocks, CalendarDays, CheckCircle2, ChevronRight, ClipboardCheck, FilePenLine, ListChecks, ListTodo, Plus, UserPlus, UserRound } from "lucide-react";
 import { SectionTitle, SoftCard } from "@/components/yoga/page-kit";
 import type { DashboardData, DashboardSchedule, DashboardTask } from "@/lib/dashboard";
+import { formatDateKeyJa } from "@/lib/date-format";
 import { cn } from "@/lib/utils";
 
 export function DashboardView({ data }: { data: DashboardData }) {
@@ -24,6 +25,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
   return (
     <div className="mx-auto w-full max-w-full space-y-4 overflow-x-hidden">
       <DashboardHeader greeting={data.greeting} todayLabel={data.todayLabel} />
+      <FirstFlow />
 
       {data.error ? (
         <SoftCard className="border-[#f2c7be] bg-[#fff0ea] p-4 text-[13px] font-bold leading-6 text-[#c4523d]">
@@ -88,7 +90,7 @@ function DashboardHeader({ greeting, todayLabel }: { greeting: string; todayLabe
 function OperationsSummary({ items }: { items: Array<{ label: string; value: string; href: string }> }) {
   return (
     <SoftCard className="p-4">
-      <SectionTitle icon={ClipboardCheck} title="今日の運営サマリー" subtitle="クリックすると関連エリアへ移動します" />
+      <SectionTitle icon={ClipboardCheck} title="積み上げサマリー" subtitle="登録データと今日の確認事項" />
       <div className="grid grid-cols-2 gap-2 md:grid-cols-5 xl:grid-cols-2 2xl:grid-cols-5">
         {items.map((item) => (
           <a key={item.label} href={item.href} className="rounded-2xl border border-[#eee4d8] bg-white/76 p-3 transition hover:bg-[#f8fcf6]">
@@ -259,7 +261,7 @@ function SelectedSchedules({ dateKey, schedules }: { dateKey: string; schedules:
     <div className="mt-4 rounded-2xl border border-[#eee4d8] bg-white/72 p-3">
       <div className="mb-2 flex items-center justify-between gap-3">
         <h3 className="text-[14px] font-extrabold">選択日の予定</h3>
-        <span className="text-[11px] font-bold text-[#8b704c]">{dateKey}</span>
+        <span className="text-[11px] font-bold text-[#8b704c]">{formatDateKeyJa(dateKey)}</span>
       </div>
       {schedules.length ? <ScheduleCards schedules={schedules} /> : <p className="rounded-xl border border-dashed border-[#d8e3d4] bg-[#f8fcf6] p-3 text-[12px] font-semibold leading-5 text-[#657064]">この日に予定はありません。</p>}
     </div>
@@ -341,6 +343,32 @@ function Shortcuts() {
   );
 }
 
+function FirstFlow() {
+  const steps = [
+    { label: "1. ブロックを登録", href: "/blocks/new" },
+    { label: "2. プランを作成", href: "/lessons/new" },
+    { label: "3. 予定を登録", href: "/schedules/new" },
+    { label: "4. 記録を見る", href: "/lessons?tab=records" },
+  ];
+  return (
+    <SoftCard className="p-3">
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
+          <p className="text-[13px] font-extrabold text-[#34533b]">はじめての流れ</p>
+          <p className="mt-0.5 text-[12px] font-semibold text-[#6b7468]">ブロック登録 → レッスンプラン作成 → 予定登録 → レッスン後記録の順に進めます。</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:shrink-0">
+          {steps.map((step) => (
+            <Link key={step.href} href={step.href} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#d8e3d4] bg-white px-2 text-[11px] font-bold text-[#4f7b58]">
+              {step.label}
+            </Link>
+          ))}
+        </div>
+      </div>
+    </SoftCard>
+  );
+}
+
 function AttentionStudents({ students }: { students: DashboardData["attentionStudents"] }) {
   return (
     <SoftCard id="attention-students" className="p-3.5">
@@ -356,7 +384,7 @@ function AttentionStudents({ students }: { students: DashboardData["attentionStu
               {student.caution ? <InfoLine label="ケガなどの注意点" value={student.caution} /> : null}
               {student.memo ? <InfoLine label="その他メモ" value={student.memo} /> : null}
               {student.nextFollow ? <InfoLine label="次回フォロー" value={student.nextFollow} /> : null}
-              <Link href={`/students/${student.id}`} className="mt-2 inline-flex h-8 items-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] px-2 text-[11px] font-bold text-[#5d956d]">
+              <Link href={`/students/${student.id}#next-follow`} className="mt-2 inline-flex h-8 items-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] px-2 text-[11px] font-bold text-[#5d956d]">
                 生徒カルテを見る
               </Link>
             </article>
@@ -467,16 +495,15 @@ type PreparationCheckItem = {
 };
 
 function buildOperationsSummary(data: DashboardData, todaySchedules: DashboardSchedule[]) {
-  const participantCount = todaySchedules.reduce((sum, schedule) => sum + schedule.participantCount, 0);
   const recordPendingCount = data.tasks.filter((task) => task.kind === "record_pending").length;
-  const prepareCount = data.tasks.filter((task) => task.kind === "prepare").length;
   const followCount = data.attentionStudents.filter((student) => student.nextFollow).length;
 
   return [
+    { label: "生徒数", value: `${data.totals.students}`, href: "/students" },
+    { label: "ブロック数", value: `${data.totals.blocks}`, href: "/lessons?tab=blocks" },
+    { label: "プラン数", value: `${data.totals.lessonPlans}`, href: "/lessons?tab=plans" },
     { label: "今日の予定", value: `${todaySchedules.length}`, href: "#today-schedules" },
-    { label: "参加予定生徒", value: `${participantCount}`, href: "#today-schedules" },
     { label: "記録待ち", value: `${recordPendingCount}`, href: "#today-tasks" },
-    { label: "準備が必要", value: `${prepareCount}`, href: "#prep-check" },
     { label: "次回フォロー", value: `${followCount}`, href: "#attention-students" },
   ];
 }

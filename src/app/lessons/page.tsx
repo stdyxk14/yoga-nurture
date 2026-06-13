@@ -249,9 +249,10 @@ function MobileBlockListCard({ block, index }: { block: DbBlockTemplate; index: 
       <div className="mt-2 flex flex-wrap gap-1.5">
         {block.tags.slice(0, 3).map((tag) => <Pill key={tag}>{tag}</Pill>)}
       </div>
-      <div className="mt-2 grid grid-cols-3 gap-2 text-center">
-        <MiniStat label="使用" value="0回" />
-        <MiniStat label="評価" value="未評価" />
+      <div className="mt-2 grid grid-cols-2 gap-2 text-center">
+        <MiniStat label="使用" value={`${block.usageCount}回`} />
+        <MiniStat label="良かった率" value={formatGoodRate(block)} />
+        <MiniStat label="改善メモ" value={`${block.improvementCount ?? 0}件`} />
         <MiniStat label="最近" value={block.lastUsed} />
       </div>
       <p className="mt-2 line-clamp-2 text-[12px] font-medium leading-5 text-[#50584e]">{block.script}</p>
@@ -299,7 +300,7 @@ function MobileAnalysisTab() {
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#edf5ef] text-[15px] font-extrabold text-[#5d956d]">{index + 1}</span>
             <div className="min-w-0 flex-1">
               <h2 className="truncate text-[15px] font-extrabold">{name}</h2>
-              <p className="mt-1 text-[12px] font-bold text-[#5d956d]">使用 {usage} / 平均評価 {rating}</p>
+              <p className="mt-1 text-[12px] font-bold text-[#5d956d]">使用 {usage} / 良かった率 {rating}</p>
               <p className="mt-2 inline-flex rounded-full bg-[#fff7e8] px-3 py-1 text-[11px] font-bold text-[#9b7338]">{note}</p>
             </div>
           </div>
@@ -450,10 +451,8 @@ function BlocksTab({ blocks, categories, tags }: { blocks: DbBlockTemplate[]; ca
       <SoftCard className="mb-3 p-3">
         <div className="flex flex-wrap gap-2">
           <Pill active>実データ表示</Pill>
-          <Pill>使用回数：0回</Pill>
-          <Pill>平均評価：未評価</Pill>
-          <Pill>最近使用日：未使用</Pill>
-          <Pill>使用回数順・評価順は実施後記録接続後に有効化</Pill>
+          <Pill>良かった率：レッスン後記録で「良かった」と記録された割合</Pill>
+          <Pill>改善メモ数：ブロック改善候補の件数</Pill>
         </div>
       </SoftCard>
 
@@ -473,9 +472,10 @@ function BlocksTab({ blocks, categories, tags }: { blocks: DbBlockTemplate[]; ca
             <div className="mt-2 flex min-h-[30px] flex-wrap gap-1 overflow-hidden">
               {block.tags.slice(0, 3).map((tag) => <Pill key={tag}>{tag}</Pill>)}
             </div>
-            <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-              <MiniStat label="使用" value="0回" />
-              <MiniStat label="評価" value="未評価" />
+            <div className="mt-3 grid grid-cols-2 gap-2 text-center">
+              <MiniStat label="使用" value={`${block.usageCount}回`} />
+              <MiniStat label="良かった率" value={formatGoodRate(block)} />
+              <MiniStat label="改善メモ" value={`${block.improvementCount ?? 0}件`} />
               <MiniStat label="最近" value={block.lastUsed} />
             </div>
             <div className="mt-auto grid grid-cols-3 gap-1.5 pt-3">
@@ -507,6 +507,10 @@ function BlocksEmptyState() {
       </div>
     </SoftCard>
   );
+}
+
+function formatGoodRate(block: DbBlockTemplate) {
+  return typeof block.goodRate === "number" ? `${block.goodRate}%` : "評価データなし";
 }
 
 function PlansEmptyState() {
@@ -597,7 +601,7 @@ function AnalysisTab() {
             <div key={name} className="rounded-xl border border-[#eee4d8] bg-white/70 p-3">
               <p className="text-[14px] font-extrabold">{name}</p>
               <p className="mt-2 text-[12px] font-bold text-[#5d956d]">使用 {usage}</p>
-              <p className="text-[12px] font-bold text-[#7469bf]">平均評価 {rating}</p>
+              <p className="text-[12px] font-bold text-[#7469bf]">良かった率 {rating}</p>
               <p className="mt-2 rounded-lg bg-[#fff7e8] px-2 py-1 text-[11px] font-bold text-[#9b7338]">{note}</p>
             </div>
           ))}

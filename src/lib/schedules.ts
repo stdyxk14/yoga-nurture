@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { formatJapaneseDate } from "@/lib/date-format";
 import { requireUserId } from "@/lib/students";
 import { getFormatLabel, type DbLessonPlan } from "@/lib/lesson-plans";
 import { toGenderCode, toGenderLabel } from "@/lib/student-fields";
@@ -88,7 +89,7 @@ export function getAttendanceLabel(status: ScheduleParticipant["attendanceStatus
 function formatDateTime(value: string) {
   const date = new Date(value);
   return {
-    dateLabel: new Intl.DateTimeFormat("ja-JP", { month: "numeric", day: "numeric", weekday: "short", timeZone: "Asia/Tokyo" }).format(date),
+    dateLabel: formatJapaneseDate(date),
     timeLabel: new Intl.DateTimeFormat("ja-JP", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Tokyo" }).format(date),
   };
 }

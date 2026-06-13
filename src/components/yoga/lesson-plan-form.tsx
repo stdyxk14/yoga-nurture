@@ -3,7 +3,7 @@
 import { useMemo, useState, useActionState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowDown, ArrowUp, Clock, FileText, Plus, Save, Search, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Clock, FileText, Plus, Save, Search, Trash2, X } from "lucide-react";
 import { createLessonPlanAction, updateLessonPlanAction } from "@/app/lessons/lesson-plan-actions";
 import { Input } from "@/components/ui/input";
 import type { BlockCategory, DbBlockTemplate } from "@/lib/blocks";
@@ -42,6 +42,7 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
   const [tag, setTag] = useState("");
   const [level, setLevel] = useState("");
   const [sort, setSort] = useState("updated");
+  const [previewBlock, setPreviewBlock] = useState<DbBlockTemplate | null>(null);
   const action = mode === "edit" && initialPlan ? updateLessonPlanAction.bind(null, initialPlan.id) : createLessonPlanAction;
   const [state, formAction, pending] = useActionState(action, initialState);
 
@@ -215,12 +216,17 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
                     {block.tags.slice(0, 4).map((item) => <Pill key={item}>{item}</Pill>)}
                   </div>
                   <div className="mt-2 grid grid-cols-2 gap-2 text-center">
-                    <MiniSummary label="使用回数" value="0回" />
-                    <MiniSummary label="評価" value="未評価" />
+                    <MiniSummary label="使用回数" value={`${block.usageCount}回`} />
+                    <MiniSummary label="良かった率" value={formatGoodRate(block)} />
                   </div>
-                  <button type="button" onClick={() => addBlock(block)} className="mt-auto inline-flex h-9 items-center justify-center rounded-xl bg-[#5d956d] text-[12px] font-bold text-white">
-                    追加
-                  </button>
+                  <div className="mt-auto grid grid-cols-2 gap-2 pt-3">
+                    <button type="button" onClick={() => setPreviewBlock(block)} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white text-[12px] font-bold text-[#4f7b58]">
+                      原稿を見る
+                    </button>
+                    <button type="button" onClick={() => addBlock(block)} className="inline-flex h-9 items-center justify-center rounded-xl bg-[#5d956d] text-[12px] font-bold text-white">
+                      追加
+                    </button>
+                  </div>
                 </article>
               ))}
             </div>
@@ -249,9 +255,9 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
                   <button type="button" onClick={() => moveBlock(index, 1)} disabled={index === selectedBlocks.length - 1} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#d8e3d4] bg-white text-[#4f7b58] disabled:opacity-35">
                     <ArrowDown className="h-3.5 w-3.5" />
                   </button>
-                  <Link href={`/blocks/${block.id}`} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#e7dfd4] bg-white text-[11px] font-bold text-[#6b7468]">
+                  <button type="button" onClick={() => setPreviewBlock(block)} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#e7dfd4] bg-white text-[11px] font-bold text-[#6b7468]">
                     原稿
-                  </Link>
+                  </button>
                   <button type="button" onClick={() => removeBlock(index)} className="inline-flex h-8 items-center justify-center rounded-lg bg-[#fff0ea] text-[#d96c55]">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -270,7 +276,46 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
         </SoftCard>
       </div>
       </form>
+      {previewBlock ? <BlockScriptModal block={previewBlock} onClose={() => setPreviewBlock(null)} /> : null}
     </>
+  );
+}
+
+function BlockScriptModal({ block, onClose }: { block: DbBlockTemplate; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end bg-black/30 p-3 md:items-center md:justify-center" role="dialog" aria-modal="true">
+      <div className="max-h-[88vh] w-full overflow-auto rounded-3xl border border-[#eee4d8] bg-[#fffdf8] p-4 shadow-[0_18px_48px_rgba(49,43,31,0.18)] md:max-w-2xl">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[12px] font-bold text-[#5d956d]">{block.majorCategory} / {block.minorCategory} / {block.duration}</p>
+            <h2 className="mt-1 text-[20px] font-extrabold">{block.name}</h2>
+          </div>
+          <button type="button" onClick={onClose} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white text-[#4f7b58]" aria-label="閉じる">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {block.tags.length ? block.tags.map((tag) => <Pill key={tag}>{tag}</Pill>) : <Pill>タグ未設定</Pill>}
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <PreviewInfo title="目的" value={block.purpose || "未入力"} />
+          <PreviewInfo title="注意点" value={block.cautions || "未入力"} />
+        </div>
+        <div className="mt-4 rounded-2xl border border-[#eee4d8] bg-white/80 p-4">
+          <p className="text-[13px] font-extrabold text-[#4f7b58]">誘導セリフ全文</p>
+          <p className="mt-2 whitespace-pre-line text-[13px] font-medium leading-7 text-[#30362f]">{block.script || "原稿は未入力です。"}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PreviewInfo({ title, value }: { title: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-[#eee4d8] bg-white/70 p-3">
+      <p className="text-[12px] font-bold text-[#8b704c]">{title}</p>
+      <p className="mt-1 text-[13px] font-medium leading-6 text-[#30362f]">{value}</p>
+    </div>
   );
 }
 
@@ -290,6 +335,10 @@ function MiniSummary({ label, value }: { label: string; value: string }) {
       <p className="mt-0.5 truncate text-[13px] font-extrabold text-[#4f875a]">{value}</p>
     </div>
   );
+}
+
+function formatGoodRate(block: DbBlockTemplate) {
+  return typeof block.goodRate === "number" ? `${block.goodRate}%` : "評価データなし";
 }
 
 function EmptyBlocks() {

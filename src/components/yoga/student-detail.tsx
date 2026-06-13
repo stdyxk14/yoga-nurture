@@ -26,6 +26,7 @@ export function StudentDetail({
     ["ケガなどの注意点", student.caution, HeartHandshake],
     ["その他メモ", student.memo, NotebookPen],
   ] as const;
+  const latestFollow = observations.find((memo) => memo.nextFollow.trim());
 
   return (
     <>
@@ -78,7 +79,9 @@ export function StudentDetail({
           <SummaryCard label="次回予定日" value={stats.nextScheduledDate} compact />
         </div>
 
-        <section className="mt-4 grid grid-cols-[1.15fr_1fr] gap-4">
+        {latestFollow ? <NextFollowCard memo={latestFollow} /> : null}
+
+        <section id="observations" className="mt-4 grid grid-cols-[1.15fr_1fr] gap-4">
           <SoftCard>
             <SectionTitle icon={NotebookPen} title="最近の変化・観察メモ" subtitle="レッスン後記録の生徒別コメントから蓄積" />
             <div className="space-y-2">
@@ -154,6 +157,7 @@ function MobileStudentDetail({
     ["ケガなどの注意点", student.caution, HeartHandshake],
     ["その他メモ", student.memo, NotebookPen],
   ] as const;
+  const latestFollow = observations.find((memo) => memo.nextFollow.trim());
 
   return (
     <div className="mx-auto max-w-[430px] space-y-4 overflow-x-hidden">
@@ -182,6 +186,8 @@ function MobileStudentDetail({
         <SummaryCard label="最終受講日" value={stats.lastAttendedDate} compact />
         <SummaryCard label="次回予定日" value={stats.nextScheduledDate} compact />
       </section>
+
+      {latestFollow ? <NextFollowCard memo={latestFollow} mobile /> : null}
 
       <section className="space-y-3">
         {infoItems.map(([label, value, Icon]) => (
@@ -267,6 +273,29 @@ function EmptyHistoryMessage({ text }: { text: string }) {
     <div className="rounded-2xl border border-dashed border-[#d8e3d4] bg-[#f8fcf6] p-4 text-[13px] font-semibold leading-6 text-[#657064]">
       {text}
     </div>
+  );
+}
+
+function NextFollowCard({ memo, mobile = false }: { memo: StudentObservation; mobile?: boolean }) {
+  return (
+    <section id="next-follow" className={`${mobile ? "rounded-[24px]" : "mt-4 rounded-2xl"} border border-[#efd3a7] bg-[#fffaf0] p-4 shadow-[0_10px_24px_rgba(122,104,80,0.06)]`}>
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div className="min-w-0">
+          <p className="text-[12px] font-bold text-[#9b7338]">次回フォロー</p>
+          <h2 className="mt-1 break-words text-[16px] font-extrabold text-[#30362f]">{memo.nextFollow}</h2>
+          <div className="mt-2 grid gap-1 text-[12px] font-semibold leading-5 text-[#62695f] md:grid-cols-3">
+            <span>最終記録日：{memo.date}</span>
+            <span>関連レッスン：{memo.lessonTitle}</span>
+            <span>個別メモ：{memo.memo || "記録なし"}</span>
+          </div>
+        </div>
+        {memo.lessonId ? (
+          <Link href={`/lessons/${memo.lessonId}/record`} className="inline-flex h-9 shrink-0 items-center justify-center rounded-xl bg-[#5d956d] px-3 text-[12px] font-bold text-white">
+            関連する記録を見る
+          </Link>
+        ) : null}
+      </div>
+    </section>
   );
 }
 
@@ -402,7 +431,9 @@ function ObservationRow({ memo }: { memo: StudentObservation }) {
         <PlainMemo label="個別メモ" value={memo.memo ?? "記録なし"} />
         <PlainMemo label="次回フォロー" value={memo.nextFollow} />
       </div>
-      <Link href={`/lessons/${memo.lessonId ?? "basic-flow-20250520"}/record`} className="mt-2 inline-flex h-7 items-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] px-2 text-[11px] font-bold text-[#5d956d]">関連するレッスン記録へ</Link>
+      {memo.lessonId ? (
+        <Link href={`/lessons/${memo.lessonId}/record`} className="mt-2 inline-flex h-7 items-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] px-2 text-[11px] font-bold text-[#5d956d]">関連するレッスン記録へ</Link>
+      ) : null}
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { BlockAiButton } from "@/components/yoga/block-ai-button";
 import { LessonPlanAiButton } from "@/components/yoga/lesson-plan-ai-button";
 import { LessonRecordAiButton } from "@/components/yoga/lesson-record-ai-button";
 import { StudentAiButton } from "@/components/yoga/student-ai-button";
+import { formatJapaneseDateTime } from "@/lib/date-format";
 import type { AiSuggestion, MentorType } from "@/lib/ai-suggestions";
 
 type AiSuggestionCardProps = {
@@ -252,13 +253,5 @@ function mentorLabel(type: AiSuggestion["mentorType"]) {
 function formatAiDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-
-  return new Intl.DateTimeFormat("ja-JP", {
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Asia/Tokyo",
-  }).format(date);
+  return formatJapaneseDateTime(date);
 }

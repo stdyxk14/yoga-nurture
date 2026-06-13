@@ -1,3 +1,4 @@
+import { formatJapaneseDate, formatJapaneseMonth } from "@/lib/date-format";
 import { requireUserId } from "@/lib/students";
 
 export type DashboardScheduleStatus = "scheduled" | "preparing" | "prepared" | "record_pending" | "recorded";
@@ -45,6 +46,11 @@ export type DashboardData = {
   greeting: string;
   todayLabel: string;
   monthLabel: string;
+  totals: {
+    students: number;
+    blocks: number;
+    lessonPlans: number;
+  };
   todayKey: string;
   calendarDays: Array<{
     key: string;
@@ -123,6 +129,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       greeting: getGreetingJa(now),
       todayLabel: formatDateJa(now),
       monthLabel: formatMonthJa(now),
+      totals: { students: 0, blocks: 0, lessonPlans: 0 },
       todayKey,
       calendarDays: buildCalendarDays(now, {}),
       schedulesByDate: {},
@@ -143,7 +150,7 @@ async function fetchDashboardData(): Promise<DashboardData> {
   const queryStart = addDays(monthStart, -30).toISOString();
   const queryEnd = addDays(monthEnd, 30).toISOString();
 
-  const [schedulesResult, recordsResult, studentsResult] = await Promise.all([
+  const [schedulesResult, recordsResult, studentsResult, blocksCountResult, plansCountResult] = await Promise.all([
     supabase
       .from("schedules")
       .select(`
@@ -186,11 +193,15 @@ async function fetchDashboardData(): Promise<DashboardData> {
       .eq("archived", false)
       .order("updated_at", { ascending: false })
       .limit(80),
+    supabase.from("block_templates").select("id", { count: "exact", head: true }).eq("archived", false),
+    supabase.from("lesson_plans").select("id", { count: "exact", head: true }).neq("status", "archived"),
   ]);
 
   if (schedulesResult.error) throw new Error(`予定を取得できませんでした: ${schedulesResult.error.message}`);
   if (recordsResult.error) throw new Error(`実施後記録を取得できませんでした: ${recordsResult.error.message}`);
   if (studentsResult.error) throw new Error(`生徒情報を取得できませんでした: ${studentsResult.error.message}`);
+  if (blocksCountResult.error) throw new Error(`ブロック数を取得できませんでした: ${blocksCountResult.error.message}`);
+  if (plansCountResult.error) throw new Error(`レッスンプラン数を取得できませんでした: ${plansCountResult.error.message}`);
 
   const schedules = ((schedulesResult.data ?? []) as unknown as RawSchedule[]).map(mapSchedule);
   const records = (recordsResult.data ?? []) as unknown as RawRecord[];
@@ -205,6 +216,11 @@ async function fetchDashboardData(): Promise<DashboardData> {
     greeting: getGreetingJa(now),
     todayLabel: formatDateJa(now),
     monthLabel: formatMonthJa(now),
+    totals: {
+      students: students.length,
+      blocks: blocksCountResult.count ?? 0,
+      lessonPlans: plansCountResult.count ?? 0,
+    },
     todayKey,
     calendarDays: buildCalendarDays(now, schedulesByDate),
     schedulesByDate,
@@ -378,23 +394,21 @@ function getFollowRows(records: RawRecord[]) {
 }
 
 function buildCalendarDays(date: Date, schedulesByDate: Record<string, DashboardSchedule[]>) {
-  const monthStart = getTokyoMonthStart(date);
-  const year = monthStart.getFullYear();
-  const month = monthStart.getMonth();
-  const firstDay = new Date(year, month, 1);
-  const firstWeekday = firstDay.getDay();
+  const [year, month] = dateKeyInTokyo(date).split("-").map(Number);
+  const firstDay = new Date(Date.UTC(year, month - 1, 1));
+  const firstWeekday = firstDay.getUTCDay();
   const startOffset = firstWeekday === 0 ? 6 : firstWeekday - 1;
-  const gridStart = new Date(year, month, 1 - startOffset);
+  const gridStart = new Date(Date.UTC(year, month - 1, 1 - startOffset));
   const todayKey = dateKeyInTokyo(date);
 
   return Array.from({ length: 42 }, (_, index) => {
     const current = new Date(gridStart);
-    current.setDate(gridStart.getDate() + index);
-    const key = dateKeyInTokyo(current);
-    const inMonth = current.getMonth() === month;
+    current.setUTCDate(gridStart.getUTCDate() + index);
+    const key = `${current.getUTCFullYear()}-${String(current.getUTCMonth() + 1).padStart(2, "0")}-${String(current.getUTCDate()).padStart(2, "0")}`;
+    const inMonth = current.getUTCMonth() === month - 1;
     return {
       key,
-      day: inMonth ? current.getDate() : null,
+      day: inMonth ? current.getUTCDate() : null,
       inMonth,
       isToday: key === todayKey,
       schedules: schedulesByDate[key] ?? [],
@@ -452,19 +466,11 @@ function formatTimeJa(value: string) {
 }
 
 function formatDateJa(date: Date) {
-  const parts = new Intl.DateTimeFormat("ja-JP", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    weekday: "short",
-    timeZone: "Asia/Tokyo",
-  }).formatToParts(date);
-  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
-  return `${get("year")}年${get("month")}${get("day")}日（${get("weekday")}）`;
+  return formatJapaneseDate(date);
 }
 
 function formatMonthJa(date: Date) {
-  return new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "long", timeZone: "Asia/Tokyo" }).format(date);
+  return formatJapaneseMonth(date);
 }
 
 function getGreetingJa(date: Date) {

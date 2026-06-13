@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, FileText, Pencil, Printer } from "lucide-react";
 import { LessonPlanAiSuggestionPanel } from "@/components/yoga/lesson-plan-ai-suggestion-panel";
 import { PageHeader, Pill, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
+import { formatJapaneseDate } from "@/lib/date-format";
 import type { StudentAiSuggestionState } from "@/lib/ai-suggestions";
 import type { DbLessonPlan } from "@/lib/lesson-plans";
 
@@ -94,10 +95,5 @@ function Info({ label, value }: { label: string; value: string }) {
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("ja-JP", {
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-    timeZone: "Asia/Tokyo",
-  }).format(new Date(value));
+  return formatJapaneseDate(new Date(value));
 }
