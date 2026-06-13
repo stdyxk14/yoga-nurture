@@ -3,18 +3,19 @@ import { expect, test, type Page } from "@playwright/test";
 const requiredAuthEnv = ["E2E_BASE_URL", "E2E_TEST_EMAIL", "E2E_TEST_PASSWORD"] as const;
 const missingAuthEnv = requiredAuthEnv.filter((name) => !process.env[name]);
 const hasAuthenticatedEnv = missingAuthEnv.length === 0;
-const mojibakePattern = /\?{5,}|・ｽ|郢|邵|隴|驍|陷|鬮|繝|縺|螳|逕|譛|謠|險|蛹|蜿|鬆/;
+const mojibakePattern = /\?{5,}|繝ｻ・ｽ|驛｢|驍ｵ|髫ｴ|鬩鋼髯ｷ|鬯ｮ|郢掟邵ｺ|陞ｳ|騾怖隴斈隰|髫ｪ|陋ｹ|陷ｿ|鬯・/;
 const errorPagePattern = /This page couldn.t load|A server error occurred|Application error|Unhandled Runtime Error|An error occurred in the Server Components render|Functions cannot be passed directly|NEXT_NOT_FOUND/;
 
 test.describe(hasAuthenticatedEnv ? "production exploratory smoke" : `production exploratory smoke skipped: missing ${missingAuthEnv.join(", ")}`, () => {
   test.skip(!hasAuthenticatedEnv, "Set E2E_BASE_URL, E2E_TEST_EMAIL, and E2E_TEST_PASSWORD to run production exploration.");
+  test.setTimeout(120_000);
 
   test.beforeEach(async ({ page }) => {
-    attachErrorGuards(page);
     await login(page);
   });
 
   test("opens core pages, existing detail pages, safe missing-id pages, and mobile nav", async ({ page }) => {
+    const consoleErrors = attachErrorGuards(page);
     const visited: string[] = [];
     const corePages = ["/dashboard", "/students", "/students/new", "/lessons", "/lessons/new", "/schedules/new", "/blocks/new", "/reports", "/settings"];
 
@@ -47,9 +48,11 @@ test.describe(hasAuthenticatedEnv ? "production exploratory smoke" : `production
     await expectNoHorizontalOverflow(page);
 
     expect(visited.length).toBeGreaterThanOrEqual(corePages.length + missingPaths.length);
+    expectConsoleClean(consoleErrors);
   });
 
   test("safe dashboard links navigate without server errors", async ({ page }) => {
+    const consoleErrors = attachErrorGuards(page);
     await openHealthy(page, "/dashboard");
     const hrefs = await page.locator('a[href^="/"]').evaluateAll((links) =>
       Array.from(new Set(links.map((link) => (link as HTMLAnchorElement).getAttribute("href")).filter(Boolean))).slice(0, 20),
@@ -59,6 +62,8 @@ test.describe(hasAuthenticatedEnv ? "production exploratory smoke" : `production
       if (!href || href.includes("delete") || href.includes("sign-out")) continue;
       await openHealthy(page, href);
     }
+
+    expectConsoleClean(consoleErrors);
   });
 });
 
@@ -128,7 +133,9 @@ function attachErrorGuards(page: Page) {
   page.on("pageerror", (error) => {
     consoleErrors.push(error.message);
   });
-  page.on("close", () => {
-    expect(consoleErrors, `Browser console/page errors:\n${consoleErrors.join("\n")}`).toEqual([]);
-  });
+  return consoleErrors;
+}
+
+function expectConsoleClean(consoleErrors: string[]) {
+  expect(consoleErrors, `Browser console/page errors:\n${consoleErrors.join("\n")}`).toEqual([]);
 }

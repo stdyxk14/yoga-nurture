@@ -94,5 +94,10 @@ function Info({ label, value }: { label: string; value: string }) {
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "numeric", day: "numeric" }).format(new Date(value));
+  return new Intl.DateTimeFormat("ja-JP", {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    timeZone: "Asia/Tokyo",
+  }).format(new Date(value));
 }
