@@ -41,7 +41,7 @@ With credentials, it also checks:
 - `/settings`
 - logout from `/settings`
 
-Set these values only in your local shell or local `.env.local`. Never commit real email addresses or passwords.
+Set these values only in your local shell, `.env.e2e.local`, or local `.env.local`. Never commit real email addresses or passwords.
 
 ```text
 E2E_BASE_URL=https://yoga-nurture.vercel.app
@@ -58,7 +58,7 @@ $env:E2E_TEST_PASSWORD = "<test password>"
 npm.cmd run test:e2e:smoke
 ```
 
-Alternatively, put those three values in `.env.local`; Playwright loads local env files through `@next/env`.
+Alternatively, put those three values in `.env.e2e.local`. This file is ignored by Git through the `.env*` rule and is loaded before `.env.local` for Playwright runs. `.env.local` also works through `@next/env`.
 
 If any of the three E2E variables is missing, authenticated tests are skipped with a message listing the missing variables.
 

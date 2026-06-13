@@ -53,7 +53,7 @@ E2E_TEST_PASSWORD=
 
 If any value is missing, the authenticated test group is skipped and Playwright prints the missing variable names.
 
-Never commit real passwords or test account email addresses. Keep real values in a local `.env.local` file, shell environment, or CI secrets. Playwright loads `.env.local` through `@next/env`.
+Never commit real passwords or test account email addresses. Keep real values in a local `.env.e2e.local` file, local `.env.local` file, shell environment, or CI secrets. Playwright loads `.env.e2e.local` before `.env.local`; both files are ignored by Git through the `.env*` rule.
 
 PowerShell example:
 
