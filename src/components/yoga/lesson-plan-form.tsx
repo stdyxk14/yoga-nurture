@@ -6,7 +6,6 @@ import Link from "next/link";
 import { ArrowDown, ArrowUp, Clock, FileText, Plus, Save, Search, Trash2 } from "lucide-react";
 import { createLessonPlanAction, updateLessonPlanAction } from "@/app/lessons/lesson-plan-actions";
 import { Input } from "@/components/ui/input";
-import { LessonPlanAiSuggestionPanel } from "@/components/yoga/lesson-plan-ai-suggestion-panel";
 import type { BlockCategory, DbBlockTemplate } from "@/lib/blocks";
 import type { StudentAiSuggestionState } from "@/lib/ai-suggestions";
 import type { DbLessonPlan, LessonPlanFormState } from "@/lib/lesson-plans";
@@ -35,7 +34,7 @@ const lessonPlanStatusOptions = [
   { value: "archived", label: "アーカイブ" },
 ] as const;
 
-export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, aiSuggestionState }: Props) {
+export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: Props) {
   const [selectedBlocks, setSelectedBlocks] = useState<DbBlockTemplate[]>(initialPlan?.blocks ?? []);
   const [query, setQuery] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -271,11 +270,6 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, ai
         </SoftCard>
       </div>
       </form>
-      {mode === "edit" ? (
-        <div className="mt-4">
-          <LessonPlanAiSuggestionPanel plan={initialPlan} aiSuggestionState={aiSuggestionState} context="edit" />
-        </div>
-      ) : null}
     </>
   );
 }

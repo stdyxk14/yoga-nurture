@@ -18,8 +18,8 @@ export function LessonPlanAiSuggestionPanel({ plan, planId, aiSuggestionState, c
 
   return (
     <AiSuggestionCard
-      title={context === "script" ? "この原稿のAI改善提案" : "このレッスンに対するAI改善提案"}
-      description="ブロック構成・時間配分・参加予定生徒の注意点をもとに改善ポイントを提案します。"
+      title={context === "script" ? "この原稿に対するAI改善提案" : "このレッスンに対するAI改善提案"}
+      description="ブロック構成・時間配分・参加予定生徒の注意点をもとに、レッスン前の改善ポイントを提案します。"
       emptyText="AIに相談すると、流れ・時間配分・安全面・声かけの観点で改善ポイントが表示されます。"
       latest={latest}
       history={aiSuggestionState?.history ?? []}
@@ -27,7 +27,9 @@ export function LessonPlanAiSuggestionPanel({ plan, planId, aiSuggestionState, c
       storageReady={aiSuggestionState?.storageReady ?? true}
       storageError={aiSuggestionState?.storageError}
       note={context === "edit" ? "保存済みの内容をもとに提案します。未保存の変更は保存後に反映されます。" : undefined}
-      action={<LessonPlanAiButton planId={resolvedPlanId} label={latest ? "再生成" : "AIに相談"} />}
+      generateLabel="プラン改善提案を生成"
+      modalTitle="このレッスンプランについて相談"
+      renderAction={(mentorType, label) => <LessonPlanAiButton planId={resolvedPlanId} mentorType={mentorType} label={label} />}
     />
   );
 }

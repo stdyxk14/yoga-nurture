@@ -7,10 +7,11 @@ export async function generateStudentAiSuggestionAction(
   formData: FormData,
 ): Promise<StudentAiActionState> {
   const studentId = String(formData.get("student_id") ?? "").trim();
+  const mentorType = String(formData.get("mentor_type") ?? "general").trim();
 
   if (!studentId) {
     return { error: "生徒情報が見つかりません。" };
   }
 
-  return generateStudentAiSuggestion(studentId);
+  return generateStudentAiSuggestion(studentId, mentorType);
 }

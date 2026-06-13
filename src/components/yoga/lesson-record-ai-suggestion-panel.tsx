@@ -15,8 +15,8 @@ export function LessonRecordAiSuggestionPanel({ recordId, aiSuggestionState }: P
   return (
     <AiSuggestionCard
       anchorId="ai-reflection"
-      title="実施後記録のAI振り返り提案"
-      description="レッスン全体・ブロック評価・生徒コメントから、次回に活かす点を整理します。"
+      title="AIメンターからの振り返り提案"
+      description="全体記録・ブロック評価・生徒コメントをもとに、次回に活かせる改善ポイントを整理します。"
       emptyText="AIに相談すると、今日の振り返り・ブロック改善・生徒フォローが表示されます。"
       latest={latest}
       history={aiSuggestionState?.history ?? []}
@@ -24,7 +24,9 @@ export function LessonRecordAiSuggestionPanel({ recordId, aiSuggestionState }: P
       storageReady={aiSuggestionState?.storageReady ?? true}
       storageError={aiSuggestionState?.storageError}
       note={!recordId ? "下書き保存または記録完了後にAI相談できます。" : undefined}
-      action={<LessonRecordAiButton recordId={recordId} label={latest ? "再生成" : "AIに相談"} />}
+      generateLabel="振り返り提案を生成"
+      modalTitle="この記録について相談"
+      renderAction={(mentorType, label) => <LessonRecordAiButton recordId={recordId} mentorType={mentorType} label={label} />}
     />
   );
 }

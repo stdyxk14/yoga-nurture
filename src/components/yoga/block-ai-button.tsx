@@ -3,16 +3,17 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { generateBlockAiSuggestionAction } from "@/lib/ai-suggestions/block-actions";
-import type { StudentAiActionState } from "@/lib/ai-suggestions";
+import type { MentorType, StudentAiActionState } from "@/lib/ai-suggestions";
 
 type BlockAiButtonProps = {
   blockId?: string;
   label?: string;
+  mentorType?: MentorType;
 };
 
 const initialState: StudentAiActionState = {};
 
-export function BlockAiButton({ blockId, label = "AIに相談" }: BlockAiButtonProps) {
+export function BlockAiButton({ blockId, label = "AIに相談", mentorType = "lesson_design" }: BlockAiButtonProps) {
   const [state, formAction] = useActionState(generateBlockAiSuggestionAction, initialState);
 
   if (!blockId) {
@@ -26,6 +27,7 @@ export function BlockAiButton({ blockId, label = "AIに相談" }: BlockAiButtonP
   return (
     <form action={formAction} className="space-y-2">
       <input type="hidden" name="block_id" value={blockId} />
+      <input type="hidden" name="mentor_type" value={mentorType} />
       <SubmitButton label={label} />
       {state.error ? (
         <p className="rounded-xl border border-[#f2c9bd] bg-[#fff0ea] px-3 py-2 text-[12px] font-semibold leading-5 text-[#b75b48]">{state.error}</p>

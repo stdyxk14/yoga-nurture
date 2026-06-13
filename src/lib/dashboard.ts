@@ -252,7 +252,7 @@ function buildTasks({
       id: `today-${schedule.id}`,
       kind: "today",
       time: schedule.startTime,
-      title: schedule.lessonPlanName !== "未設定" ? schedule.lessonPlanName : schedule.lessonName,
+      title: displayScheduleName(schedule),
       note: `${schedule.place} / 参加予定 ${schedule.participantCount}名`,
       statusLabel: schedule.statusLabel,
       tone: schedule.status === "prepared" || schedule.status === "recorded" ? "green" : "gray",
@@ -269,7 +269,7 @@ function buildTasks({
       id: `pending-${schedule.id}`,
       kind: "record_pending",
       time: schedule.dateKey,
-      title: schedule.lessonPlanName !== "未設定" ? schedule.lessonPlanName : schedule.lessonName,
+      title: displayScheduleName(schedule),
       note: "レッスン後の記録がまだ保存されていません。",
       statusLabel: "記録待ち",
       tone: "orange",
@@ -454,4 +454,8 @@ function formatDateJa(date: Date) {
 
 function formatMonthJa(date: Date) {
   return new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "long", timeZone: "Asia/Tokyo" }).format(date);
+}
+
+function displayScheduleName(schedule: DashboardSchedule) {
+  return schedule.lessonPlanId ? schedule.lessonPlanName : schedule.lessonName;
 }

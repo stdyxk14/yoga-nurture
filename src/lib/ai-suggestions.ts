@@ -98,7 +98,8 @@ async function getAiSuggestionState(targetType: "student" | "lesson_plan" | "blo
   };
 }
 
-export async function generateStudentAiSuggestion(studentId: string): Promise<StudentAiActionState> {
+export async function generateStudentAiSuggestion(studentId: string, requestedMentorType = "general"): Promise<StudentAiActionState> {
+  const mentorType = normalizeMentorType(requestedMentorType);
   const openai = getOpenAIClient();
 
   if (!openai) {
@@ -119,7 +120,7 @@ export async function generateStudentAiSuggestion(studentId: string): Promise<St
     return { error: `AI提案に必要な生徒データを取得できませんでした。${getErrorMessage(error)}` };
   }
 
-  const { prompt, sourceSummary } = buildStudentSuggestionPrompt(student, observations, lessonHistory, stats);
+  const { prompt, sourceSummary } = buildStudentSuggestionPrompt(student, observations, lessonHistory, stats, mentorType);
 
   let response = "";
 
@@ -153,7 +154,7 @@ export async function generateStudentAiSuggestion(studentId: string): Promise<St
       user_id: userId,
       target_type: "student",
       target_id: studentId,
-      mentor_type: "general",
+      mentor_type: mentorType,
       prompt,
       response,
       source_summary: sourceSummary,
@@ -170,7 +171,8 @@ export async function generateStudentAiSuggestion(studentId: string): Promise<St
   return { ok: true, message: "AIメンターの次回提案を更新しました。" };
 }
 
-export async function generateLessonPlanAiSuggestion(planId: string): Promise<StudentAiActionState> {
+export async function generateLessonPlanAiSuggestion(planId: string, requestedMentorType = "lesson_design"): Promise<StudentAiActionState> {
+  const mentorType = normalizeMentorType(requestedMentorType);
   const openai = getOpenAIClient();
 
   if (!openai) {
@@ -187,7 +189,7 @@ export async function generateLessonPlanAiSuggestion(planId: string): Promise<St
     return { error: `AI提案に必要なレッスンプランデータを取得できませんでした。${getErrorMessage(error)}` };
   }
 
-  const { prompt, sourceSummary } = buildLessonPlanSuggestionPrompt(plan, context);
+  const { prompt, sourceSummary } = buildLessonPlanSuggestionPrompt(plan, context, mentorType);
   let response = "";
 
   try {
@@ -220,7 +222,7 @@ export async function generateLessonPlanAiSuggestion(planId: string): Promise<St
       user_id: userId,
       target_type: "lesson_plan",
       target_id: planId,
-      mentor_type: "lesson_design",
+      mentor_type: mentorType,
       prompt,
       response,
       source_summary: sourceSummary,
@@ -239,7 +241,8 @@ export async function generateLessonPlanAiSuggestion(planId: string): Promise<St
   return { ok: true, message: "AIメンターのプラン改善提案を更新しました。" };
 }
 
-export async function generateBlockAiSuggestion(blockId: string): Promise<StudentAiActionState> {
+export async function generateBlockAiSuggestion(blockId: string, requestedMentorType = "lesson_design"): Promise<StudentAiActionState> {
+  const mentorType = normalizeMentorType(requestedMentorType);
   const openai = getOpenAIClient();
 
   if (!openai) {
@@ -258,7 +261,7 @@ export async function generateBlockAiSuggestion(blockId: string): Promise<Studen
     return { error: `AI提案に必要なブロック情報を取得できませんでした。${getErrorMessage(error)}` };
   }
 
-  const { prompt, sourceSummary } = buildBlockSuggestionPrompt(block, histories);
+  const { prompt, sourceSummary } = buildBlockSuggestionPrompt(block, histories, mentorType);
   let response = "";
 
   try {
@@ -291,7 +294,7 @@ export async function generateBlockAiSuggestion(blockId: string): Promise<Studen
       user_id: userId,
       target_type: "block",
       target_id: blockId,
-      mentor_type: "lesson_design",
+      mentor_type: mentorType,
       prompt,
       response,
       source_summary: sourceSummary,
@@ -309,7 +312,8 @@ export async function generateBlockAiSuggestion(blockId: string): Promise<Studen
   return { ok: true, message: "AIメンターのセリフ改善提案を更新しました。" };
 }
 
-export async function generateLessonRecordAiSuggestion(recordId: string): Promise<StudentAiActionState> {
+export async function generateLessonRecordAiSuggestion(recordId: string, requestedMentorType = "lesson_design"): Promise<StudentAiActionState> {
+  const mentorType = normalizeMentorType(requestedMentorType);
   const openai = getOpenAIClient();
 
   if (!openai) {
@@ -324,7 +328,7 @@ export async function generateLessonRecordAiSuggestion(recordId: string): Promis
     return { error: `AI提案に必要な実施後記録を取得できませんでした。${getErrorMessage(error)}` };
   }
 
-  const { prompt, sourceSummary } = buildLessonRecordSuggestionPrompt(context);
+  const { prompt, sourceSummary } = buildLessonRecordSuggestionPrompt(context, mentorType);
   let response = "";
 
   try {
@@ -357,7 +361,7 @@ export async function generateLessonRecordAiSuggestion(recordId: string): Promis
       user_id: userId,
       target_type: "lesson_record",
       target_id: recordId,
-      mentor_type: "lesson_design",
+      mentor_type: mentorType,
       prompt,
       response,
       source_summary: sourceSummary,
@@ -383,6 +387,7 @@ function buildStudentSuggestionPrompt(
   observations: StudentObservation[],
   lessonHistory: StudentLessonHistory[],
   stats: StudentAttendanceStats,
+  mentorType: MentorType,
 ) {
   const recentObservations = observations.slice(0, 5).map((memo) => ({
     date: memo.date,
@@ -401,6 +406,7 @@ function buildStudentSuggestionPrompt(
   }));
 
   const source = {
+    mentorFocus: mentorFocus(mentorType),
     student: {
       name: student.name,
       ageGroup: student.ageGroup || "未設定",
@@ -585,8 +591,9 @@ type RawAiLessonRecord = {
   }>;
 };
 
-function buildLessonPlanSuggestionPrompt(plan: DbLessonPlan, context: LessonPlanAiContext) {
+function buildLessonPlanSuggestionPrompt(plan: DbLessonPlan, context: LessonPlanAiContext, mentorType: MentorType) {
   const source = {
+    mentorFocus: mentorFocus(mentorType),
     lessonPlan: {
       name: plan.name,
       theme: plan.theme || "未設定",
@@ -637,7 +644,7 @@ ${sourceSummary}`,
   };
 }
 
-function buildBlockSuggestionPrompt(block: DbBlockTemplate, histories: Awaited<ReturnType<typeof getBlockUsageHistory>>) {
+function buildBlockSuggestionPrompt(block: DbBlockTemplate, histories: Awaited<ReturnType<typeof getBlockUsageHistory>>, mentorType: MentorType) {
   const recentHistories = histories.slice(0, 5).map((history) => ({
     lessonDate: history.lessonDate,
     lessonName: history.lessonName,
@@ -652,6 +659,7 @@ function buildBlockSuggestionPrompt(block: DbBlockTemplate, histories: Awaited<R
   }));
 
   const source = {
+    mentorFocus: mentorFocus(mentorType),
     block: {
       name: block.name,
       majorCategory: block.majorCategory,
@@ -865,8 +873,9 @@ async function getLessonRecordAiContext(recordId: string): Promise<LessonRecordA
   };
 }
 
-function buildLessonRecordSuggestionPrompt(context: LessonRecordAiContext) {
+function buildLessonRecordSuggestionPrompt(context: LessonRecordAiContext, mentorType: MentorType) {
   const source = {
+    mentorFocus: mentorFocus(mentorType),
     record: context.record,
     blocks: context.blocks.map((block) => ({
       ...block,
@@ -932,6 +941,18 @@ function formatDateForAi(value: string | null | undefined) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "numeric", day: "numeric", timeZone: "Asia/Tokyo" }).format(date);
+}
+
+function normalizeMentorType(value: string): MentorType {
+  if (value === "body" || value === "communication" || value === "lesson_design" || value === "general") return value;
+  return "general";
+}
+
+function mentorFocus(type: MentorType) {
+  if (type === "body") return "身体面・ケガ・可動域・安全面を重点的に見る";
+  if (type === "communication") return "声かけ・安心感・継続支援・接し方を重点的に見る";
+  if (type === "lesson_design") return "レッスン構成・ブロック順・時間配分・導線を重点的に見る";
+  return "身体面、声かけ、レッスン設計を総合的に見る";
 }
 
 function mapAiSuggestion(row: AiSuggestionRow): AiSuggestion {

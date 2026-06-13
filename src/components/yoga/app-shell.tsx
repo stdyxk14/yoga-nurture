@@ -3,21 +3,20 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Activity, BarChart3, Bell, CalendarDays, HeartHandshake, Home, Leaf, Menu, MessageCircle, Settings, Sparkles, Sprout, UserRound, X } from "lucide-react";
+import { BarChart3, Bell, CalendarDays, Home, Leaf, Menu, Settings, Sprout, UserRound, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "/dashboard", label: "ダッシュボード", icon: Home },
-  { href: "/students", label: "生徒カルテ", icon: UserRound },
-  { href: "/lessons", label: "レッスンカルテ", icon: CalendarDays },
-  { href: "/reports", label: "レポート", icon: BarChart3 },
-  { href: "/settings", label: "設定", icon: Settings },
+  { href: "/dashboard", label: "ダッシュボード", shortLabel: "ホーム", icon: Home },
+  { href: "/students", label: "生徒カルテ", shortLabel: "生徒", icon: UserRound },
+  { href: "/lessons", label: "レッスンカルテ", shortLabel: "レッスン", icon: CalendarDays },
+  { href: "/reports", label: "レポート", shortLabel: "レポート", icon: BarChart3 },
+  { href: "/settings", label: "設定", shortLabel: "設定", icon: Settings },
 ];
 
-export function AppShell({ children, aiEnabled = true }: { children: React.ReactNode; aiEnabled?: boolean }) {
+export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [aiSheetOpen, setAiSheetOpen] = useState(false);
   const current = navItems.find((item) => isActivePath(pathname, item.href));
 
   if (pathname === "/login") {
@@ -74,12 +73,6 @@ export function AppShell({ children, aiEnabled = true }: { children: React.React
           <div className="w-full min-w-0 max-w-full overflow-x-hidden md:overflow-visible">{children}</div>
         </main>
       </div>
-      {aiEnabled ? (
-        <>
-          <MobileAiConsultButton onClick={() => setAiSheetOpen(true)} />
-          <MobileAiConsultSheet open={aiSheetOpen} pathname={pathname} onClose={() => setAiSheetOpen(false)} />
-        </>
-      ) : null}
       <MobileBottomNav pathname={pathname} />
     </div>
   );
@@ -87,83 +80,6 @@ export function AppShell({ children, aiEnabled = true }: { children: React.React
 
 function isActivePath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`) || (href === "/lessons" && (pathname.startsWith("/schedules") || pathname.startsWith("/templates") || pathname.startsWith("/blocks")));
-}
-
-function MobileAiConsultButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="fixed bottom-[5.25rem] right-4 z-50 inline-flex h-12 items-center gap-2 rounded-full bg-[#5d956d] px-4 text-[12px] font-extrabold text-white shadow-[0_14px_30px_rgba(64,113,77,0.26)] md:hidden"
-      aria-label="AI相談を開く"
-    >
-      <MessageCircle className="h-5 w-5" />
-      AI相談
-    </button>
-  );
-}
-
-function MobileAiConsultSheet({ open, pathname, onClose }: { open: boolean; pathname: string; onClose: () => void }) {
-  const context =
-    pathname.includes("/record")
-      ? "この振り返りについて相談"
-      : pathname.includes("/students")
-        ? "この生徒について相談"
-        : pathname.includes("/blocks")
-          ? "このブロックについて相談"
-          : pathname.includes("/lessons")
-            ? "このレッスンについて相談"
-            : "この画面について相談";
-  const mentors = [
-    { title: "身体分析メンター", desc: "体の状態や注意点を整理", icon: Activity },
-    { title: "寄り添い接客コーチ", desc: "声かけやフォローを整理", icon: HeartHandshake },
-    { title: "レッスン設計＆戦略家", desc: "構成・時間配分を整理", icon: Sparkles },
-  ];
-
-  return (
-    <div className={cn("fixed inset-0 z-[70] md:hidden", open ? "pointer-events-auto" : "pointer-events-none")}>
-      <button
-        type="button"
-        aria-label="AI相談を閉じる"
-        onClick={onClose}
-        className={cn("absolute inset-0 bg-[#1e241c]/30 transition-opacity", open ? "opacity-100" : "opacity-0")}
-      />
-      <section
-        className={cn(
-          "absolute inset-x-0 bottom-0 rounded-t-[28px] border border-[#e7dfd4] bg-[#fbfaf6] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-18px_42px_rgba(65,54,38,0.22)] transition-transform duration-200",
-          open ? "translate-y-0" : "translate-y-full",
-        )}
-      >
-        <div className="mb-3 flex items-center justify-between">
-          <div>
-            <p className="text-[12px] font-bold text-[#5d956d]">AIメンター</p>
-            <h2 className="text-[18px] font-extrabold">{context}</h2>
-          </div>
-          <button type="button" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-full border border-[#e4dbcf] bg-white text-[#5d6b58]" aria-label="閉じる">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <p className="mb-3 rounded-2xl border border-[#d8e3d4] bg-white/74 p-3 text-[12px] font-semibold leading-5 text-[#657064]">
-          詳細な生成は各画面の「AI提案カード」から実行できます。ここでは相談先の役割を確認できます。
-        </p>
-        <div className="grid gap-2">
-          {mentors.map(({ title, desc, icon: Icon }) => (
-            <article key={title} className="rounded-2xl border border-[#eee4d8] bg-white/78 p-3">
-              <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#edf5ef] text-[#5d956d]">
-                  <Icon className="h-5 w-5" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13px] font-extrabold">{title}</p>
-                  <p className="mt-0.5 line-clamp-1 text-[11px] font-medium text-[#6b7468]">{desc}</p>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-    </div>
-  );
 }
 
 function MobileTopBar({ title, onMenuClick }: { title: string; onMenuClick: () => void }) {
@@ -236,18 +152,10 @@ function MobileMenu({ open, pathname, onClose }: { open: boolean; pathname: stri
 }
 
 function MobileBottomNav({ pathname }: { pathname: string }) {
-  const items = [
-    { href: "/dashboard", label: "ホーム", icon: Home },
-    { href: "/students", label: "生徒", icon: UserRound },
-    { href: "/lessons", label: "レッスン", icon: CalendarDays },
-    { href: "/reports", label: "レポート", icon: BarChart3 },
-    { href: "/settings", label: "設定", icon: Settings },
-  ];
-
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-[#e7dfd4] bg-[#fbfaf6]/96 px-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(91,76,53,0.08)] backdrop-blur md:hidden">
       <div className="grid h-16 grid-cols-5">
-        {items.map((item) => {
+        {navItems.map((item) => {
           const active = isActivePath(pathname, item.href);
           const Icon = item.icon;
           return (
@@ -255,7 +163,7 @@ function MobileBottomNav({ pathname }: { pathname: string }) {
               <span className={cn("flex h-8 w-8 items-center justify-center rounded-full", active ? "bg-[#e3efdf]" : "bg-transparent")}>
                 <Icon className="h-5 w-5" strokeWidth={1.7} />
               </span>
-              {item.label}
+              {item.shortLabel}
             </Link>
           );
         })}

@@ -25,7 +25,9 @@ export function StudentAiSuggestionPanel({
       isConfigured={aiSuggestionState.isConfigured}
       storageReady={aiSuggestionState.storageReady}
       storageError={aiSuggestionState.storageError}
-      action={<StudentAiButton studentId={student.id} label={latest ? "再生成" : "AIに相談"} />}
+      generateLabel="次回レッスン提案を生成"
+      modalTitle="この生徒について相談"
+      renderAction={(mentorType, label) => <StudentAiButton studentId={student.id} mentorType={mentorType} label={label} />}
     />
   );
 }

@@ -3,14 +3,15 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { generateLessonRecordAiSuggestionAction } from "@/lib/ai-suggestions/lesson-record-actions";
-import type { StudentAiActionState } from "@/lib/ai-suggestions";
+import type { MentorType, StudentAiActionState } from "@/lib/ai-suggestions";
 
 type LessonRecordAiButtonProps = {
   recordId?: string;
   label?: string;
+  mentorType?: MentorType;
 };
 
-export function LessonRecordAiButton({ recordId, label = "AIに相談" }: LessonRecordAiButtonProps) {
+export function LessonRecordAiButton({ recordId, label = "AIに相談", mentorType = "lesson_design" }: LessonRecordAiButtonProps) {
   const router = useRouter();
   const [state, setState] = useState<StudentAiActionState>({});
   const [pending, startTransition] = useTransition();
@@ -26,7 +27,7 @@ export function LessonRecordAiButton({ recordId, label = "AIに相談" }: Lesson
 
   function handleClick() {
     startTransition(async () => {
-      const result = await generateLessonRecordAiSuggestionAction(resolvedRecordId);
+      const result = await generateLessonRecordAiSuggestionAction(resolvedRecordId, mentorType);
       setState(result);
       if (result.ok) router.refresh();
     });

@@ -3,16 +3,17 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { generateStudentAiSuggestionAction } from "@/lib/ai-suggestions/actions";
-import type { StudentAiActionState } from "@/lib/ai-suggestions";
+import type { MentorType, StudentAiActionState } from "@/lib/ai-suggestions";
 
 type StudentAiButtonProps = {
   studentId?: string;
   label?: string;
+  mentorType?: MentorType;
 };
 
 const initialState: StudentAiActionState = {};
 
-export function StudentAiButton({ studentId, label = "AIに相談" }: StudentAiButtonProps) {
+export function StudentAiButton({ studentId, label = "AIに相談", mentorType = "general" }: StudentAiButtonProps) {
   const [state, formAction] = useActionState(generateStudentAiSuggestionAction, initialState);
 
   if (!studentId) {
@@ -26,6 +27,7 @@ export function StudentAiButton({ studentId, label = "AIに相談" }: StudentAiB
   return (
     <form action={formAction} className="space-y-2">
       <input type="hidden" name="student_id" value={studentId} />
+      <input type="hidden" name="mentor_type" value={mentorType} />
       <SubmitButton label={label} />
       {state.error ? (
         <p className="rounded-xl border border-[#f2c9bd] bg-[#fff0ea] px-3 py-2 text-[12px] font-semibold leading-5 text-[#b75b48]">{state.error}</p>

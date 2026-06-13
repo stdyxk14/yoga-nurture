@@ -21,7 +21,7 @@ export function BlockAiSuggestionPanel({ block, blockId, aiSuggestionState, cont
   return (
     <AiSuggestionCard
       title="このブロックのAI改善提案"
-      description="誘導セリフ・注意点・過去メモをもとに、伝わりやすい声かけを提案します。"
+      description="誘導セリフ・注意点・過去メモをもとに、より伝わりやすい声かけを提案します。"
       emptyText="AIに相談すると、初心者向けの言い換えや安全面の補足が表示されます。"
       latest={latest}
       history={aiSuggestionState?.history ?? []}
@@ -29,7 +29,9 @@ export function BlockAiSuggestionPanel({ block, blockId, aiSuggestionState, cont
       storageReady={aiSuggestionState?.storageReady ?? true}
       storageError={aiSuggestionState?.storageError}
       note={context === "edit" ? "保存済みの原稿をもとに提案します。未保存の変更は保存後に反映されます。" : undefined}
-      action={<BlockAiButton blockId={resolvedBlockId} label={latest ? "再生成" : "AIに相談"} />}
+      generateLabel="セリフ改善案を生成"
+      modalTitle="このブロックについて相談"
+      renderAction={(mentorType, label) => <BlockAiButton blockId={resolvedBlockId} mentorType={mentorType} label={label} />}
       extraActions={
         block ? (
           <Link
