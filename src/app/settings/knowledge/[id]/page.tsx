@@ -1,4 +1,4 @@
-import { Archive, ArrowLeft, CheckCircle2, FileText, Pencil, UploadCloud } from "lucide-react";
+import { Archive, ArrowLeft, CheckCircle2, FileText, Pencil, ScanText, Sparkles, UploadCloud } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,8 @@ import {
   activateKnowledgeCardAction,
   archiveKnowledgeDocumentAction,
   createKnowledgeCardDraftAction,
+  generateKnowledgeCardDraftWithAiAction,
+  runKnowledgeImageOcrAction,
 } from "@/app/settings/knowledge/actions";
 import {
   formatDateTime,
@@ -55,6 +57,14 @@ export default async function KnowledgeDetailPage({
           <Pencil className="h-4 w-4" />
           OCR結果を確認
         </LinkButton>
+        {document.file_mime_type?.startsWith("image/") ? (
+          <form action={runKnowledgeImageOcrAction.bind(null, document.id)} className="contents">
+            <Button type="submit" variant="outline" className="h-10 rounded-xl border-[#cfe1ca] bg-white/85 px-4 text-[13px] font-bold text-[#4f835d]">
+              <ScanText className="mr-2 h-4 w-4" />
+              AIで読み取る
+            </Button>
+          </form>
+        ) : null}
       </div>
 
       <Notice message={query.message} error={query.error ?? error ?? undefined} />
@@ -70,14 +80,21 @@ export default async function KnowledgeDetailPage({
             // eslint-disable-next-line @next/next/no-img-element
             <img src={signedUrl} alt={document.title} className="max-h-[480px] w-full rounded-2xl border border-[#eee4d8] object-contain" />
           ) : signedUrl ? (
-            <a
-              href={signedUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="flex min-h-40 items-center justify-center rounded-2xl border border-dashed border-[#d8e3d4] bg-[#f8fcf6] text-[14px] font-bold text-[#4f835d]"
-            >
-              PDF / ファイルを別タブで開く
-            </a>
+            <div className="grid gap-3">
+              <a
+                href={signedUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="flex min-h-40 items-center justify-center rounded-2xl border border-dashed border-[#d8e3d4] bg-[#f8fcf6] text-[14px] font-bold text-[#4f835d]"
+              >
+                PDF / ファイルを別タブで開く
+              </a>
+              {document.file_mime_type === "application/pdf" ? (
+                <p className="rounded-2xl border border-[#eee4d8] bg-white/72 p-3 text-[12px] font-semibold leading-5 text-[#657064]">
+                  PDF自動OCRは準備中です。必要な本文を「OCR結果を確認」画面で貼り付けてください。
+                </p>
+              ) : null}
+            </div>
           ) : (
             <div className="flex min-h-40 items-center justify-center rounded-2xl border border-dashed border-[#d8e3d4] bg-[#f8fcf6] text-[13px] font-bold text-[#6d7469]">
               ファイルなしのテキストメモです。
@@ -112,11 +129,19 @@ export default async function KnowledgeDetailPage({
       <SoftCard className="p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <SectionTitle icon={CheckCircle2} title="知識カード候補" subtitle="AIメンターが将来参照する整理済み知識です" />
-          <form action={createKnowledgeCardDraftAction.bind(null, document.id)}>
-            <Button type="submit" className="h-10 rounded-xl bg-[#5d956d] text-white hover:bg-[#4f835d]">
-              下書きを作成
-            </Button>
-          </form>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <form action={generateKnowledgeCardDraftWithAiAction.bind(null, document.id)}>
+              <Button type="submit" className="h-10 w-full rounded-xl bg-[#5d956d] text-white hover:bg-[#4f835d] sm:w-auto">
+                <Sparkles className="mr-2 h-4 w-4" />
+                AIで知識カード候補を作成
+              </Button>
+            </form>
+            <form action={createKnowledgeCardDraftAction.bind(null, document.id)}>
+              <Button type="submit" variant="outline" className="h-10 w-full rounded-xl border-[#cfe1ca] text-[#4f835d] sm:w-auto">
+                手動で下書き作成
+              </Button>
+            </form>
+          </div>
         </div>
         {cards.length ? (
           <div className="mt-3 grid gap-3">

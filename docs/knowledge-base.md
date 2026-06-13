@@ -11,6 +11,9 @@
 - `/settings/knowledge/upload` でファイルアップロード
 - `/settings/knowledge/[id]` で詳細と知識カード候補を表示
 - `/settings/knowledge/[id]/review` でOCR読み取り結果を確認・修正
+- jpg/png/webp 画像は「AIで読み取る」ボタンからOpenAI Vision OCRを実行
+- `cleaned_text` からAIで知識カード候補を作成し、ユーザー確認後に有効化
+- 有効化済み知識カードを既存AI提案promptに最大3件まで参考情報として追加
 
 ## Supabase適用手順
 
@@ -34,18 +37,29 @@ bucketのファイルパスはユーザーごとに分かれます。
 
 ## OCRの扱い
 
-Phase 1では、OCRの完全自動化よりも確認フローを優先しています。
+手書きOCRは誤認識がある前提のため、OCR結果は必ず確認画面で人間が修正してから知識カード化します。
 
-- 画像/PDFはアップロード後に `ocr_pending` になります
-- `/review` 画面でOCR結果または手入力の読み取り結果を貼り付け/修正できます
-- `cleaned_text` が保存されると、知識カード下書きを作成できます
+- jpg/png/webp はアップロード後に `/review` 画面または詳細画面から「AIで読み取る」を実行できます
+- OCR中は `ocr_processing`、確認待ちは `ocr_review_needed`、失敗時は `error` になります
+- PDFはアップロード・保存・プレビューに対応していますが、自動OCRはまだ準備中です
+- PDFは別タブで開き、必要な本文を `/review` 画面に手動で貼り付けてください
+- `cleaned_text` が保存されると、AIで知識カード候補を作成できます
 
-OpenAI Visionや外部OCRによる自動読み取りは次フェーズで追加します。手書きOCRは誤認識が前提のため、AIメンターが参照する前に必ず人間確認済みテキストを保存してください。
+OpenAI APIキーはサーバー側の `OPENAI_API_KEY` のみを使います。`NEXT_PUBLIC_` 付きの環境変数には入れないでください。
+
+## AI提案への参照
+
+`knowledge_cards.status = active` のカードは、既存のAI提案実行時に最大3件までpromptへ追加されます。
+
+- 生徒カルテAI提案
+- レッスンプランAI提案
+- ブロック原稿AI提案
+- レッスン後振り返りAI
+
+本格RAGやベクトル検索はまだ行わず、`mentor_type` が一致するカードと `general` カードを優先します。参照された内容は `ai_suggestions.source_summary` に残ります。
 
 ## 今後の拡張メモ
 
-- OpenAI Visionで画像OCRを実行
 - PDFのページ分割/OCR
-- `knowledge_cards.status = active` のカードをAI提案promptに最大3件程度含める
 - embeddings / ベクトル検索
 - 大量ファイル処理のバックグラウンド化

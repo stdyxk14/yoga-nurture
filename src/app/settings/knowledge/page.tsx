@@ -47,10 +47,11 @@ export default async function KnowledgePage({ searchParams }: { searchParams: Pr
 
       <Notice message={params.message} error={params.error ?? error ?? undefined} />
 
-      <section className="grid gap-3 md:grid-cols-3">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="アップロード済み" value={`${stats.documents}件`} />
         <StatCard label="確認待ち" value={`${stats.reviewNeeded}件`} tone="beige" />
         <StatCard label="有効化済み知識カード" value={`${stats.activeCards}件`} tone="green" />
+        <StatCard label="エラー" value={`${stats.errors}件`} tone="red" />
       </section>
 
       <SoftCard className="p-4">
@@ -158,11 +159,18 @@ export default async function KnowledgePage({ searchParams }: { searchParams: Pr
   );
 }
 
-function StatCard({ label, value, tone = "green" }: { label: string; value: string; tone?: "green" | "beige" }) {
+function StatCard({ label, value, tone = "green" }: { label: string; value: string; tone?: "green" | "beige" | "red" }) {
+  const valueClass =
+    tone === "red"
+      ? "mt-1 text-[28px] font-extrabold text-[#d85f4d]"
+      : tone === "green"
+        ? "mt-1 text-[28px] font-extrabold text-[#4f835d]"
+        : "mt-1 text-[28px] font-extrabold text-[#8b704c]";
+
   return (
     <SoftCard className="p-4">
       <p className="text-[12px] font-bold text-[#687266]">{label}</p>
-      <p className={tone === "green" ? "mt-1 text-[28px] font-extrabold text-[#4f835d]" : "mt-1 text-[28px] font-extrabold text-[#8b704c]"}>{value}</p>
+      <p className={valueClass}>{value}</p>
     </SoftCard>
   );
 }

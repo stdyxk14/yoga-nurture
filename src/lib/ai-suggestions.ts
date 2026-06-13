@@ -3,6 +3,7 @@ import type { StudentAttendanceStats, StudentLessonHistory, StudentObservation, 
 import { getBlockUsageHistory, getStudentRecordInsights } from "@/lib/lesson-records";
 import { getBlockById, type DbBlockTemplate } from "@/lib/blocks";
 import { getAiSettings, isAiFeatureEnabled } from "@/lib/ai-settings";
+import { formatKnowledgeCardsForPrompt, getActiveKnowledgeCardsForAi } from "@/lib/knowledge";
 import { getLessonPlanById, type DbLessonPlan } from "@/lib/lesson-plans";
 import { getOpenAIClient, isOpenAIConfigured, studentSuggestionModel } from "@/lib/openai/server";
 import { getStudentById, requireUserId } from "@/lib/students";
@@ -42,6 +43,8 @@ type AiSuggestionRow = {
   source_summary: string | null;
   created_at: string;
 };
+
+type KnowledgePromptCard = ReturnType<typeof formatKnowledgeCardsForPrompt>[number];
 
 export async function getStudentAiSuggestionState(studentId: string): Promise<StudentAiSuggestionState> {
   return getAiSuggestionState("student", studentId);
@@ -110,17 +113,19 @@ export async function generateStudentAiSuggestion(studentId: string, requestedMe
   let observations: StudentObservation[];
   let lessonHistory: StudentLessonHistory[];
   let stats: StudentAttendanceStats;
+  let knowledgeCards: KnowledgePromptCard[];
 
   try {
-    [student, { observations, lessonHistory, stats }] = await Promise.all([
+    [student, { observations, lessonHistory, stats }, knowledgeCards] = await Promise.all([
       getStudentById(studentId),
       getStudentRecordInsights(studentId),
+      getKnowledgeCardsForAiSafe(mentorType),
     ]);
   } catch (error) {
     return { error: `AI提案に必要な生徒データを取得できませんでした。${getErrorMessage(error)}` };
   }
 
-  const { prompt, sourceSummary } = buildStudentSuggestionPrompt(student, observations, lessonHistory, stats, mentorType);
+  const { prompt, sourceSummary } = buildStudentSuggestionPrompt(student, observations, lessonHistory, stats, mentorType, knowledgeCards);
 
   let response = "";
 
@@ -181,15 +186,19 @@ export async function generateLessonPlanAiSuggestion(planId: string, requestedMe
 
   let plan: DbLessonPlan;
   let context: LessonPlanAiContext;
+  let knowledgeCards: KnowledgePromptCard[];
 
   try {
-    plan = await getLessonPlanById(planId);
-    context = await getLessonPlanAiContext(planId);
+    [plan, context, knowledgeCards] = await Promise.all([
+      getLessonPlanById(planId),
+      getLessonPlanAiContext(planId),
+      getKnowledgeCardsForAiSafe(mentorType),
+    ]);
   } catch (error) {
     return { error: `AI提案に必要なレッスンプランデータを取得できませんでした。${getErrorMessage(error)}` };
   }
 
-  const { prompt, sourceSummary } = buildLessonPlanSuggestionPrompt(plan, context, mentorType);
+  const { prompt, sourceSummary } = buildLessonPlanSuggestionPrompt(plan, context, mentorType, knowledgeCards);
   let response = "";
 
   try {
@@ -251,17 +260,19 @@ export async function generateBlockAiSuggestion(blockId: string, requestedMentor
 
   let block: DbBlockTemplate;
   let histories: Awaited<ReturnType<typeof getBlockUsageHistory>>;
+  let knowledgeCards: KnowledgePromptCard[];
 
   try {
-    [block, histories] = await Promise.all([
+    [block, histories, knowledgeCards] = await Promise.all([
       getBlockById(blockId),
       getBlockUsageHistory(blockId),
+      getKnowledgeCardsForAiSafe(mentorType),
     ]);
   } catch (error) {
     return { error: `AI提案に必要なブロック情報を取得できませんでした。${getErrorMessage(error)}` };
   }
 
-  const { prompt, sourceSummary } = buildBlockSuggestionPrompt(block, histories, mentorType);
+  const { prompt, sourceSummary } = buildBlockSuggestionPrompt(block, histories, mentorType, knowledgeCards);
   let response = "";
 
   try {
@@ -321,14 +332,18 @@ export async function generateLessonRecordAiSuggestion(recordId: string, request
   }
 
   let context: LessonRecordAiContext;
+  let knowledgeCards: KnowledgePromptCard[];
 
   try {
-    context = await getLessonRecordAiContext(recordId);
+    [context, knowledgeCards] = await Promise.all([
+      getLessonRecordAiContext(recordId),
+      getKnowledgeCardsForAiSafe(mentorType),
+    ]);
   } catch (error) {
     return { error: `AI提案に必要な実施後記録を取得できませんでした。${getErrorMessage(error)}` };
   }
 
-  const { prompt, sourceSummary } = buildLessonRecordSuggestionPrompt(context, mentorType);
+  const { prompt, sourceSummary } = buildLessonRecordSuggestionPrompt(context, mentorType, knowledgeCards);
   let response = "";
 
   try {
@@ -388,6 +403,7 @@ function buildStudentSuggestionPrompt(
   lessonHistory: StudentLessonHistory[],
   stats: StudentAttendanceStats,
   mentorType: MentorType,
+  knowledgeCards: KnowledgePromptCard[],
 ) {
   const recentObservations = observations.slice(0, 5).map((memo) => ({
     date: memo.date,
@@ -424,6 +440,7 @@ function buildStudentSuggestionPrompt(
     },
     recentObservations,
     recentLessons,
+    instructorKnowledgeCards: knowledgeCards,
   };
 
   const sourceSummary = JSON.stringify(source, null, 2);
@@ -440,6 +457,7 @@ function buildStudentSuggestionPrompt(
 5. 観察しておきたいこと
 
 各項目は2〜3行以内にしてください。医療診断や治療効果の断定は避け、ヨガレッスン設計上の配慮として書いてください。
+インストラクターの学習メモが含まれている場合は、診断ではなく指導上の参考知識として扱ってください。
 
 生徒データ:
 ${sourceSummary}`,
@@ -591,7 +609,12 @@ type RawAiLessonRecord = {
   }>;
 };
 
-function buildLessonPlanSuggestionPrompt(plan: DbLessonPlan, context: LessonPlanAiContext, mentorType: MentorType) {
+function buildLessonPlanSuggestionPrompt(
+  plan: DbLessonPlan,
+  context: LessonPlanAiContext,
+  mentorType: MentorType,
+  knowledgeCards: KnowledgePromptCard[],
+) {
   const source = {
     mentorFocus: mentorFocus(mentorType),
     lessonPlan: {
@@ -617,6 +640,7 @@ function buildLessonPlanSuggestionPrompt(plan: DbLessonPlan, context: LessonPlan
     })),
     upcomingSchedules: context.upcomingSchedules,
     recentBlockRecords: context.recentBlockRecords,
+    instructorKnowledgeCards: knowledgeCards,
   };
 
   const sourceSummary = JSON.stringify(source, null, 2);
@@ -638,13 +662,19 @@ function buildLessonPlanSuggestionPrompt(plan: DbLessonPlan, context: LessonPlan
 各項目は2〜3行程度で、実践的な日本語にしてください。医療診断や治療効果の断定は避け、ヨガレッスン設計上の配慮として書いてください。
 
 コスト対策のため、誘導セリフは冒頭のみ渡しています。必要な場合は「原稿全体を見直す」ではなく、流れ・安全面・時間配分の観点で助言してください。
+インストラクターの学習メモが含まれている場合は、診断ではなくレッスン設計上の参考知識として扱ってください。
 
 レッスンプランデータ:
 ${sourceSummary}`,
   };
 }
 
-function buildBlockSuggestionPrompt(block: DbBlockTemplate, histories: Awaited<ReturnType<typeof getBlockUsageHistory>>, mentorType: MentorType) {
+function buildBlockSuggestionPrompt(
+  block: DbBlockTemplate,
+  histories: Awaited<ReturnType<typeof getBlockUsageHistory>>,
+  mentorType: MentorType,
+  knowledgeCards: KnowledgePromptCard[],
+) {
   const recentHistories = histories.slice(0, 5).map((history) => ({
     lessonDate: history.lessonDate,
     lessonName: history.lessonName,
@@ -673,6 +703,7 @@ function buildBlockSuggestionPrompt(block: DbBlockTemplate, histories: Awaited<R
       script: truncateForPrompt(block.script || "", 2400),
     },
     recentUsageHistory: recentHistories,
+    instructorKnowledgeCards: knowledgeCards,
   };
 
   const sourceSummary = JSON.stringify(source, null, 2);
@@ -692,6 +723,7 @@ function buildBlockSuggestionPrompt(block: DbBlockTemplate, histories: Awaited<R
 各項目は2〜3行程度で、実践しやすい日本語にしてください。
 医療診断や治療効果の断定は避け、痛みや違和感がある場合は中止・軽減・専門家相談を促してください。
 改善後のセリフ案は、現在の原稿を自動上書きするものではなく、講師がコピーして編集できる提案として書いてください。
+インストラクターの学習メモが含まれている場合は、診断ではなく誘導・安全配慮・声かけの参考知識として扱ってください。
 
 ブロックデータ:
 ${sourceSummary}`,
@@ -873,7 +905,11 @@ async function getLessonRecordAiContext(recordId: string): Promise<LessonRecordA
   };
 }
 
-function buildLessonRecordSuggestionPrompt(context: LessonRecordAiContext, mentorType: MentorType) {
+function buildLessonRecordSuggestionPrompt(
+  context: LessonRecordAiContext,
+  mentorType: MentorType,
+  knowledgeCards: KnowledgePromptCard[],
+) {
   const source = {
     mentorFocus: mentorFocus(mentorType),
     record: context.record,
@@ -889,6 +925,7 @@ function buildLessonRecordSuggestionPrompt(context: LessonRecordAiContext, mento
       personalMemo: truncateForPrompt(student.personalMemo, 220),
       nextFollow: truncateForPrompt(student.nextFollow, 160),
     })),
+    instructorKnowledgeCards: knowledgeCards,
   };
 
   const sourceSummary = JSON.stringify(source, null, 2);
@@ -910,10 +947,20 @@ function buildLessonRecordSuggestionPrompt(context: LessonRecordAiContext, mento
 生徒は匿名化されています。個人を特定する表現は避けてください。
 医療診断や治療効果の断定は避け、痛みや違和感がある場合は軽減・中止・専門家相談を促してください。
 次回改善・生徒フォロー・ブロック改善に使える形で整理してください。
+インストラクターの学習メモが含まれている場合は、診断ではなく振り返り・次回改善の参考知識として扱ってください。
 
 実施後記録データ:
 ${sourceSummary}`,
   };
+}
+
+async function getKnowledgeCardsForAiSafe(mentorType: MentorType): Promise<KnowledgePromptCard[]> {
+  try {
+    const cards = await getActiveKnowledgeCardsForAi(3);
+    return formatKnowledgeCardsForPrompt(cards, mentorType);
+  } catch {
+    return [];
+  }
 }
 
 function formatRecordBlockReaction(value: string | null | undefined) {

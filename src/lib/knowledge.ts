@@ -78,6 +78,7 @@ export type KnowledgeStats = {
   documents: number;
   reviewNeeded: number;
   activeCards: number;
+  errors: number;
 };
 
 export function parseTags(value: FormDataEntryValue | null) {
@@ -118,16 +119,18 @@ export function buildKnowledgeFilePath(userId: string, documentId: string, fileN
 export async function getKnowledgeStats(): Promise<KnowledgeStats> {
   const { supabase, userId } = await requireUserId();
 
-  const [documents, reviewNeeded, activeCards] = await Promise.all([
+  const [documents, reviewNeeded, activeCards, errors] = await Promise.all([
     supabase.from("knowledge_documents").select("id", { count: "exact", head: true }).eq("user_id", userId).neq("status", "archived"),
     supabase.from("knowledge_documents").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("status", "ocr_review_needed"),
     supabase.from("knowledge_cards").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("status", "active"),
+    supabase.from("knowledge_documents").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("status", "error"),
   ]);
 
   return {
     documents: documents.count ?? 0,
     reviewNeeded: reviewNeeded.count ?? 0,
     activeCards: activeCards.count ?? 0,
+    errors: errors.count ?? 0,
   };
 }
 
@@ -225,14 +228,41 @@ export async function getActiveKnowledgeCardsForAi(limit = 3) {
   const { supabase, userId } = await requireUserId();
   const { data } = await supabase
     .from("knowledge_cards")
-    .select("title,category,content,do_points,dont_points,example_phrases,related_tags,mentor_type")
+    .select("id,title,category,content,do_points,dont_points,example_phrases,related_tags,mentor_type,updated_at")
     .eq("user_id", userId)
     .eq("status", "active")
     .order("updated_at", { ascending: false })
-    .limit(limit);
+    .limit(Math.max(limit * 2, limit));
 
-  return (data ?? []) as Pick<
+  return (data ?? []) as Array<Pick<
     KnowledgeCard,
-    "title" | "category" | "content" | "do_points" | "dont_points" | "example_phrases" | "related_tags" | "mentor_type"
-  >[];
+    "id" | "title" | "category" | "content" | "do_points" | "dont_points" | "example_phrases" | "related_tags" | "mentor_type" | "updated_at"
+  >>;
+}
+
+export function formatKnowledgeCardsForPrompt(
+  cards: Awaited<ReturnType<typeof getActiveKnowledgeCardsForAi>>,
+  mentorType: string,
+) {
+  const prioritized = [...cards].sort((a, b) => {
+    const score = (card: (typeof cards)[number]) => (card.mentor_type === mentorType ? 2 : card.mentor_type === "general" ? 1 : 0);
+    return score(b) - score(a);
+  });
+
+  return prioritized.slice(0, 3).map((card) => ({
+    title: card.title,
+    category: card.category ?? "未分類",
+    mentorType: card.mentor_type,
+    relatedTags: card.related_tags ?? [],
+    content: truncateKnowledgeText(card.content, 700),
+    doPoints: (card.do_points ?? []).slice(0, 5),
+    dontPoints: (card.dont_points ?? []).slice(0, 5),
+    examplePhrases: (card.example_phrases ?? []).slice(0, 3),
+  }));
+}
+
+function truncateKnowledgeText(value: string, maxLength: number) {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (normalized.length <= maxLength) return normalized;
+  return `${normalized.slice(0, maxLength)}...`;
 }

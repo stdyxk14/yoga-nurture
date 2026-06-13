@@ -98,22 +98,28 @@ function KnowledgeSettingsPanel({ stats }: { stats: KnowledgeStats }) {
           </Link>
         </div>
       </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KnowledgeMetric label="アップロード済みメモ" value={`${stats.documents}件`} />
         <KnowledgeMetric label="確認待ち" value={`${stats.reviewNeeded}件`} tone="beige" />
         <KnowledgeMetric label="有効化済み知識カード" value={`${stats.activeCards}件`} />
+        <KnowledgeMetric label="エラー" value={`${stats.errors}件`} tone="red" />
       </div>
     </SoftCard>
   );
 }
 
-function KnowledgeMetric({ label, value, tone = "green" }: { label: string; value: string; tone?: "green" | "beige" }) {
+function KnowledgeMetric({ label, value, tone = "green" }: { label: string; value: string; tone?: "green" | "beige" | "red" }) {
+  const valueClass =
+    tone === "red"
+      ? "mt-1 text-[24px] font-extrabold text-[#d85f4d]"
+      : tone === "beige"
+        ? "mt-1 text-[24px] font-extrabold text-[#8b704c]"
+        : "mt-1 text-[24px] font-extrabold text-[#4f835d]";
+
   return (
     <div className="rounded-2xl border border-[#eee4d8] bg-white/72 p-3">
       <p className="text-[12px] font-bold text-[#6d7469]">{label}</p>
-      <p className={tone === "beige" ? "mt-1 text-[24px] font-extrabold text-[#8b704c]" : "mt-1 text-[24px] font-extrabold text-[#4f835d]"}>
-        {value}
-      </p>
+      <p className={valueClass}>{value}</p>
     </div>
   );
 }
