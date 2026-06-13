@@ -12,7 +12,7 @@ type StudentAiButtonProps = {
 
 const initialState: StudentAiActionState = {};
 
-export function StudentAiButton({ studentId, label = "AIメンターに次回プランを相談" }: StudentAiButtonProps) {
+export function StudentAiButton({ studentId, label = "AIに相談" }: StudentAiButtonProps) {
   const [state, formAction] = useActionState(generateStudentAiSuggestionAction, initialState);
 
   if (!studentId) {
@@ -28,14 +28,10 @@ export function StudentAiButton({ studentId, label = "AIメンターに次回プ
       <input type="hidden" name="student_id" value={studentId} />
       <SubmitButton label={label} />
       {state.error ? (
-        <p className="rounded-xl border border-[#f2c9bd] bg-[#fff0ea] px-3 py-2 text-[12px] font-semibold leading-5 text-[#b75b48]">
-          {state.error}
-        </p>
+        <p className="rounded-xl border border-[#f2c9bd] bg-[#fff0ea] px-3 py-2 text-[12px] font-semibold leading-5 text-[#b75b48]">{state.error}</p>
       ) : null}
       {state.message ? (
-        <p className="rounded-xl border border-[#cfe1ca] bg-[#f8fcf6] px-3 py-2 text-[12px] font-semibold leading-5 text-[#4f7b58]">
-          {state.message}
-        </p>
+        <p className="rounded-xl border border-[#cfe1ca] bg-[#f8fcf6] px-3 py-2 text-[12px] font-semibold leading-5 text-[#4f7b58]">{state.message}</p>
       ) : null}
     </form>
   );

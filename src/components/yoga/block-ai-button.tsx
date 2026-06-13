@@ -12,7 +12,7 @@ type BlockAiButtonProps = {
 
 const initialState: StudentAiActionState = {};
 
-export function BlockAiButton({ blockId, label = "このセリフをAIに相談" }: BlockAiButtonProps) {
+export function BlockAiButton({ blockId, label = "AIに相談" }: BlockAiButtonProps) {
   const [state, formAction] = useActionState(generateBlockAiSuggestionAction, initialState);
 
   if (!blockId) {
@@ -28,14 +28,10 @@ export function BlockAiButton({ blockId, label = "このセリフをAIに相談"
       <input type="hidden" name="block_id" value={blockId} />
       <SubmitButton label={label} />
       {state.error ? (
-        <p className="rounded-xl border border-[#f2c9bd] bg-[#fff0ea] px-3 py-2 text-[12px] font-semibold leading-5 text-[#b75b48]">
-          {state.error}
-        </p>
+        <p className="rounded-xl border border-[#f2c9bd] bg-[#fff0ea] px-3 py-2 text-[12px] font-semibold leading-5 text-[#b75b48]">{state.error}</p>
       ) : null}
       {state.message ? (
-        <p className="rounded-xl border border-[#cfe1ca] bg-[#f8fcf6] px-3 py-2 text-[12px] font-semibold leading-5 text-[#4f7b58]">
-          {state.message}
-        </p>
+        <p className="rounded-xl border border-[#cfe1ca] bg-[#f8fcf6] px-3 py-2 text-[12px] font-semibold leading-5 text-[#4f7b58]">{state.message}</p>
       ) : null}
     </form>
   );

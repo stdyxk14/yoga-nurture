@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import type { StudentAttendanceStats, StudentLessonHistory, StudentObservation, StudentRecord } from "@/components/yoga/records";
 import { getBlockUsageHistory, getStudentRecordInsights } from "@/lib/lesson-records";
 import { getBlockById, type DbBlockTemplate } from "@/lib/blocks";
+import { getAiSettings, isAiFeatureEnabled } from "@/lib/ai-settings";
 import { getLessonPlanById, type DbLessonPlan } from "@/lib/lesson-plans";
 import { getOpenAIClient, isOpenAIConfigured, studentSuggestionModel } from "@/lib/openai/server";
 import { getStudentById, requireUserId } from "@/lib/students";
@@ -22,6 +23,7 @@ export type StudentAiSuggestionState = {
   isConfigured: boolean;
   storageReady: boolean;
   storageError?: string;
+  featureEnabled: boolean;
   history: AiSuggestion[];
 };
 
@@ -58,7 +60,17 @@ export async function getLessonRecordAiSuggestionState(recordId: string): Promis
 }
 
 async function getAiSuggestionState(targetType: "student" | "lesson_plan" | "block" | "lesson_record", targetId: string): Promise<StudentAiSuggestionState> {
-  const { supabase, userId } = await requireUserId();
+  const { supabase, userId, user } = await requireUserId();
+  const featureEnabled = isAiFeatureEnabled(getAiSettings(user.user_metadata?.ai_settings), targetType);
+
+  if (!featureEnabled) {
+    return {
+      isConfigured: isOpenAIConfigured(),
+      storageReady: true,
+      featureEnabled: false,
+      history: [],
+    };
+  }
   const { data, error } = await supabase
     .from("ai_suggestions")
     .select("id,target_type,target_id,mentor_type,response,source_summary,created_at")
@@ -72,6 +84,7 @@ async function getAiSuggestionState(targetType: "student" | "lesson_plan" | "blo
     return {
       isConfigured: isOpenAIConfigured(),
       storageReady: false,
+      featureEnabled: true,
       storageError: "AI提案履歴テーブルが未作成、または取得できません。supabase/migrations/002_ai_suggestions.sql を実行してください。",
       history: [],
     };
@@ -80,6 +93,7 @@ async function getAiSuggestionState(targetType: "student" | "lesson_plan" | "blo
   return {
     isConfigured: isOpenAIConfigured(),
     storageReady: true,
+    featureEnabled: true,
     history: ((data ?? []) as AiSuggestionRow[]).map(mapAiSuggestion),
   };
 }

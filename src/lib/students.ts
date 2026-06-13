@@ -51,7 +51,7 @@ export async function requireUserId() {
     redirect("/login");
   }
 
-  return { supabase, userId: user.id };
+  return { supabase, userId: user.id, user };
 }
 
 export async function getStudents() {

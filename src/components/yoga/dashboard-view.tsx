@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { AlertCircle, Blocks, CalendarDays, ChevronRight, ClipboardCheck, FilePenLine, ListTodo, Plus, Sparkles, UserPlus, UserRound } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { SectionTitle, SoftCard } from "@/components/yoga/page-kit";
 import type { DashboardData, DashboardSchedule, DashboardTask } from "@/lib/dashboard";
 import { cn } from "@/lib/utils";
@@ -106,12 +105,12 @@ function TodayTasks({ tasks }: { tasks: DashboardTask[] }) {
 function RuleBasedSuggestions({ suggestions }: { suggestions: string[] }) {
   return (
     <SoftCard className="p-4">
-      <SectionTitle icon={Sparkles} title="AIメンターからの今日の提案" subtitle="実データからのルールベース仮提案" />
+      <SectionTitle icon={Sparkles} title="AIメンターからの今日の提案" subtitle="実データからの簡易ヒント" />
       {suggestions.length ? (
         <div className="space-y-2">
-          {suggestions.map((suggestion) => (
+          {suggestions.slice(0, 4).map((suggestion) => (
             <div key={suggestion} className="rounded-xl border border-[#eee4d8] bg-white/70 p-3">
-              <p className="text-[12px] font-medium leading-5 text-[#50584e]">{suggestion}</p>
+              <p className="line-clamp-3 text-[12px] font-medium leading-5 text-[#50584e]">{suggestion}</p>
             </div>
           ))}
         </div>
@@ -120,9 +119,6 @@ function RuleBasedSuggestions({ suggestions }: { suggestions: string[] }) {
           データが蓄積されると、今日の準備・記録・フォローに関する提案が表示されます。
         </p>
       )}
-      <Button type="button" onClick={() => alert("AI連携は次のフェーズで有効になります。")} className="mt-3 h-9 w-full rounded-lg bg-[#5d956d] text-[12px] font-bold text-white shadow-none hover:bg-[#4f835d]">
-        AIメンターに相談
-      </Button>
     </SoftCard>
   );
 }

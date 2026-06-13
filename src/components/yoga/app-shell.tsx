@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Activity, BarChart3, Bell, CalendarDays, HeartHandshake, Home, Leaf, Menu, MessageCircle, Settings, Sparkles, Sprout, UserRound, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { MentorPanel } from "@/components/yoga/mentor-panel";
 
 const navItems = [
   { href: "/dashboard", label: "ダッシュボード", icon: Home },
@@ -15,21 +14,21 @@ const navItems = [
   { href: "/settings", label: "設定", icon: Settings },
 ];
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({ children, aiEnabled = true }: { children: React.ReactNode; aiEnabled?: boolean }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [aiSheetOpen, setAiSheetOpen] = useState(false);
-  const current = navItems.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`) || (item.href === "/lessons" && (pathname.startsWith("/schedules") || pathname.startsWith("/templates") || pathname.startsWith("/blocks"))));
+  const current = navItems.find((item) => isActivePath(pathname, item.href));
 
   if (pathname === "/login") {
     return <>{children}</>;
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[var(--yoga-bg)] text-[#20231e] md:min-w-[1180px]">
+    <div className="min-h-screen overflow-x-hidden bg-[var(--yoga-bg)] text-[#20231e] md:min-w-[1040px]">
       <MobileTopBar title={current?.label ?? "YOGA NURTURE"} onMenuClick={() => setMobileMenuOpen(true)} />
       <MobileMenu open={mobileMenuOpen} pathname={pathname} onClose={() => setMobileMenuOpen(false)} />
-      <div className="min-h-screen md:grid md:grid-cols-[190px_minmax(0,1fr)_290px] xl:grid-cols-[196px_minmax(0,1fr)_300px]">
+      <div className="min-h-screen md:grid md:grid-cols-[190px_minmax(0,1fr)] xl:grid-cols-[196px_minmax(0,1fr)]">
         <aside className="app-sidebar sticky top-0 hidden h-screen flex-col overflow-hidden border-r border-[#e7dfd4] bg-[#fbfaf6] px-3 py-4 shadow-[8px_0_30px_rgba(111,92,71,0.06)] print:hidden md:flex">
           <div className="mx-auto mb-5 flex flex-col items-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-[#4f8b62] bg-[#f5faf3] text-[#3f8156] shadow-inner">
@@ -44,10 +43,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <nav className="space-y-2">
             {navItems.map((item) => {
-              const active =
-                pathname === item.href ||
-                pathname.startsWith(`${item.href}/`) ||
-                (item.href === "/lessons" && (pathname.startsWith("/schedules") || pathname.startsWith("/templates") || pathname.startsWith("/blocks")));
+              const active = isActivePath(pathname, item.href);
               const Icon = item.icon;
 
               return (
@@ -56,9 +52,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   href={item.href}
                   className={cn(
                     "flex h-11 items-center gap-3 rounded-xl px-3 text-[14px] font-semibold text-[#4c514b] transition",
-                    active
-                      ? "bg-[#5d956d] text-white shadow-[0_10px_22px_rgba(64,113,77,0.24)]"
-                      : "hover:bg-[#eef4eb] hover:text-[#386f4a]",
+                    active ? "bg-[#5d956d] text-white shadow-[0_10px_22px_rgba(64,113,77,0.24)]" : "hover:bg-[#eef4eb] hover:text-[#386f4a]",
                   )}
                 >
                   <Icon className="h-5 w-5" strokeWidth={1.7} />
@@ -79,16 +73,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main className="min-w-0 overflow-x-hidden px-3 pb-28 pt-3 md:px-3 md:py-3 xl:px-4 print:px-0 print:py-0">
           <div className="w-full min-w-0 max-w-full overflow-x-hidden md:overflow-visible">{children}</div>
         </main>
-
-        <div className="mentor-panel hidden print:hidden md:block">
-          <MentorPanel />
-        </div>
       </div>
-      <MobileAiConsultButton onClick={() => setAiSheetOpen(true)} />
-      <MobileAiConsultSheet open={aiSheetOpen} pathname={pathname} onClose={() => setAiSheetOpen(false)} />
+      {aiEnabled ? (
+        <>
+          <MobileAiConsultButton onClick={() => setAiSheetOpen(true)} />
+          <MobileAiConsultSheet open={aiSheetOpen} pathname={pathname} onClose={() => setAiSheetOpen(false)} />
+        </>
+      ) : null}
       <MobileBottomNav pathname={pathname} />
     </div>
   );
+}
+
+function isActivePath(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`) || (href === "/lessons" && (pathname.startsWith("/schedules") || pathname.startsWith("/templates") || pathname.startsWith("/blocks")));
 }
 
 function MobileAiConsultButton({ onClick }: { onClick: () => void }) {
@@ -112,14 +110,14 @@ function MobileAiConsultSheet({ open, pathname, onClose }: { open: boolean; path
       : pathname.includes("/students")
         ? "この生徒について相談"
         : pathname.includes("/blocks")
-          ? "このブロックの改善について相談"
+          ? "このブロックについて相談"
           : pathname.includes("/lessons")
-            ? "このプランについて相談"
+            ? "このレッスンについて相談"
             : "この画面について相談";
   const mentors = [
-    { title: "身体分析メンター", desc: "身体の状態や注意点を整理します。", icon: Activity },
-    { title: "寄り添い接客コーチ", desc: "生徒への声かけやフォローを考えます。", icon: HeartHandshake },
-    { title: "レッスン設計＆ブランディング戦略家", desc: "プラン改善や伝え方を提案します。", icon: Sparkles },
+    { title: "身体分析メンター", desc: "体の状態や注意点を整理", icon: Activity },
+    { title: "寄り添い接客コーチ", desc: "声かけやフォローを整理", icon: HeartHandshake },
+    { title: "レッスン設計＆戦略家", desc: "構成・時間配分を整理", icon: Sparkles },
   ];
 
   return (
@@ -130,7 +128,12 @@ function MobileAiConsultSheet({ open, pathname, onClose }: { open: boolean; path
         onClick={onClose}
         className={cn("absolute inset-0 bg-[#1e241c]/30 transition-opacity", open ? "opacity-100" : "opacity-0")}
       />
-      <section className={cn("absolute inset-x-0 bottom-0 rounded-t-[28px] border border-[#e7dfd4] bg-[#fbfaf6] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-18px_42px_rgba(65,54,38,0.22)] transition-transform duration-200", open ? "translate-y-0" : "translate-y-full")}>
+      <section
+        className={cn(
+          "absolute inset-x-0 bottom-0 rounded-t-[28px] border border-[#e7dfd4] bg-[#fbfaf6] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-18px_42px_rgba(65,54,38,0.22)] transition-transform duration-200",
+          open ? "translate-y-0" : "translate-y-full",
+        )}
+      >
         <div className="mb-3 flex items-center justify-between">
           <div>
             <p className="text-[12px] font-bold text-[#5d956d]">AIメンター</p>
@@ -140,6 +143,9 @@ function MobileAiConsultSheet({ open, pathname, onClose }: { open: boolean; path
             <X className="h-5 w-5" />
           </button>
         </div>
+        <p className="mb-3 rounded-2xl border border-[#d8e3d4] bg-white/74 p-3 text-[12px] font-semibold leading-5 text-[#657064]">
+          詳細な生成は各画面の「AI提案カード」から実行できます。ここでは相談先の役割を確認できます。
+        </p>
         <div className="grid gap-2">
           {mentors.map(({ title, desc, icon: Icon }) => (
             <article key={title} className="rounded-2xl border border-[#eee4d8] bg-white/78 p-3">
@@ -151,17 +157,10 @@ function MobileAiConsultSheet({ open, pathname, onClose }: { open: boolean; path
                   <p className="truncate text-[13px] font-extrabold">{title}</p>
                   <p className="mt-0.5 line-clamp-1 text-[11px] font-medium text-[#6b7468]">{desc}</p>
                 </div>
-                <button className="inline-flex h-8 shrink-0 items-center justify-center rounded-xl bg-[#5d956d] px-3 text-[11px] font-bold text-white">
-                  相談する
-                </button>
               </div>
             </article>
           ))}
         </div>
-        <button className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[#7ea06f] text-[13px] font-extrabold text-white">
-          <MessageCircle className="h-4 w-4" />
-          AIメンターにまとめて相談
-        </button>
       </section>
     </div>
   );
@@ -213,10 +212,7 @@ function MobileMenu({ open, pathname, onClose }: { open: boolean; pathname: stri
         </div>
         <nav className="grid gap-2">
           {navItems.map((item) => {
-            const active =
-              pathname === item.href ||
-              pathname.startsWith(`${item.href}/`) ||
-              (item.href === "/lessons" && (pathname.startsWith("/schedules") || pathname.startsWith("/templates") || pathname.startsWith("/blocks")));
+            const active = isActivePath(pathname, item.href);
             const Icon = item.icon;
             return (
               <Link
@@ -252,7 +248,7 @@ function MobileBottomNav({ pathname }: { pathname: string }) {
     <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-[#e7dfd4] bg-[#fbfaf6]/96 px-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(91,76,53,0.08)] backdrop-blur md:hidden">
       <div className="grid h-16 grid-cols-5">
         {items.map((item) => {
-          const active = pathname === item.href || pathname.startsWith(`${item.href}/`) || (item.href === "/lessons" && (pathname.startsWith("/schedules") || pathname.startsWith("/blocks")));
+          const active = isActivePath(pathname, item.href);
           const Icon = item.icon;
           return (
             <Link key={item.href} href={item.href} className={cn("flex flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-bold", active ? "text-[#5d956d]" : "text-[#8a8d86]")}>

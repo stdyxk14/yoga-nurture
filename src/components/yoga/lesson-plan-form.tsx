@@ -96,13 +96,10 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, ai
   };
 
   return (
-    <form action={formAction} className="space-y-4 pb-24 md:pb-0">
+    <>
+      <form action={formAction} className="space-y-4 pb-24 md:pb-0">
       <div className="grid gap-4 xl:grid-cols-[300px_minmax(0,1fr)_340px]">
         <div className="space-y-4">
-          {mode === "edit" ? (
-            <LessonPlanAiSuggestionPanel plan={initialPlan} aiSuggestionState={aiSuggestionState} context="edit" />
-          ) : null}
-
           <SoftCard className="p-4">
             <SectionTitle icon={FileText} title={mode === "new" ? "レッスンプランを作成" : "レッスンプランを編集"} subtitle="ブロックを組み合わせて、印刷できる原稿を作ります。" />
             {state.error ? (
@@ -273,7 +270,13 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, ai
           </button>
         </SoftCard>
       </div>
-    </form>
+      </form>
+      {mode === "edit" ? (
+        <div className="mt-4">
+          <LessonPlanAiSuggestionPanel plan={initialPlan} aiSuggestionState={aiSuggestionState} context="edit" />
+        </div>
+      ) : null}
+    </>
   );
 }
 
