@@ -10,7 +10,8 @@
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:ui": "playwright test --ui",
-    "test:e2e:smoke": "playwright test tests/e2e/smoke.spec.ts --project=chromium"
+    "test:e2e:smoke": "playwright test tests/e2e/smoke.spec.ts --project=chromium",
+    "test:e2e:explore": "playwright test tests/e2e/exploratory.spec.ts --project=chromium"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

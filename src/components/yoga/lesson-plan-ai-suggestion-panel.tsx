@@ -1,5 +1,4 @@
 import { AiSuggestionCard } from "@/components/yoga/ai-suggestion-card";
-import { LessonPlanAiButton } from "@/components/yoga/lesson-plan-ai-button";
 import type { StudentAiSuggestionState } from "@/lib/ai-suggestions";
 import type { DbLessonPlan } from "@/lib/lesson-plans";
 
@@ -29,7 +28,8 @@ export function LessonPlanAiSuggestionPanel({ plan, planId, aiSuggestionState, c
       note={context === "edit" ? "保存済みの内容をもとに提案します。未保存の変更は保存後に反映されます。" : undefined}
       generateLabel="プラン改善提案を生成"
       modalTitle="このレッスンプランについて相談"
-      renderAction={(mentorType, label) => <LessonPlanAiButton planId={resolvedPlanId} mentorType={mentorType} label={label} />}
+      actionKind="lesson_plan"
+      targetId={resolvedPlanId}
     />
   );
 }

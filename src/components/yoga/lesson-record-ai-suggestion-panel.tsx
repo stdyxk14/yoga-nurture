@@ -1,5 +1,4 @@
 import { AiSuggestionCard } from "@/components/yoga/ai-suggestion-card";
-import { LessonRecordAiButton } from "@/components/yoga/lesson-record-ai-button";
 import type { StudentAiSuggestionState } from "@/lib/ai-suggestions";
 
 type Props = {
@@ -26,7 +25,8 @@ export function LessonRecordAiSuggestionPanel({ recordId, aiSuggestionState }: P
       note={!recordId ? "下書き保存または記録完了後にAI相談できます。" : undefined}
       generateLabel="振り返り提案を生成"
       modalTitle="この記録について相談"
-      renderAction={(mentorType, label) => <LessonRecordAiButton recordId={recordId} mentorType={mentorType} label={label} />}
+      actionKind="lesson_record"
+      targetId={recordId}
     />
   );
 }

@@ -4,6 +4,10 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { Activity, Clock3, HeartHandshake, History, MessageCircle, Sparkles, X } from "lucide-react";
 import { AiCopyButton } from "@/components/yoga/ai-copy-button";
+import { BlockAiButton } from "@/components/yoga/block-ai-button";
+import { LessonPlanAiButton } from "@/components/yoga/lesson-plan-ai-button";
+import { LessonRecordAiButton } from "@/components/yoga/lesson-record-ai-button";
+import { StudentAiButton } from "@/components/yoga/student-ai-button";
 import type { AiSuggestion, MentorType } from "@/lib/ai-suggestions";
 
 type AiSuggestionCardProps = {
@@ -15,7 +19,8 @@ type AiSuggestionCardProps = {
   isConfigured?: boolean;
   storageReady?: boolean;
   storageError?: string;
-  renderAction: (mentorType: MentorType, label: string) => ReactNode;
+  actionKind: "student" | "lesson_plan" | "block" | "lesson_record";
+  targetId?: string;
   extraActions?: ReactNode;
   note?: string;
   anchorId?: string;
@@ -45,7 +50,8 @@ export function AiSuggestionCard({
   isConfigured = true,
   storageReady = true,
   storageError,
-  renderAction,
+  actionKind,
+  targetId,
   extraActions,
   note,
   anchorId,
@@ -160,7 +166,7 @@ export function AiSuggestionCard({
                       <p className="mt-0.5 line-clamp-1 text-[11px] font-semibold text-[#6b7468]">{desc}</p>
                     </div>
                   </div>
-                  <div className="shrink-0">{renderAction(type, type === "general" ? generateLabel : label)}</div>
+                  <div className="shrink-0">{renderMentorAction({ actionKind, targetId, mentorType: type, label: type === "general" ? generateLabel : label })}</div>
                 </div>
               </article>
             ))}
@@ -181,6 +187,23 @@ export function AiSuggestionCard({
       ) : null}
     </section>
   );
+}
+
+function renderMentorAction({
+  actionKind,
+  targetId,
+  mentorType,
+  label,
+}: {
+  actionKind: AiSuggestionCardProps["actionKind"];
+  targetId?: string;
+  mentorType: MentorType;
+  label: string;
+}) {
+  if (actionKind === "student") return <StudentAiButton studentId={targetId} mentorType={mentorType} label={label} />;
+  if (actionKind === "lesson_plan") return <LessonPlanAiButton planId={targetId} mentorType={mentorType} label={label} />;
+  if (actionKind === "block") return <BlockAiButton blockId={targetId} mentorType={mentorType} label={label} />;
+  return <LessonRecordAiButton recordId={targetId} mentorType={mentorType} label={label} />;
 }
 
 function Modal({ title, subtitle, children, onClose }: { title: string; subtitle?: string; children: ReactNode; onClose: () => void }) {

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { FilePenLine } from "lucide-react";
 import { AiSuggestionCard } from "@/components/yoga/ai-suggestion-card";
-import { BlockAiButton } from "@/components/yoga/block-ai-button";
 import type { StudentAiSuggestionState } from "@/lib/ai-suggestions";
 import type { DbBlockTemplate } from "@/lib/blocks";
 
@@ -31,7 +30,8 @@ export function BlockAiSuggestionPanel({ block, blockId, aiSuggestionState, cont
       note={context === "edit" ? "保存済みの原稿をもとに提案します。未保存の変更は保存後に反映されます。" : undefined}
       generateLabel="セリフ改善案を生成"
       modalTitle="このブロックについて相談"
-      renderAction={(mentorType, label) => <BlockAiButton blockId={resolvedBlockId} mentorType={mentorType} label={label} />}
+      actionKind="block"
+      targetId={resolvedBlockId}
       extraActions={
         block ? (
           <Link

@@ -1,6 +1,5 @@
 import { AiSuggestionCard } from "@/components/yoga/ai-suggestion-card";
 import type { StudentRecord } from "@/components/yoga/records";
-import { StudentAiButton } from "@/components/yoga/student-ai-button";
 import type { StudentAiSuggestionState } from "@/lib/ai-suggestions";
 
 export function StudentAiSuggestionPanel({
@@ -27,7 +26,8 @@ export function StudentAiSuggestionPanel({
       storageError={aiSuggestionState.storageError}
       generateLabel="次回レッスン提案を生成"
       modalTitle="この生徒について相談"
-      renderAction={(mentorType, label) => <StudentAiButton studentId={student.id} mentorType={mentorType} label={label} />}
+      actionKind="student"
+      targetId={student.id}
     />
   );
 }
