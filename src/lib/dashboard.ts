@@ -40,6 +40,8 @@ export type DashboardAttentionStudent = {
   caution: string;
   memo: string;
   nextFollow: string;
+  followLessonName?: string;
+  followDate?: string;
 };
 
 export type DashboardData = {
@@ -50,6 +52,10 @@ export type DashboardData = {
     students: number;
     blocks: number;
     lessonPlans: number;
+    schedules: number;
+    records: number;
+    knowledgeDocuments: number;
+    aiSuggestions: number;
   };
   todayKey: string;
   calendarDays: Array<{
@@ -129,7 +135,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       greeting: getGreetingJa(now),
       todayLabel: formatDateJa(now),
       monthLabel: formatMonthJa(now),
-      totals: { students: 0, blocks: 0, lessonPlans: 0 },
+      totals: { students: 0, blocks: 0, lessonPlans: 0, schedules: 0, records: 0, knowledgeDocuments: 0, aiSuggestions: 0 },
       todayKey,
       calendarDays: buildCalendarDays(now, {}),
       schedulesByDate: {},
@@ -150,7 +156,7 @@ async function fetchDashboardData(): Promise<DashboardData> {
   const queryStart = addDays(monthStart, -30).toISOString();
   const queryEnd = addDays(monthEnd, 30).toISOString();
 
-  const [schedulesResult, recordsResult, studentsResult, blocksCountResult, plansCountResult] = await Promise.all([
+  const [schedulesResult, recordsResult, studentsResult, blocksCountResult, plansCountResult, schedulesCountResult, recordsCountResult, knowledgeCountResult, aiSuggestionsCountResult] = await Promise.all([
     supabase
       .from("schedules")
       .select(`
@@ -195,6 +201,10 @@ async function fetchDashboardData(): Promise<DashboardData> {
       .limit(80),
     supabase.from("block_templates").select("id", { count: "exact", head: true }).eq("archived", false),
     supabase.from("lesson_plans").select("id", { count: "exact", head: true }).neq("status", "archived"),
+    supabase.from("schedules").select("id", { count: "exact", head: true }),
+    supabase.from("lesson_records").select("id", { count: "exact", head: true }),
+    supabase.from("knowledge_documents").select("id", { count: "exact", head: true }).neq("status", "archived"),
+    supabase.from("ai_suggestions").select("id", { count: "exact", head: true }),
   ]);
 
   if (schedulesResult.error) throw new Error(`予定を取得できませんでした: ${schedulesResult.error.message}`);
@@ -220,6 +230,10 @@ async function fetchDashboardData(): Promise<DashboardData> {
       students: students.length,
       blocks: blocksCountResult.count ?? 0,
       lessonPlans: plansCountResult.count ?? 0,
+      schedules: schedulesCountResult.error ? 0 : schedulesCountResult.count ?? 0,
+      records: recordsCountResult.error ? 0 : recordsCountResult.count ?? 0,
+      knowledgeDocuments: knowledgeCountResult.error ? 0 : knowledgeCountResult.count ?? 0,
+      aiSuggestions: aiSuggestionsCountResult.error ? 0 : aiSuggestionsCountResult.count ?? 0,
     },
     todayKey,
     calendarDays: buildCalendarDays(now, schedulesByDate),
@@ -315,7 +329,7 @@ function buildTasks({
   }
 
   const studentById = new Map(students.map((student) => [student.id, student]));
-  for (const follow of getFollowRows(records).slice(0, 3)) {
+  for (const follow of getFollowItems(records).slice(0, 3)) {
     const student = follow.student ?? studentById.get(follow.student_id);
     if (!student) continue;
     tasks.push({
@@ -326,7 +340,7 @@ function buildTasks({
       note: follow.next_follow ?? "",
       statusLabel: "要フォロー",
       tone: "pink",
-      href: `/students/${student.id}`,
+      href: `/students/${student.id}#next-follow`,
       actionLabel: "生徒カルテを見る",
     });
   }
@@ -347,7 +361,7 @@ function buildSuggestions({
 }) {
   const suggestions: string[] = [];
   const pendingCount = tasks.filter((task) => task.kind === "record_pending").length;
-  const followCount = getFollowRows(records).length;
+  const followCount = getFollowItems(records).length;
   const todayParticipantCount = todaySchedules.reduce((sum, schedule) => sum + schedule.participantCount, 0);
   const planCount = new Set(schedules.map((schedule) => schedule.lessonPlanId).filter(Boolean)).size;
 
@@ -360,10 +374,16 @@ function buildSuggestions({
 }
 
 function buildAttentionStudents(students: RawStudent[], records: RawRecord[], schedules: DashboardSchedule[], todayKey: string) {
-  const followRows = getFollowRows(records);
-  const followByStudent = new Map<string, string>();
+  const followRows = getFollowItems(records);
+  const followByStudent = new Map<string, { text: string; lessonName: string; date: string }>();
   for (const row of followRows) {
-    if (!followByStudent.has(row.student_id) && row.next_follow) followByStudent.set(row.student_id, row.next_follow);
+    if (!followByStudent.has(row.student_id) && row.next_follow) {
+      followByStudent.set(row.student_id, {
+        text: row.next_follow,
+        lessonName: row.record.lesson_name,
+        date: row.record.record_date,
+      });
+    }
   }
 
   const upcomingParticipantIds = new Set<string>();
@@ -384,13 +404,15 @@ function buildAttentionStudents(students: RawStudent[], records: RawRecord[], sc
       gender: genderLabels[student.gender ?? ""] ?? "未設定",
       caution: student.caution ?? "",
       memo: student.memo ?? "",
-      nextFollow: followByStudent.get(student.id) ?? "",
+      nextFollow: followByStudent.get(student.id)?.text ?? "",
+      followLessonName: followByStudent.get(student.id)?.lessonName,
+      followDate: followByStudent.get(student.id)?.date,
     }))
     .slice(0, 4);
 }
 
-function getFollowRows(records: RawRecord[]) {
-  return records.flatMap((record) => record.lesson_record_students ?? []).filter((row) => Boolean(row.next_follow?.trim()));
+function getFollowItems(records: RawRecord[]) {
+  return records.flatMap((record) => (record.lesson_record_students ?? []).map((row) => ({ ...row, record }))).filter((row) => Boolean(row.next_follow?.trim()));
 }
 
 function buildCalendarDays(date: Date, schedulesByDate: Record<string, DashboardSchedule[]>) {
