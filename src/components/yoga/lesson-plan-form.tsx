@@ -130,6 +130,15 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [pending, selectedBlocks.length]);
 
+  useEffect(() => {
+    if (!filtersOpen && !previewBlock) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [filtersOpen, previewBlock]);
+
   const insertBlock = (block: DbBlockTemplate, index?: number) => {
     setSelectedBlocks((current) => {
       if (index === undefined || index < 0 || index > current.length) return [...current, block];
@@ -223,8 +232,8 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
           </SoftCard>
         </div>
 
-        <SoftCard className="min-w-0 p-4">
-          <div className="sticky top-3 z-20 -mx-2 -mt-2 rounded-3xl border border-[#eee4d8] bg-[#fffdf8]/95 p-2 shadow-[0_12px_26px_rgba(75,65,48,0.08)] backdrop-blur md:top-4">
+        <SoftCard className="min-w-0 overflow-visible p-4">
+          <div className="sticky top-4 z-40 -mx-2 -mt-2 rounded-3xl border border-[#e5ded3] bg-[#fffdf8] p-2 shadow-[0_14px_30px_rgba(75,65,48,0.12)] ring-1 ring-white/70 md:top-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <SectionTitle icon={Plus} title="ブロック候補" subtitle={`${filteredBlocks.length}件中 ${visibleBlocks.length}件を表示`} />
               <Link href="/blocks/new" className="inline-flex h-9 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
@@ -335,12 +344,14 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
                       setRatingFilter={setRatingFilter}
                       condition={condition}
                       setCondition={setCondition}
+                      sort={sort}
+                      setSort={setSort}
                       onClear={clearFilters}
                       onClose={() => setFiltersOpen(false)}
                     />
                   </div>
-                  <div className="fixed inset-0 z-50 flex items-end bg-black/30 p-3 md:hidden">
-                    <div className="max-h-[82vh] w-full overflow-auto rounded-3xl border border-[#eee4d8] bg-[#fffdf8] p-4 shadow-[0_18px_48px_rgba(49,43,31,0.18)]">
+                  <div className="fixed inset-0 z-50 flex items-end bg-black/30 px-3 pb-[calc(env(safe-area-inset-bottom)+88px)] pt-4 md:hidden">
+                    <div className="flex max-h-[82dvh] w-full flex-col overflow-hidden rounded-3xl border border-[#eee4d8] bg-[#fffdf8] shadow-[0_18px_48px_rgba(49,43,31,0.18)]">
                       <FilterControls
                         visibleSubcategories={visibleSubcategories}
                         tags={tags}
@@ -359,6 +370,8 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
                         setRatingFilter={setRatingFilter}
                         condition={condition}
                         setCondition={setCondition}
+                        sort={sort}
+                        setSort={setSort}
                         onClear={clearFilters}
                         onClose={() => setFiltersOpen(false)}
                         mobile
@@ -496,29 +509,31 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
 
 function BlockScriptModal({ block, onClose }: { block: DbBlockTemplate; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end bg-black/30 p-3 md:items-center md:justify-center" role="dialog" aria-modal="true">
-      <div className="max-h-[88vh] w-full overflow-auto rounded-3xl border border-[#eee4d8] bg-[#fffdf8] p-4 shadow-[0_18px_48px_rgba(49,43,31,0.18)] md:max-w-2xl">
-        <div className="flex items-start justify-between gap-3">
+    <div className="fixed inset-0 z-50 flex items-end bg-black/30 px-3 pb-[calc(env(safe-area-inset-bottom)+88px)] pt-4 md:items-center md:justify-center md:p-3" role="dialog" aria-modal="true">
+      <div className="flex max-h-[90dvh] w-full flex-col overflow-hidden rounded-3xl border border-[#eee4d8] bg-[#fffdf8] shadow-[0_18px_48px_rgba(49,43,31,0.18)] md:max-h-[88vh] md:max-w-2xl">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#eee4d8] bg-[#fffdf8] p-4">
           <div className="min-w-0">
             <p className="text-[12px] font-bold text-[#5d956d]">{block.majorCategory} / {block.minorCategory} / {block.duration}</p>
-            <h2 className="mt-1 text-[20px] font-extrabold">{block.name}</h2>
+            <h2 className="mt-1 break-words text-[20px] font-extrabold leading-tight">{block.name}</h2>
           </div>
           <button type="button" onClick={onClose} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white text-[#4f7b58]" aria-label="閉じる">
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {block.tags.length ? block.tags.map((tag) => <Pill key={tag}>{tag}</Pill>) : <Pill>タグ未設定</Pill>}
-        </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <PreviewInfo title="目的" value={block.purpose || "未入力"} />
-          <PreviewInfo title="注意点" value={block.cautions || "未入力"} />
-          <PreviewInfo title="使用回数" value={`${block.usageCount}回`} />
-          <PreviewInfo title="良かった率" value={formatGoodRate(block)} />
-        </div>
-        <div className="mt-4 rounded-2xl border border-[#eee4d8] bg-white/80 p-4">
-          <p className="text-[13px] font-extrabold text-[#4f7b58]">誘導セリフ全文</p>
-          <p className="mt-2 whitespace-pre-line text-[13px] font-medium leading-7 text-[#30362f]">{block.script || "原稿は未入力です。"}</p>
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          <div className="flex flex-wrap gap-1.5">
+            {block.tags.length ? block.tags.map((tag) => <Pill key={tag}>{tag}</Pill>) : <Pill>タグ未設定</Pill>}
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <PreviewInfo title="目的" value={block.purpose || "未入力"} />
+            <PreviewInfo title="注意点" value={block.cautions || "未入力"} />
+            <PreviewInfo title="使用回数" value={`${block.usageCount}回`} />
+            <PreviewInfo title="良かった率" value={formatGoodRate(block)} />
+          </div>
+          <div className="mt-4 rounded-2xl border border-[#eee4d8] bg-white/80 p-4">
+            <p className="text-[13px] font-extrabold text-[#4f7b58]">誘導セリフ全文</p>
+            <p className="mt-2 whitespace-pre-line break-words text-[13px] font-medium leading-7 text-[#30362f]">{block.script || "原稿は未入力です。"}</p>
+          </div>
         </div>
       </div>
     </div>
@@ -543,6 +558,8 @@ function FilterControls({
   setRatingFilter,
   condition,
   setCondition,
+  sort,
+  setSort,
   onClear,
   onClose,
   mobile = false,
@@ -564,19 +581,22 @@ function FilterControls({
   setRatingFilter: (value: string) => void;
   condition: string;
   setCondition: (value: string) => void;
+  sort: string;
+  setSort: (value: string) => void;
   onClear: () => void;
   onClose: () => void;
   mobile?: boolean;
 }) {
   return (
-    <div className={mobile ? "space-y-3" : "rounded-2xl border border-[#eee4d8] bg-white/78 p-3"}>
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[13px] font-extrabold text-[#2f342e]">詳細フィルター</p>
+    <div className={mobile ? "flex min-h-0 flex-1 flex-col" : "rounded-2xl border border-[#eee4d8] bg-white/78 p-3"}>
+      <div className={mobile ? "flex shrink-0 items-center justify-between gap-2 border-b border-[#eee4d8] px-4 py-3" : "flex items-center justify-between gap-2"}>
+        <p className={mobile ? "text-[16px] font-extrabold text-[#2f342e]" : "text-[13px] font-extrabold text-[#2f342e]"}>絞り込み</p>
         <button type="button" onClick={onClose} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
           閉じる
         </button>
       </div>
-      <div className="mt-3 grid gap-3 md:grid-cols-3 xl:grid-cols-4">
+      <div className={mobile ? "min-h-0 flex-1 overflow-y-auto px-4 py-3" : "mt-3"}>
+      <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-4">
         <Label text="小カテゴリー">
           <select value={subcategoryId} onChange={(event) => setSubcategoryId(event.target.value)} className="h-10 w-full rounded-xl border border-[#e1d9ce] bg-white px-3 text-[13px] font-semibold">
             <option value="">すべて</option>
@@ -627,8 +647,19 @@ function FilterControls({
             <option value="improvement">改善メモあり</option>
           </select>
         </Label>
+        <Label text="並び替え">
+          <select value={sort} onChange={(event) => setSort(event.target.value)} className="h-10 w-full rounded-xl border border-[#e1d9ce] bg-white px-3 text-[13px] font-semibold">
+            <option value="recent">最近使った順</option>
+            <option value="usage">使用回数順</option>
+            <option value="good">良かった率順</option>
+            <option value="updated">更新日順</option>
+            <option value="name">ブロック名順</option>
+            <option value="duration">目安時間順</option>
+          </select>
+        </Label>
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:justify-end">
+      </div>
+      <div className={mobile ? "grid shrink-0 grid-cols-2 gap-2 border-t border-[#eee4d8] bg-[#fffdf8] px-4 pb-[calc(env(safe-area-inset-bottom)+14px)] pt-3" : "mt-3 grid grid-cols-2 gap-2 sm:flex sm:justify-end"}>
         <button type="button" onClick={onClear} className="inline-flex h-10 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white px-4 text-[12px] font-bold text-[#4f7b58]">
           クリア
         </button>
