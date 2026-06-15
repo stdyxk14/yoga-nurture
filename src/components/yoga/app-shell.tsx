@@ -24,7 +24,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[var(--yoga-bg)] text-[#20231e] md:min-w-[1040px]">
+    <div className="min-h-screen overflow-x-hidden bg-[var(--yoga-bg)] text-[#20231e] md:min-w-[1040px] md:overflow-visible">
       <MobileTopBar title={current?.label ?? "YOGA NURTURE"} onMenuClick={() => setMobileMenuOpen(true)} />
       <MobileMenu open={mobileMenuOpen} pathname={pathname} onClose={() => setMobileMenuOpen(false)} />
       <div className="min-h-screen md:grid md:grid-cols-[190px_minmax(0,1fr)] xl:grid-cols-[196px_minmax(0,1fr)]">
@@ -69,7 +69,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </aside>
 
-        <main className="min-w-0 overflow-x-hidden px-3 pb-28 pt-3 md:px-3 md:py-3 xl:px-4 print:px-0 print:py-0">
+        <main className="min-w-0 overflow-x-hidden px-3 pb-28 pt-3 md:overflow-visible md:px-3 md:py-3 xl:px-4 print:px-0 print:py-0">
           <div className="w-full min-w-0 max-w-full overflow-x-hidden md:overflow-visible">{children}</div>
         </main>
       </div>
