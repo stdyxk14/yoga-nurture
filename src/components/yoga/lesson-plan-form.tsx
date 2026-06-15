@@ -131,7 +131,10 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
   }, [pending, selectedBlocks.length]);
 
   useEffect(() => {
-    if (!filtersOpen && !previewBlock) return;
+    const shouldLockBody =
+      Boolean(previewBlock) ||
+      (filtersOpen && typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches);
+    if (!shouldLockBody) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
@@ -181,9 +184,9 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
 
   return (
     <>
-      <form action={formAction} className="space-y-4 pb-24 md:pb-0">
-      <div className="grid gap-4 xl:grid-cols-[300px_minmax(0,1fr)_340px]">
-        <div className="space-y-4">
+      <form action={formAction} className="space-y-4 pb-24 md:pb-0 lg:pb-0">
+      <div className="grid gap-4 lg:h-[calc(100dvh-112px)] lg:grid-cols-[300px_minmax(0,1fr)_340px] lg:overflow-hidden">
+        <div className="min-h-0 space-y-4 lg:overflow-y-auto lg:pr-1">
           <SoftCard className="p-4">
             <SectionTitle icon={FileText} title={mode === "new" ? "レッスンプランを作成" : "レッスンプランを編集"} subtitle="ブロックを組み合わせて、印刷できる原稿を作ります。" />
             {state.error ? (
@@ -232,8 +235,8 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
           </SoftCard>
         </div>
 
-        <SoftCard className="min-w-0 overflow-visible p-4">
-          <div className="sticky top-4 z-40 -mx-2 -mt-2 rounded-3xl border border-[#e5ded3] bg-[#fffdf8] p-2 shadow-[0_14px_30px_rgba(75,65,48,0.12)] ring-1 ring-white/70 md:top-4">
+        <SoftCard className="min-w-0 p-0 lg:flex lg:min-h-0 lg:flex-col lg:overflow-hidden">
+          <div className="shrink-0 rounded-3xl border-b border-[#e5ded3] bg-[#fffdf8] p-3 shadow-[0_4px_12px_rgba(75,65,48,0.05)] lg:rounded-b-none lg:shadow-none">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <SectionTitle icon={Plus} title="ブロック候補" subtitle={`${filteredBlocks.length}件中 ${visibleBlocks.length}件を表示`} />
               <Link href="/blocks/new" className="inline-flex h-9 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
@@ -382,6 +385,7 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
               ) : null}
             </div>
           </div>
+          <div className="min-h-0 p-4 lg:flex-1 lg:overflow-y-auto">
           {blocks.length === 0 ? (
             <EmptyBlocks />
           ) : visibleBlocks.length === 0 ? (
@@ -448,10 +452,11 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
               もっと見る
             </button>
           ) : null}
+          </div>
         </SoftCard>
 
         <SoftCard
-          className="sticky bottom-20 z-10 max-h-[72vh] overflow-auto p-4 md:bottom-4 xl:top-4"
+          className="sticky bottom-20 z-10 max-h-[72vh] overflow-auto p-4 md:bottom-4 lg:static lg:min-h-0 lg:max-h-none lg:overflow-y-auto"
           onDragOver={(event) => event.preventDefault()}
           onDrop={(event) => handleDrop(event)}
         >
