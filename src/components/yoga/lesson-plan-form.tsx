@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState, useActionState } from "react";
-import type { ReactNode } from "react";
+import { useEffect, useMemo, useState, useActionState } from "react";
+import type { DragEvent, ReactNode } from "react";
 import Link from "next/link";
 import { ArrowDown, ArrowUp, Clock, FileText, Plus, Save, Search, Trash2, X } from "lucide-react";
 import { createLessonPlanAction, updateLessonPlanAction } from "@/app/lessons/lesson-plan-actions";
@@ -42,11 +42,17 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
   const [tag, setTag] = useState("");
   const [level, setLevel] = useState("");
   const [sort, setSort] = useState("updated");
+  const [condition, setCondition] = useState("");
+  const [visibleCount, setVisibleCount] = useState(18);
   const [previewBlock, setPreviewBlock] = useState<DbBlockTemplate | null>(null);
   const action = mode === "edit" && initialPlan ? updateLessonPlanAction.bind(null, initialPlan.id) : createLessonPlanAction;
   const [state, formAction, pending] = useActionState(action, initialState);
 
-  const selectedIds = useMemo(() => new Set(selectedBlocks.map((block) => block.id)), [selectedBlocks]);
+  const selectedCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const block of selectedBlocks) counts.set(block.id, (counts.get(block.id) ?? 0) + 1);
+    return counts;
+  }, [selectedBlocks]);
   const visibleSubcategories = useMemo(
     () => categories.find((category) => category.id === categoryId)?.subcategories.filter((item) => !item.archived) ?? categories.flatMap((category) => category.subcategories).filter((item) => !item.archived),
     [categories, categoryId],
@@ -56,12 +62,15 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
   const filteredBlocks = useMemo(() => {
     const q = query.trim().toLowerCase();
     const result = blocks
-      .filter((block) => !selectedIds.has(block.id))
       .filter((block) => {
         if (categoryId && block.categoryId !== categoryId) return false;
         if (subcategoryId && block.subcategoryId !== subcategoryId) return false;
         if (tag && !block.tags.includes(tag)) return false;
         if (level && block.level !== level) return false;
+        if (condition === "unused" && block.usageCount > 0) return false;
+        if (condition === "used" && block.usageCount === 0) return false;
+        if (condition === "good" && (block.goodRate ?? 0) < 70) return false;
+        if (condition === "improvement" && !(block.improvementCount ?? 0)) return false;
         if (!q) return true;
         return [block.name, block.majorCategory, block.minorCategory, block.purpose, block.cautions, block.script, block.tags.join(" ")]
           .join(" ")
@@ -71,8 +80,14 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
 
     if (sort === "name") return result.sort((a, b) => a.name.localeCompare(b.name, "ja"));
     if (sort === "duration") return result.sort((a, b) => a.durationMinutes - b.durationMinutes);
+    if (sort === "usage") return result.sort((a, b) => b.usageCount - a.usageCount || a.name.localeCompare(b.name, "ja"));
+    if (sort === "good") return result.sort((a, b) => (b.goodRate ?? -1) - (a.goodRate ?? -1) || b.usageCount - a.usageCount);
+    if (sort === "recent") return result.sort((a, b) => (b.lastUsedAt ?? "").localeCompare(a.lastUsedAt ?? ""));
     return result.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  }, [blocks, categoryId, level, query, selectedIds, sort, subcategoryId, tag]);
+  }, [blocks, categoryId, condition, level, query, sort, subcategoryId, tag]);
+
+  const visibleBlocks = filteredBlocks.slice(0, visibleCount);
+  const hasFilters = Boolean(query || categoryId || subcategoryId || tag || level || condition || sort !== "updated");
 
   const totalMinutes = selectedBlocks.reduce((sum, block) => sum + block.durationMinutes, 0);
   const categoryMinutes = useMemo(() => {
@@ -83,7 +98,41 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
     return Array.from(totals.entries()).map(([category, minutes]) => ({ category, minutes }));
   }, [selectedBlocks]);
 
-  const addBlock = (block: DbBlockTemplate) => setSelectedBlocks((current) => [...current, block]);
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!selectedBlocks.length || pending) return;
+      event.preventDefault();
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [pending, selectedBlocks.length]);
+
+  const insertBlock = (block: DbBlockTemplate, index?: number) => {
+    setSelectedBlocks((current) => {
+      if (index === undefined || index < 0 || index > current.length) return [...current, block];
+      return [...current.slice(0, index), block, ...current.slice(index)];
+    });
+  };
+  const addBlock = (block: DbBlockTemplate) => insertBlock(block);
+  const clearFilters = () => {
+    setQuery("");
+    setCategoryId("");
+    setSubcategoryId("");
+    setTag("");
+    setLevel("");
+    setCondition("");
+    setSort("updated");
+  };
+  const handleDragStart = (event: DragEvent<HTMLElement>, blockId: string) => {
+    event.dataTransfer.setData("text/plain", blockId);
+    event.dataTransfer.effectAllowed = "copy";
+  };
+  const handleDrop = (event: DragEvent<HTMLElement>, index?: number) => {
+    event.preventDefault();
+    const blockId = event.dataTransfer.getData("text/plain");
+    const block = blocks.find((item) => item.id === blockId);
+    if (block) insertBlock(block, index);
+  };
   const removeBlock = (index: number) => setSelectedBlocks((current) => current.filter((_, itemIndex) => itemIndex !== index));
   const moveBlock = (index: number, direction: -1 | 1) => {
     setSelectedBlocks((current) => {
@@ -179,13 +228,30 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
                   </select>
                 </Label>
               </div>
+              <Label text="条件">
+                <select value={condition} onChange={(event) => setCondition(event.target.value)} className="h-10 w-full rounded-xl border border-[#e1d9ce] bg-white px-3 text-[13px] font-semibold">
+                  <option value="">指定なし</option>
+                  <option value="used">使用履歴あり</option>
+                  <option value="unused">未使用</option>
+                  <option value="good">良かった率70%以上</option>
+                  <option value="improvement">改善メモあり</option>
+                </select>
+              </Label>
               <Label text="並び替え">
                 <select value={sort} onChange={(event) => setSort(event.target.value)} className="h-10 w-full rounded-xl border border-[#e1d9ce] bg-white px-3 text-[13px] font-semibold">
                   <option value="updated">更新日順</option>
+                  <option value="recent">最近使った順</option>
+                  <option value="usage">使用回数順</option>
+                  <option value="good">良かった率順</option>
                   <option value="name">ブロック名順</option>
                   <option value="duration">目安時間順</option>
                 </select>
               </Label>
+              {hasFilters ? (
+                <button type="button" onClick={clearFilters} className="inline-flex h-9 w-full items-center justify-center rounded-xl border border-[#d8e3d4] bg-white text-[12px] font-bold text-[#4f7b58]">
+                  絞り込みを解除
+                </button>
+              ) : null}
             </div>
           </SoftCard>
         </div>
@@ -197,12 +263,23 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
               ブロックを登録
             </Link>
           </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-bold text-[#6b7468]">
+            <span className="rounded-full bg-[#edf5ef] px-3 py-1 text-[#4f875a]">{filteredBlocks.length}件中 {visibleBlocks.length}件を表示</span>
+            <span className="hidden rounded-full bg-[#f8f6f0] px-3 py-1 md:inline-flex">PCでは候補カードを作成中プランへドラッグして追加できます</span>
+          </div>
           {blocks.length === 0 ? (
             <EmptyBlocks />
           ) : (
             <div className="mt-4 grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
-              {filteredBlocks.map((block) => (
-                <article key={block.id} className="flex min-h-[250px] min-w-0 flex-col rounded-2xl border border-[#eee4d8] bg-white/75 p-3">
+              {visibleBlocks.map((block) => {
+                const selectedCount = selectedCounts.get(block.id) ?? 0;
+                return (
+                <article
+                  key={block.id}
+                  draggable
+                  onDragStart={(event) => handleDragStart(event, block.id)}
+                  className="flex min-h-[270px] min-w-0 cursor-grab flex-col rounded-2xl border border-[#eee4d8] bg-white/75 p-3 active:cursor-grabbing"
+                >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <h3 className="truncate text-[15px] font-extrabold">{block.name}</h3>
@@ -210,6 +287,7 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
                     </div>
                     <span className="shrink-0 rounded-full bg-[#edf5ef] px-2 py-1 text-[11px] font-bold text-[#4f875a]">{block.durationMinutes}分</span>
                   </div>
+                  {selectedCount ? <span className="mt-2 w-fit rounded-full bg-[#f2efff] px-2 py-1 text-[11px] font-bold text-[#7469bf]">選択済み {selectedCount}回</span> : null}
                   <p className="mt-2 line-clamp-2 min-h-10 text-[12px] font-medium leading-5 text-[#50584e]">{block.purpose || block.script || "目的や原稿は未入力です。"}</p>
                   <p className="mt-2 line-clamp-2 min-h-10 text-[11px] font-bold leading-5 text-[#c86b55]">{block.cautions ? `注意点：${block.cautions}` : "注意点：未入力"}</p>
                   <div className="mt-2 flex min-h-7 flex-wrap gap-1 overflow-hidden">
@@ -218,6 +296,8 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
                   <div className="mt-2 grid grid-cols-2 gap-2 text-center">
                     <MiniSummary label="使用回数" value={`${block.usageCount}回`} />
                     <MiniSummary label="良かった率" value={formatGoodRate(block)} />
+                    <MiniSummary label="最近使用" value={block.lastUsed} />
+                    <MiniSummary label="改善メモ" value={`${block.improvementCount ?? 0}件`} />
                   </div>
                   <div className="mt-auto grid grid-cols-2 gap-2 pt-3">
                     <button type="button" onClick={() => setPreviewBlock(block)} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white text-[12px] font-bold text-[#4f7b58]">
@@ -228,19 +308,33 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
                     </button>
                   </div>
                 </article>
-              ))}
+              )})}
             </div>
           )}
+          {visibleCount < filteredBlocks.length ? (
+            <button type="button" onClick={() => setVisibleCount((count) => count + 18)} className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-xl border border-[#d8e3d4] bg-white text-[12px] font-bold text-[#4f7b58]">
+              もっと見る
+            </button>
+          ) : null}
         </SoftCard>
 
-        <SoftCard className="sticky bottom-20 z-10 max-h-[72vh] overflow-auto p-4 md:bottom-4 xl:top-4">
+        <SoftCard
+          className="sticky bottom-20 z-10 max-h-[72vh] overflow-auto p-4 md:bottom-4 xl:top-4"
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={(event) => handleDrop(event)}
+        >
           <SectionTitle icon={Clock} title="作成中のプラン" subtitle={`${totalMinutes}分 / ${selectedBlocks.length}ブロック`} />
           {selectedBlocks.map((block, index) => (
             <input key={`${block.id}-${index}`} type="hidden" name="block_ids" value={block.id} />
           ))}
           <div className="mt-4 space-y-2">
             {selectedBlocks.length ? selectedBlocks.map((block, index) => (
-              <article key={`${block.id}-${index}`} className="rounded-2xl border border-[#eee4d8] bg-white/78 p-3">
+              <article
+                key={`${block.id}-${index}`}
+                className="rounded-2xl border border-[#eee4d8] bg-white/78 p-3"
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => handleDrop(event, index)}
+              >
                 <div className="flex items-start gap-2">
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#edf5ef] text-[12px] font-extrabold text-[#4f875a]">{index + 1}</span>
                   <div className="min-w-0 flex-1">
@@ -300,6 +394,8 @@ function BlockScriptModal({ block, onClose }: { block: DbBlockTemplate; onClose:
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <PreviewInfo title="目的" value={block.purpose || "未入力"} />
           <PreviewInfo title="注意点" value={block.cautions || "未入力"} />
+          <PreviewInfo title="使用回数" value={`${block.usageCount}回`} />
+          <PreviewInfo title="良かった率" value={formatGoodRate(block)} />
         </div>
         <div className="mt-4 rounded-2xl border border-[#eee4d8] bg-white/80 p-4">
           <p className="text-[13px] font-extrabold text-[#4f7b58]">誘導セリフ全文</p>

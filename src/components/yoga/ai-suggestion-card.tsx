@@ -61,7 +61,8 @@ export function AiSuggestionCard({
 }: AiSuggestionCardProps) {
   const [detailOpen, setDetailOpen] = useState(false);
   const [consultOpen, setConsultOpen] = useState(false);
-  const visibleHistory = history.filter((item) => item.id !== latest?.id).slice(0, 3);
+  const [selectedHistory, setSelectedHistory] = useState<AiSuggestion | null>(null);
+  const visibleHistory = history.filter((item) => item.id !== latest?.id);
   const canGenerate = isConfigured && storageReady;
 
   return (
@@ -140,10 +141,21 @@ export function AiSuggestionCard({
           </summary>
           <div className="mt-3 space-y-2">
             {visibleHistory.map((item) => (
-              <article key={item.id} className="rounded-xl border border-[#eee4d8] bg-white/80 p-3">
-                <p className="mb-1 text-[11px] font-bold text-[#7a7f73]">{formatAiDate(item.createdAt)} / {mentorLabel(item.mentorType)}</p>
-                <p className="line-clamp-4 whitespace-pre-line break-words text-[12px] font-medium leading-5 text-[#394238]">{item.response}</p>
-              </article>
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setSelectedHistory(item)}
+                className="block w-full rounded-xl border border-[#eee4d8] bg-white/80 p-3 text-left transition hover:border-[#cfe1ca] hover:bg-white"
+              >
+                <div className="mb-1 flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-[#7a7f73]">
+                  <span>{formatAiDate(item.createdAt)}</span>
+                  <span>/</span>
+                  <span>{mentorLabel(item.mentorType)}</span>
+                  <span className="rounded-full bg-[#f5f2ff] px-2 py-0.5 text-[#6b63b7]">{targetTypeLabel(item.targetType)}</span>
+                </div>
+                <p className="line-clamp-3 whitespace-pre-line break-words text-[12px] font-medium leading-5 text-[#394238]">{item.response}</p>
+                <span className="mt-2 inline-flex text-[11px] font-bold text-[#5d956d]">全文を見る</span>
+              </button>
             ))}
           </div>
         </details>
@@ -183,6 +195,27 @@ export function AiSuggestionCard({
           <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <AiCopyButton text={latest.response} label="提案をコピー" />
             {extraActions}
+          </div>
+        </Modal>
+      ) : null}
+
+      {selectedHistory ? (
+        <Modal
+          title="過去のAI提案"
+          subtitle={`${formatAiDate(selectedHistory.createdAt)} / ${mentorLabel(selectedHistory.mentorType)} / ${targetTypeLabel(selectedHistory.targetType)}`}
+          onClose={() => setSelectedHistory(null)}
+        >
+          <div className="rounded-2xl border border-[#d8e3d4] bg-white/84 p-3">
+            <p className="whitespace-pre-line break-words text-[13px] font-medium leading-6 text-[#394238] md:text-[14px]">{selectedHistory.response}</p>
+          </div>
+          {selectedHistory.sourceSummary ? (
+            <details className="mt-3 rounded-2xl border border-[#eee4d8] bg-white/72 p-3">
+              <summary className="cursor-pointer text-[12px] font-bold text-[#4f7b58]">参照した情報</summary>
+              <p className="mt-2 whitespace-pre-line break-words text-[12px] font-medium leading-5 text-[#657064]">{selectedHistory.sourceSummary}</p>
+            </details>
+          ) : null}
+          <div className="mt-3">
+            <AiCopyButton text={selectedHistory.response} label="提案をコピー" />
           </div>
         </Modal>
       ) : null}
@@ -248,6 +281,17 @@ function mentorLabel(type: AiSuggestion["mentorType"]) {
   } satisfies Record<AiSuggestion["mentorType"], string>;
 
   return labels[type] ?? labels.general;
+}
+
+function targetTypeLabel(type: string) {
+  const labels: Record<string, string> = {
+    student: "生徒",
+    lesson_plan: "レッスンプラン",
+    block: "ブロック",
+    lesson_record: "実施後記録",
+  };
+
+  return labels[type] ?? type;
 }
 
 function formatAiDate(value: string) {

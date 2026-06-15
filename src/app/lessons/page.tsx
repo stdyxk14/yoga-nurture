@@ -13,13 +13,13 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { PageHeader, Pill, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
-import { blockAnalysis } from "@/components/yoga/records";
 import { getBlockCategories, getBlocks, getBlockTags, type BlockCategory, type DbBlockTemplate } from "@/lib/blocks";
 import { getLessonPlans, type DbLessonPlan } from "@/lib/lesson-plans";
 import { getLessonRecords, type DbLessonRecord } from "@/lib/lesson-records";
 import { getSchedules, type DbSchedule } from "@/lib/schedules";
 
 type LessonTab = "schedule" | "plans" | "blocks" | "records" | "analysis";
+type AnalysisAxis = "usage" | "good" | "unused" | "improvement";
 
 const tabs: Array<{ id: LessonTab; label: string; href: string; icon: LucideIcon }> = [
   { id: "schedule", label: "スケジュール", href: "/lessons", icon: CalendarDays },
@@ -32,12 +32,14 @@ const tabs: Array<{ id: LessonTab; label: string; href: string; icon: LucideIcon
 export default async function LessonsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; q?: string; category?: string; subcategory?: string; tag?: string; sort?: string }>;
+  searchParams: Promise<{ tab?: string; q?: string; category?: string; subcategory?: string; tag?: string; sort?: string; analysis?: string }>;
 }) {
   const params = await searchParams;
   const { tab } = params;
   const activeTab: LessonTab =
     tab === "plans" || tab === "blocks" || tab === "records" || tab === "analysis" ? tab : "schedule";
+  const activeAnalysis: AnalysisAxis =
+    params.analysis === "good" || params.analysis === "unused" || params.analysis === "improvement" ? params.analysis : "usage";
   const [blocks, categories, tags, plans, schedules, records] = await Promise.all([
     getBlocks(params),
     getBlockCategories(),
@@ -50,7 +52,7 @@ export default async function LessonsPage({
   return (
     <>
       <div className="md:hidden">
-        <MobileLessonsPage activeTab={activeTab} blocks={blocks} categories={categories} tags={tags.map((tag) => tag.name)} plans={plans} schedules={schedules} records={records} />
+        <MobileLessonsPage activeTab={activeTab} activeAnalysis={activeAnalysis} blocks={blocks} categories={categories} tags={tags.map((tag) => tag.name)} plans={plans} schedules={schedules} records={records} />
       </div>
       <div className="hidden md:block">
       <PageHeader
@@ -86,7 +88,7 @@ export default async function LessonsPage({
       {activeTab === "plans" ? <PlansTab plans={plans} /> : null}
       {activeTab === "blocks" ? <BlocksTab blocks={blocks} categories={categories} tags={tags.map((tag) => tag.name)} /> : null}
       {activeTab === "records" ? <RecordsTab records={records} /> : null}
-      {activeTab === "analysis" ? <AnalysisTab /> : null}
+      {activeTab === "analysis" ? <AnalysisTab blocks={blocks} activeAxis={activeAnalysis} /> : null}
       </div>
     </>
   );
@@ -96,6 +98,7 @@ export const dynamic = "force-dynamic";
 
 function MobileLessonsPage({
   activeTab,
+  activeAnalysis,
   blocks,
   categories,
   tags,
@@ -104,6 +107,7 @@ function MobileLessonsPage({
   records,
 }: {
   activeTab: LessonTab;
+  activeAnalysis: AnalysisAxis;
   blocks: DbBlockTemplate[];
   categories: BlockCategory[];
   tags: string[];
@@ -129,7 +133,7 @@ function MobileLessonsPage({
       {activeTab === "plans" ? <MobilePlansTab plans={plans} /> : null}
       {activeTab === "blocks" ? <MobileBlocksList blocks={blocks} categories={categories} tags={tags} /> : null}
       {activeTab === "records" ? <MobileRecordsTab records={records} /> : null}
-      {activeTab === "analysis" ? <MobileAnalysisTab /> : null}
+      {activeTab === "analysis" ? <MobileAnalysisTab blocks={blocks} activeAxis={activeAnalysis} /> : null}
     </div>
   );
 }
@@ -290,22 +294,25 @@ function MobileRecordsTab({ records }: { records: DbLessonRecord[] }) {
   );
 }
 
-function MobileAnalysisTab() {
+function MobileAnalysisTab({ blocks, activeAxis }: { blocks: DbBlockTemplate[]; activeAxis: AnalysisAxis }) {
+  const config = analysisConfig[activeAxis];
+  const rows = buildAnalysisRows(blocks, activeAxis);
   return (
     <div className="space-y-3">
       <MobileTabIntro title="ブロック分析" body="よく使うブロック、反応が良いブロック、改善が必要なブロックを確認します。" primaryHref="/reports" primaryLabel="レポートを見る" />
-      {blockAnalysis.map(([name, usage, rating, note], index) => (
-        <article key={name} className="rounded-3xl border border-[#eee4d8] bg-white/78 p-4">
-          <div className="flex items-start gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#edf5ef] text-[15px] font-extrabold text-[#5d956d]">{index + 1}</span>
-            <div className="min-w-0 flex-1">
-              <h2 className="truncate text-[15px] font-extrabold">{name}</h2>
-              <p className="mt-1 text-[12px] font-bold text-[#5d956d]">使用 {usage} / 良かった率 {rating}</p>
-              <p className="mt-2 inline-flex rounded-full bg-[#fff7e8] px-3 py-1 text-[11px] font-bold text-[#9b7338]">{note}</p>
-            </div>
-          </div>
-        </article>
-      ))}
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {analysisAxes.map((axis) => (
+          <Link key={axis.id} href={`/lessons?tab=analysis&analysis=${axis.id}`} className={axis.id === activeAxis ? "shrink-0 rounded-full bg-[#7ea06f] px-4 py-2 text-[12px] font-bold text-white" : "shrink-0 rounded-full border border-[#e1d9ce] bg-white/80 px-4 py-2 text-[12px] font-bold text-[#5d6b58]"}>
+            {axis.shortLabel}
+          </Link>
+        ))}
+      </div>
+      <SoftCard className="p-4">
+        <SectionTitle icon={BarChart3} title={config.title} subtitle={config.subtitle} />
+        <div className="mt-3 grid gap-3">
+          {rows.length ? rows.map((block, index) => <AnalysisBlockCard key={block.id} block={block} index={index} activeAxis={activeAxis} compact />) : <AnalysisEmpty axis={activeAxis} />}
+        </div>
+      </SoftCard>
     </div>
   );
 }
@@ -591,32 +598,98 @@ function RecordsTab({ records }: { records: DbLessonRecord[] }) {
   );
 }
 
-function AnalysisTab() {
+function AnalysisTab({ blocks, activeAxis }: { blocks: DbBlockTemplate[]; activeAxis: AnalysisAxis }) {
+  const config = analysisConfig[activeAxis];
+  const rows = buildAnalysisRows(blocks, activeAxis);
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_280px] gap-3">
       <SoftCard className="p-3.5">
-        <SectionTitle icon={BarChart3} title="ブロック分析" subtitle="よく使う・反応が良い・改善が必要なブロックを確認" />
-        <div className="grid grid-cols-4 gap-3">
-          {blockAnalysis.map(([name, usage, rating, note]) => (
-            <div key={name} className="rounded-xl border border-[#eee4d8] bg-white/70 p-3">
-              <p className="text-[14px] font-extrabold">{name}</p>
-              <p className="mt-2 text-[12px] font-bold text-[#5d956d]">使用 {usage}</p>
-              <p className="text-[12px] font-bold text-[#7469bf]">良かった率 {rating}</p>
-              <p className="mt-2 rounded-lg bg-[#fff7e8] px-2 py-1 text-[11px] font-bold text-[#9b7338]">{note}</p>
-            </div>
-          ))}
+        <SectionTitle icon={BarChart3} title={config.title} subtitle={config.subtitle} />
+        <div className="mt-3 grid grid-cols-2 gap-3 2xl:grid-cols-3">
+          {rows.length ? rows.map((block, index) => <AnalysisBlockCard key={block.id} block={block} index={index} activeAxis={activeAxis} />) : <AnalysisEmpty axis={activeAxis} />}
         </div>
       </SoftCard>
       <SoftCard className="p-3.5">
         <SectionTitle icon={SlidersHorizontal} title="分析軸" />
         <div className="grid gap-2">
-          {["ブロック使用回数ランキング", "反応が良かったブロック", "最近使っていないブロック", "改善メモが多いブロック"].map((item) => (
-            <div key={item} className="rounded-lg border border-[#eee4d8] bg-white/70 p-2 text-[12px] font-bold">{item}</div>
+          {analysisAxes.map((item) => (
+            <Link
+              key={item.id}
+              href={`/lessons?tab=analysis&analysis=${item.id}`}
+              className={item.id === activeAxis ? "rounded-lg bg-[#5d956d] p-2 text-[12px] font-bold text-white" : "rounded-lg border border-[#eee4d8] bg-white/70 p-2 text-[12px] font-bold text-[#4f7b58]"}
+            >
+              {item.label}
+            </Link>
           ))}
         </div>
       </SoftCard>
     </div>
   );
+}
+
+const analysisAxes: Array<{ id: AnalysisAxis; label: string; shortLabel: string }> = [
+  { id: "usage", label: "ブロック使用回数ランキング", shortLabel: "使用回数" },
+  { id: "good", label: "反応が良かったブロック", shortLabel: "良かった率" },
+  { id: "unused", label: "最近使っていないブロック", shortLabel: "未使用" },
+  { id: "improvement", label: "改善メモが多いブロック", shortLabel: "改善メモ" },
+];
+
+const analysisConfig: Record<AnalysisAxis, { title: string; subtitle: string }> = {
+  usage: { title: "ブロック使用回数ランキング", subtitle: "実施後記録で「実施した」ブロックを使用回数順に表示します。" },
+  good: { title: "反応が良かったブロック", subtitle: "生徒の反応が「良かった」と記録された割合が高い順です。" },
+  unused: { title: "最近使っていないブロック", subtitle: "未使用ブロックと最近使用日が古いブロックを優先して表示します。" },
+  improvement: { title: "改善メモが多いブロック", subtitle: "改善メモが多い順に、見直し候補を確認します。" },
+};
+
+function buildAnalysisRows(blocks: DbBlockTemplate[], axis: AnalysisAxis) {
+  const rows = [...blocks];
+  if (axis === "usage") return rows.filter((block) => block.usageCount > 0).sort((a, b) => b.usageCount - a.usageCount || (b.lastUsedAt ?? "").localeCompare(a.lastUsedAt ?? "")).slice(0, 12);
+  if (axis === "good") return rows.filter((block) => block.goodRate !== null && block.goodRate !== undefined).sort((a, b) => (b.goodRate ?? -1) - (a.goodRate ?? -1) || b.usageCount - a.usageCount).slice(0, 12);
+  if (axis === "improvement") return rows.filter((block) => (block.improvementCount ?? 0) > 0).sort((a, b) => (b.improvementCount ?? 0) - (a.improvementCount ?? 0) || b.usageCount - a.usageCount).slice(0, 12);
+  return rows.sort((a, b) => {
+    const aDate = a.lastUsedAt || "";
+    const bDate = b.lastUsedAt || "";
+    if (!aDate && bDate) return -1;
+    if (aDate && !bDate) return 1;
+    return aDate.localeCompare(bDate);
+  }).slice(0, 12);
+}
+
+function AnalysisBlockCard({ block, index, activeAxis, compact = false }: { block: DbBlockTemplate; index: number; activeAxis: AnalysisAxis; compact?: boolean }) {
+  const axisNote =
+    activeAxis === "good" && (block.usageCount < 3 ? "評価データ少なめ" : "反応傾向あり");
+  return (
+    <article className="flex min-w-0 flex-col rounded-xl border border-[#eee4d8] bg-white/70 p-3">
+      <div className="flex items-start gap-2">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#edf5ef] text-[13px] font-extrabold text-[#5d956d]">{index + 1}</span>
+        <div className="min-w-0 flex-1">
+          <Link href={`/blocks/${block.id}`} className="line-clamp-1 text-[14px] font-extrabold text-[#30362f] hover:text-[#5d956d]">{block.name}</Link>
+          <p className="mt-1 truncate text-[11px] font-bold text-[#5d956d]">{block.majorCategory} / {block.minorCategory}</p>
+        </div>
+      </div>
+      <div className={`mt-3 grid ${compact ? "grid-cols-2" : "grid-cols-3"} gap-2 text-center`}>
+        <MiniStat label="使用" value={`${block.usageCount}回`} />
+        <MiniStat label="良かった率" value={formatGoodRate(block)} />
+        <MiniStat label="改善" value={`${block.improvementCount ?? 0}件`} />
+        <MiniStat label="スキップ" value={`${block.skipCount ?? 0}回`} />
+        <MiniStat label="最近" value={block.lastUsed} />
+      </div>
+      {axisNote ? <p className="mt-2 rounded-lg bg-[#fff7e8] px-2 py-1 text-[11px] font-bold text-[#9b7338]">{axisNote}</p> : null}
+      <Link href={`/blocks/${block.id}`} className="mt-3 inline-flex h-8 items-center justify-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] text-[12px] font-bold text-[#5d956d]">詳細を見る</Link>
+    </article>
+  );
+}
+
+function AnalysisEmpty({ axis }: { axis: AnalysisAxis }) {
+  const text =
+    axis === "usage"
+      ? "まだ実施済みブロックの記録がありません。"
+      : axis === "good"
+        ? "まだ反応を評価できる記録がありません。"
+        : axis === "improvement"
+          ? "改善メモがあるブロックはまだありません。"
+          : "表示できるブロックがありません。";
+  return <div className="rounded-xl border border-dashed border-[#d8e3d4] bg-[#f8fcf6] p-4 text-[13px] font-semibold text-[#657064]">{text}</div>;
 }
 
 function ScheduleStatusBadge({ label }: { label: string }) {

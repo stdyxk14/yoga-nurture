@@ -80,8 +80,7 @@ async function getAiSuggestionState(targetType: "student" | "lesson_plan" | "blo
     .eq("user_id", userId)
     .eq("target_type", targetType)
     .eq("target_id", targetId)
-    .order("created_at", { ascending: false })
-    .limit(10);
+    .order("created_at", { ascending: false });
 
   if (error) {
     return {

@@ -15,14 +15,15 @@ export function BlockDetail({
   histories: BlockUsageHistory[];
   aiSuggestionState?: StudentAiSuggestionState;
 }) {
-  const usageCount = histories.length;
-  const lastUsed = histories[0]?.lessonDate ?? "未使用";
+  const executedHistories = histories.filter((history) => history.done);
+  const usageCount = executedHistories.length;
+  const lastUsed = executedHistories[0]?.lessonDate ?? "未使用";
   const reviewCount = histories.filter((history) => history.scriptReviewRequired).length;
-  const averageMinutes = histories.length
-    ? `${Math.round(histories.reduce((sum, history) => sum + (Number.parseInt(history.actualDuration, 10) || 0), 0) / histories.length)}分`
+  const averageMinutes = executedHistories.length
+    ? `${Math.round(executedHistories.reduce((sum, history) => sum + (Number.parseInt(history.actualDuration, 10) || 0), 0) / executedHistories.length)}分`
     : "未集計";
-  const reactionCount = histories.filter((history) => history.reaction && history.reaction !== "未評価").length;
-  const goodRate = reactionCount ? `${Math.round((histories.filter((history) => history.reaction === "良かった").length / reactionCount) * 100)}%` : "評価データなし";
+  const reactionCount = executedHistories.filter((history) => history.reaction && history.reaction !== "未評価").length;
+  const goodRate = reactionCount ? `${Math.round((executedHistories.filter((history) => history.reaction === "良かった").length / reactionCount) * 100)}%` : "評価データなし";
 
   return (
     <>
@@ -156,14 +157,15 @@ function MobileBlockDetail({
   histories: BlockUsageHistory[];
   aiSuggestionState?: StudentAiSuggestionState;
 }) {
-  const usageCount = histories.length;
-  const lastUsed = histories[0]?.lessonDate ?? "未使用";
+  const executedHistories = histories.filter((history) => history.done);
+  const usageCount = executedHistories.length;
+  const lastUsed = executedHistories[0]?.lessonDate ?? "未使用";
   const reviewCount = histories.filter((history) => history.scriptReviewRequired).length;
-  const averageMinutes = histories.length
-    ? `${Math.round(histories.reduce((sum, history) => sum + (Number.parseInt(history.actualDuration, 10) || 0), 0) / histories.length)}分`
+  const averageMinutes = executedHistories.length
+    ? `${Math.round(executedHistories.reduce((sum, history) => sum + (Number.parseInt(history.actualDuration, 10) || 0), 0) / executedHistories.length)}分`
     : "未集計";
-  const reactionCount = histories.filter((history) => history.reaction && history.reaction !== "未評価").length;
-  const goodRate = reactionCount ? `${Math.round((histories.filter((history) => history.reaction === "良かった").length / reactionCount) * 100)}%` : "評価データなし";
+  const reactionCount = executedHistories.filter((history) => history.reaction && history.reaction !== "未評価").length;
+  const goodRate = reactionCount ? `${Math.round((executedHistories.filter((history) => history.reaction === "良かった").length / reactionCount) * 100)}%` : "評価データなし";
 
   return (
     <div className="mx-auto max-w-[430px] space-y-4">

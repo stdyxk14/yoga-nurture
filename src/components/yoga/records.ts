@@ -38,7 +38,9 @@ export type BlockTemplate = {
   averageRating: number;
   goodRate?: number | null;
   improvementCount?: number;
+  skipCount?: number;
   lastUsed: string;
+  lastUsedAt?: string;
 };
 
 export type LessonTemplate = {

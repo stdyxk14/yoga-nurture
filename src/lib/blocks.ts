@@ -69,6 +69,7 @@ type RawBlock = {
 
 type BlockUsageStats = {
   usageCount: number;
+  skipCount: number;
   reactionCount: number;
   goodCount: number;
   improvementCount: number;
@@ -121,7 +122,9 @@ export function mapBlock(row: RawBlock, stats?: BlockUsageStats): DbBlockTemplat
     averageRating: stats?.reactionCount ? Math.round(((stats.goodCount / stats.reactionCount) * 5) * 10) / 10 : 0,
     goodRate: stats?.reactionCount ? Math.round((stats.goodCount / stats.reactionCount) * 100) : null,
     improvementCount: stats?.improvementCount ?? 0,
+    skipCount: stats?.skipCount ?? 0,
     lastUsed: stats?.latestDate ? formatJapaneseDate(new Date(stats.latestDate)) : "未使用",
+    lastUsedAt: stats?.latestDate ?? "",
     archived: row.archived,
     favorite: row.favorite,
     createdAt: row.created_at,
@@ -219,7 +222,7 @@ export async function getBlocks(filters: BlockListFilters = {}) {
 async function getBlockUsageStats(blockIds: string[]) {
   const stats = new Map<string, BlockUsageStats>();
   for (const blockId of blockIds) {
-    stats.set(blockId, { usageCount: 0, reactionCount: 0, goodCount: 0, improvementCount: 0, latestDate: "" });
+    stats.set(blockId, { usageCount: 0, skipCount: 0, reactionCount: 0, goodCount: 0, improvementCount: 0, latestDate: "" });
   }
   if (!blockIds.length) return stats;
 
@@ -240,14 +243,16 @@ async function getBlockUsageStats(blockIds: string[]) {
   }>) {
     const current = stats.get(row.block_template_id);
     if (!current) continue;
-    if (row.done !== false) current.usageCount += 1;
-    if (row.reaction) current.reactionCount += 1;
-    if (row.reaction === "good") current.goodCount += 1;
+    const wasDone = row.done !== false;
+    if (wasDone) current.usageCount += 1;
+    if (!wasDone) current.skipCount += 1;
+    if (wasDone && row.reaction) current.reactionCount += 1;
+    if (wasDone && row.reaction === "good") current.goodCount += 1;
     if (row.improvement_memo?.trim()) current.improvementCount += 1;
     const record = firstRelation(row.record);
     const schedule = firstRelation(record?.schedule);
     const dateValue = schedule?.starts_at ?? record?.record_date ?? "";
-    if (dateValue && dateValue > current.latestDate) current.latestDate = dateValue;
+    if (wasDone && dateValue && dateValue > current.latestDate) current.latestDate = dateValue;
   }
 
   return stats;
