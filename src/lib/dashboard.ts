@@ -44,6 +44,17 @@ export type DashboardAttentionStudent = {
   followDate?: string;
 };
 
+export type DashboardInsight = {
+  id: string;
+  dateKey: string;
+  lessonName: string;
+  studentName: string;
+  todayNote: string;
+  personalMemo: string;
+  nextFollow: string;
+  href: string;
+};
+
 export type DashboardData = {
   greeting: string;
   todayLabel: string;
@@ -66,9 +77,12 @@ export type DashboardData = {
     schedules: DashboardSchedule[];
   }>;
   schedulesByDate: Record<string, DashboardSchedule[]>;
+  upcomingSchedules: DashboardSchedule[];
+  recordPendingSchedules: DashboardSchedule[];
   tasks: DashboardTask[];
   suggestions: string[];
   attentionStudents: DashboardAttentionStudent[];
+  recentInsights: DashboardInsight[];
   error?: string;
 };
 
@@ -139,9 +153,12 @@ export async function getDashboardData(): Promise<DashboardData> {
       todayKey,
       calendarDays: buildCalendarDays(now, {}),
       schedulesByDate: {},
+      upcomingSchedules: [],
+      recordPendingSchedules: [],
       tasks: [],
       suggestions: [],
       attentionStudents: [],
+      recentInsights: [],
       error: error instanceof Error ? error.message : "ダッシュボードデータを取得できませんでした。",
     };
   }
@@ -218,9 +235,12 @@ async function fetchDashboardData(): Promise<DashboardData> {
   const students = (studentsResult.data ?? []) as RawStudent[];
   const schedulesByDate = groupSchedulesByDate(schedules.filter((schedule) => isWithinMonth(schedule.dateKey, monthStart)));
   const completedScheduleIds = new Set(records.filter((record) => record.schedule_id).map((record) => record.schedule_id as string));
+  const recordPendingSchedules = buildRecordPendingSchedules(schedules, todayKey, completedScheduleIds);
+  const upcomingSchedules = schedules.filter((schedule) => schedule.dateKey >= todayKey).slice(0, 8);
   const tasks = buildTasks({ schedules, records, students, todayKey, completedScheduleIds });
   const suggestions = buildSuggestions({ tasks, todaySchedules: schedules.filter((schedule) => schedule.dateKey === todayKey), records, schedules });
   const attentionStudents = buildAttentionStudents(students, records, schedules, todayKey);
+  const recentInsights = buildRecentInsights(records);
 
   return {
     greeting: getGreetingJa(now),
@@ -238,9 +258,12 @@ async function fetchDashboardData(): Promise<DashboardData> {
     todayKey,
     calendarDays: buildCalendarDays(now, schedulesByDate),
     schedulesByDate,
+    upcomingSchedules,
+    recordPendingSchedules,
     tasks,
     suggestions,
     attentionStudents,
+    recentInsights,
   };
 }
 
@@ -348,6 +371,12 @@ function buildTasks({
   return tasks.slice(0, 6);
 }
 
+function buildRecordPendingSchedules(schedules: DashboardSchedule[], todayKey: string, completedScheduleIds: Set<string>) {
+  return schedules
+    .filter((schedule) => schedule.dateKey < todayKey && schedule.status !== "recorded" && !completedScheduleIds.has(schedule.id))
+    .slice(0, 5);
+}
+
 function buildSuggestions({
   tasks,
   todaySchedules,
@@ -413,6 +442,23 @@ function buildAttentionStudents(students: RawStudent[], records: RawRecord[], sc
 
 function getFollowItems(records: RawRecord[]) {
   return records.flatMap((record) => (record.lesson_record_students ?? []).map((row) => ({ ...row, record }))).filter((row) => Boolean(row.next_follow?.trim()));
+}
+
+function buildRecentInsights(records: RawRecord[]): DashboardInsight[] {
+  return records
+    .flatMap((record) => (record.lesson_record_students ?? []).map((row) => ({ record, row })))
+    .filter(({ row }) => Boolean(row.condition?.trim() || row.memo?.trim() || row.next_follow?.trim()))
+    .slice(0, 4)
+    .map(({ record, row }) => ({
+      id: row.id,
+      dateKey: record.record_date.slice(0, 10),
+      lessonName: record.lesson_name,
+      studentName: row.student?.name ?? "生徒",
+      todayNote: row.condition ?? "",
+      personalMemo: row.memo ?? "",
+      nextFollow: row.next_follow ?? "",
+      href: record.schedule_id ? `/lessons/${record.schedule_id}/record` : "/lessons?tab=records",
+    }));
 }
 
 function buildCalendarDays(date: Date, schedulesByDate: Record<string, DashboardSchedule[]>) {

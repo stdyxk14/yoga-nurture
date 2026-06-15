@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import type { LucideIcon } from "lucide-react";
-import { AlertCircle, Blocks, BookOpenText, CalendarDays, ChevronRight, ClipboardCheck, FilePenLine, HeartHandshake, LibraryBig, ListChecks, ListTodo, Plus, Sparkles, UserPlus, UserRound } from "lucide-react";
+import { AlertCircle, Blocks, BookOpenText, CalendarDays, ChevronRight, ClipboardCheck, FilePenLine, HeartHandshake, LibraryBig, ListTodo, Plus, Sparkles, UserPlus, UserRound } from "lucide-react";
+import { importStarterBlockAction } from "@/app/dashboard/actions";
 import { SectionTitle, SoftCard } from "@/components/yoga/page-kit";
 import type { DashboardData, DashboardSchedule, DashboardTask } from "@/lib/dashboard";
 import { formatDateKeyJa } from "@/lib/date-format";
@@ -13,13 +14,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
   const [selectedDate, setSelectedDate] = useState(data.todayKey);
   const selectedSchedules = data.schedulesByDate[selectedDate] ?? [];
   const todaySchedules = data.schedulesByDate[data.todayKey] ?? [];
-  const weekDays = useMemo(() => {
-    return data.calendarDays
-      .filter((day) => day.key >= data.todayKey)
-      .slice(0, 7);
-  }, [data.calendarDays, data.todayKey]);
   const library = buildLibrarySummary(data);
-  const checks = buildPreparationChecks(data, todaySchedules);
   const showFirstFlow = data.totals.blocks === 0 || data.totals.lessonPlans === 0 || data.totals.schedules === 0 || data.totals.records === 0;
 
   return (
@@ -34,10 +29,12 @@ export function DashboardView({ data }: { data: DashboardData }) {
 
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.9fr)_minmax(310px,0.9fr)]">
         <div className="grid gap-4">
-          <HeroLessonCard schedules={todaySchedules} totals={data.totals} />
+          <HeroLessonCard data={data} todaySchedules={todaySchedules} />
           <TodayTasks data={data} />
+          <LessonSeeds />
           <GuidanceLibrary items={library} />
-          <WeekFlow days={weekDays} todayKey={data.todayKey} />
+          {showFirstFlow ? <FirstFlow /> : null}
+          <RecentInsights insights={data.recentInsights} />
           <MonthCalendar
             monthLabel={data.monthLabel}
             days={data.calendarDays}
@@ -45,11 +42,9 @@ export function DashboardView({ data }: { data: DashboardData }) {
             onSelect={setSelectedDate}
             selectedSchedules={selectedSchedules}
           />
-          {showFirstFlow ? <FirstFlow /> : null}
         </div>
         <div className="grid content-start gap-4">
           <NextFollow students={data.attentionStudents} />
-          <PreparationCheck checks={checks} hasTodaySchedules={todaySchedules.length > 0} />
           <AttentionStudents students={data.attentionStudents} />
           <Shortcuts />
         </div>
@@ -64,7 +59,7 @@ function DashboardHeader({ greeting, todayLabel }: { greeting: string; todayLabe
       <div>
         <p className="mb-1 text-[14px] font-bold text-[#4f7b58]">{greeting}</p>
         <div className="flex flex-col gap-1 md:flex-row md:items-end md:gap-4">
-          <h1 className="text-[24px] font-extrabold leading-tight">今日のレッスンを整えましょう</h1>
+          <h1 className="text-[24px] font-extrabold leading-tight">今日、指導をひとつ育てましょう</h1>
           <p className="max-w-2xl text-[13px] font-semibold leading-6 text-[#5d5d58] md:pb-1 md:text-[14px]">生徒の変化、前回の気づき、次の準備がここに集まっています。</p>
         </div>
         <p className="mt-2 inline-flex h-8 items-center gap-2 rounded-xl bg-white/80 px-3 text-[13px] font-semibold text-[#30362f]">
@@ -81,47 +76,87 @@ function DashboardHeader({ greeting, todayLabel }: { greeting: string; todayLabe
   );
 }
 
-function HeroLessonCard({ schedules, totals }: { schedules: DashboardSchedule[]; totals: DashboardData["totals"] }) {
-  const mainSchedule = schedules[0];
-  if (!mainSchedule) {
-    return (
-      <SoftCard className="overflow-hidden border-[#d9e7d3] bg-gradient-to-br from-[#f7fbf3] via-[#fffdf8] to-[#f7f0f5] p-5">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-          <div className="min-w-0">
-            <p className="mb-2 inline-flex rounded-full bg-white/80 px-3 py-1 text-[12px] font-extrabold text-[#5d956d]">今日の主役</p>
-            <h2 className="text-[24px] font-extrabold leading-tight text-[#253022]">今日はレッスン予定がありません。</h2>
-            <p className="mt-2 max-w-2xl text-[13px] font-semibold leading-6 text-[#596257]">次のレッスンに向けて、プランやブロック、手書きメモを少し育てておきましょう。記録が増えるほど、次の準備が楽になります。</p>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-3 lg:w-[360px] lg:grid-cols-1">
-            <ActionLink href="/lessons/new" label="プランを作成" primary />
-            <ActionLink href="/blocks/new" label="ブロックを登録" />
-            <ActionLink href="/settings/knowledge/upload" label="学習メモを追加" />
-          </div>
-        </div>
-        <div className="mt-4 grid gap-2 sm:grid-cols-3">
-          <LibraryMini label="生徒カルテ" value={`${totals.students}人`} />
-          <LibraryMini label="ブロック" value={`${totals.blocks}個`} />
-          <LibraryMini label="プラン" value={`${totals.lessonPlans}本`} />
-        </div>
-      </SoftCard>
-    );
-  }
+function HeroLessonCard({ data, todaySchedules }: { data: DashboardData; todaySchedules: DashboardSchedule[] }) {
+  const pending = data.recordPendingSchedules[0];
+  const today = todaySchedules[0];
+  const next = data.upcomingSchedules.find((schedule) => schedule.dateKey > data.todayKey);
+  const isStarter = data.totals.blocks < 5 || data.totals.lessonPlans === 0 || data.totals.schedules === 0 || data.totals.records === 0;
+
+  const variant = pending
+    ? buildPendingHero(pending)
+    : today
+      ? buildTodayHero(today, data.attentionStudents.filter((student) => today.participantIds.includes(student.id)).length)
+      : next
+        ? buildNextHero(next)
+        : isStarter
+          ? buildStarterHero()
+          : buildNormalHero();
 
   return (
     <SoftCard className="overflow-hidden border-[#d9e7d3] bg-gradient-to-br from-[#f7fbf3] via-[#fffdf8] to-[#f7f0f5] p-5">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
         <div className="min-w-0">
-          <p className="mb-2 inline-flex rounded-full bg-white/80 px-3 py-1 text-[12px] font-extrabold text-[#5d956d]">今日のレッスン</p>
-          <h2 className="text-[24px] font-extrabold leading-tight text-[#253022]">{mainSchedule.startTime} {displayScheduleName(mainSchedule)}</h2>
-          <p className="mt-2 text-[13px] font-semibold leading-6 text-[#596257]">
-            参加予定 {mainSchedule.participantCount}名 / {mainSchedule.place} / {mainSchedule.statusLabel}
-          </p>
+          <p className="mb-2 inline-flex rounded-full bg-white/80 px-3 py-1 text-[12px] font-extrabold text-[#5d956d]">{variant.eyebrow}</p>
+          <h2 className="text-[24px] font-extrabold leading-tight text-[#253022]">{variant.title}</h2>
+          <p className="mt-2 max-w-3xl text-[13px] font-semibold leading-6 text-[#596257]">{variant.description}</p>
+          {variant.meta ? <p className="mt-3 rounded-2xl border border-[#eee4d8] bg-white/70 px-3 py-2 text-[12px] font-bold leading-5 text-[#4c554a]">{variant.meta}</p> : null}
         </div>
         <div className="grid gap-2 sm:grid-cols-3 lg:w-[360px] lg:grid-cols-1">
-          <ActionLink href={mainSchedule.lessonPlanId ? `/lessons/${mainSchedule.lessonPlanId}/script` : null} label="原稿を見る" primary />
-          <ActionLink href={`/schedules/${mainSchedule.id}`} label="参加生徒を確認" />
-          <ActionLink href={`/lessons/${mainSchedule.id}/record`} label="記録を書く" />
+          {variant.actions.map((action, index) => (
+            <ActionLink key={action.label} href={action.href} label={action.label} primary={index === 0} />
+          ))}
         </div>
+      </div>
+    </SoftCard>
+  );
+}
+
+function LessonSeeds() {
+  return (
+    <SoftCard id="lesson-seeds" className="p-4">
+      <SectionTitle icon={Sparkles} title="レッスンの種" subtitle="よく使う流れや声かけを、あなたのブロックとして育てられます。" />
+      <div className="grid gap-3 lg:grid-cols-3">
+        {starterBlocks.map((seed) => (
+          <article key={seed.name} className="flex min-h-[230px] flex-col rounded-2xl border border-[#eee4d8] bg-white/76 p-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold text-[#8b704c]">{seed.category} / {seed.durationMinutes}分</p>
+                <h3 className="mt-1 line-clamp-2 text-[15px] font-extrabold text-[#253022]">{seed.name}</h3>
+              </div>
+              <span className="shrink-0 rounded-full bg-[#edf5ef] px-2 py-1 text-[10px] font-bold text-[#4f875a]">ブロック</span>
+            </div>
+            <p className="mt-2 line-clamp-2 text-[12px] font-semibold leading-5 text-[#596257]">{seed.purpose}</p>
+            <p className="mt-2 line-clamp-2 text-[11px] font-medium leading-5 text-[#6b7468]">使いどころ: {seed.useCase}</p>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {seed.tags.map((tag) => <span key={tag} className="rounded-full border border-[#dbe4d6] bg-[#fbfaf6] px-2 py-0.5 text-[10px] font-bold text-[#4f7b58]">{tag}</span>)}
+            </div>
+            <form action={importStarterBlockAction} className="mt-auto pt-3">
+              <input type="hidden" name="name" value={seed.name} />
+              <input type="hidden" name="duration_minutes" value={seed.durationMinutes} />
+              <input type="hidden" name="purpose" value={seed.purpose} />
+              <input type="hidden" name="cautions" value={seed.cautions} />
+              <input type="hidden" name="script" value={seed.script} />
+              <input type="hidden" name="memo" value="YOGA NURTUREのスターター例から取り込みました。必要に応じて自分の言葉に編集してください。" />
+              {seed.tags.map((tag) => <input key={tag} type="hidden" name="tags" value={tag} />)}
+              <button type="submit" className="inline-flex h-9 w-full items-center justify-center rounded-xl bg-[#5d956d] px-3 text-[12px] font-bold text-white">
+                このブロックを取り込む
+              </button>
+            </form>
+          </article>
+        ))}
+      </div>
+      <div className="mt-3 grid gap-2 lg:grid-cols-2">
+        {starterPlans.map((plan) => (
+          <article key={plan.name} className="rounded-2xl border border-[#eee4d8] bg-[#fbfaf6] p-3">
+            <p className="text-[11px] font-bold text-[#8b704c]">{plan.minutes}分 / プラン例</p>
+            <h3 className="mt-1 text-[15px] font-extrabold">{plan.name}</h3>
+            <p className="mt-1 line-clamp-2 text-[12px] font-semibold leading-5 text-[#596257]">{plan.purpose}</p>
+            <p className="mt-2 line-clamp-1 text-[11px] font-bold text-[#6b7468]">含まれるブロック例: {plan.blocks.join(" / ")}</p>
+            <Link href={`/lessons/new?starter=${encodeURIComponent(plan.name)}`} className="mt-3 inline-flex h-9 items-center justify-center rounded-xl border border-[#cfe1ca] bg-white px-3 text-[12px] font-bold text-[#5d956d]">
+              このプラン例を見る
+            </Link>
+          </article>
+        ))}
       </div>
     </SoftCard>
   );
@@ -143,35 +178,6 @@ function GuidanceLibrary({ items }: { items: Array<{ label: string; value: strin
             </Link>
           );
         })}
-      </div>
-    </SoftCard>
-  );
-}
-
-function LibraryMini({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-[#eee4d8] bg-white/70 p-3">
-      <p className="text-[11px] font-bold text-[#6b7468]">{label}</p>
-      <p className="mt-1 text-[20px] font-extrabold text-[#34533b]">{value}</p>
-    </div>
-  );
-}
-
-function PreparationCheck({ checks, hasTodaySchedules }: { checks: PreparationCheckItem[]; hasTodaySchedules: boolean }) {
-  return (
-    <SoftCard id="prep-check" className="p-4">
-      <SectionTitle icon={ListChecks} title="今日のレッスン準備" subtitle={hasTodaySchedules ? "レッスン前に確認しておきたいこと" : "今日は予定がないので、次の準備を少し整えられます"} />
-      <div className="grid gap-2">
-        {checks.map((check) => (
-          <article key={check.label} className="grid gap-2 rounded-2xl border border-[#eee4d8] bg-white/76 p-3 sm:grid-cols-[92px_minmax(0,1fr)_112px] sm:items-center">
-            <CheckStatus status={check.status} />
-            <div className="min-w-0">
-              <p className="line-clamp-1 text-[13px] font-extrabold text-[#30362f]">{check.label}</p>
-              <p className="mt-0.5 line-clamp-2 text-[12px] font-semibold leading-5 text-[#6b7468]">{check.detail}</p>
-            </div>
-            {check.href ? <ActionLink href={check.href} label={check.actionLabel} /> : null}
-          </article>
-        ))}
       </div>
     </SoftCard>
   );
@@ -289,44 +295,38 @@ function SelectedSchedules({ dateKey, schedules }: { dateKey: string; schedules:
   );
 }
 
-function WeekFlow({ days, todayKey }: { days: DashboardData["calendarDays"]; todayKey: string }) {
+function RecentInsights({ insights }: { insights: DashboardData["recentInsights"] }) {
   return (
     <SoftCard className="p-4">
-      <SectionTitle icon={CalendarDays} title="今週の流れ" subtitle="直近の予定と記録の流れを確認できます。" />
-      <div className="grid gap-2">
-        {days.map((day) => (
-          <article key={day.key} className="rounded-2xl border border-[#eee4d8] bg-white/70 p-3">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <p className="text-[12px] font-extrabold text-[#8b704c]">
-                {formatShortDate(day.key)}
-                {day.key === todayKey ? <span className="ml-2 rounded-full bg-[#edf5ef] px-2 py-0.5 text-[10px] text-[#4f875a]">今日</span> : null}
-              </p>
-              <span className="text-[11px] font-bold text-[#7c8476]">{day.schedules.length ? `${day.schedules.length}件` : "予定なし"}</span>
-            </div>
-            {day.schedules.length ? (
-              <div className="grid gap-2">
-                {day.schedules.map((schedule) => (
-                  <div key={schedule.id} className="grid gap-2 rounded-xl bg-[#fbfaf6] p-2.5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-                    <div className="min-w-0">
-                      <p className="line-clamp-1 text-[13px] font-extrabold">{schedule.startTime} {displayScheduleName(schedule)}</p>
-                      <p className="mt-0.5 text-[11px] font-semibold text-[#6b7468]">参加予定 {schedule.participantCount}名 / {schedule.statusLabel}</p>
-                    </div>
-                    <div className="grid grid-cols-3 gap-1.5 lg:w-[180px]">
-                      <ActionLink href={schedule.lessonPlanId ? `/lessons/${schedule.lessonPlanId}` : null} label="プラン" />
-                      <ActionLink href={schedule.lessonPlanId ? `/lessons/${schedule.lessonPlanId}/script` : null} label="原稿" />
-                      <ActionLink href={`/lessons/${schedule.id}/record`} label="記録" primary />
-                    </div>
-                  </div>
-                ))}
+      <SectionTitle icon={FilePenLine} title="最近の記録・気づき" subtitle="前回の気づきが、次のレッスンにつながります。" />
+      {insights.length ? (
+        <div className="grid gap-2">
+          {insights.map((insight) => (
+            <article key={insight.id} className="rounded-2xl border border-[#eee4d8] bg-white/74 p-3">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <p className="line-clamp-1 text-[14px] font-extrabold">{insight.lessonName}</p>
+                <span className="text-[11px] font-bold text-[#8b704c]">{formatDateKeyJa(insight.dateKey)}</span>
               </div>
-            ) : (
-              <p className="rounded-xl border border-dashed border-[#d8e3d4] bg-[#f8fcf6] p-3 text-[12px] font-semibold leading-5 text-[#657064]">
-                レッスン予定はありません。プランやブロックを整える時間にできます。
-              </p>
-            )}
-          </article>
-        ))}
-      </div>
+              <p className="mt-1 text-[12px] font-bold text-[#5d956d]">{insight.studentName} さん</p>
+              {insight.todayNote ? <InfoLine label="今日の様子" value={insight.todayNote} /> : null}
+              {insight.personalMemo ? <InfoLine label="個別メモ" value={insight.personalMemo} /> : null}
+              {insight.nextFollow ? <InfoLine label="次回フォロー" value={insight.nextFollow} /> : null}
+              <Link href={insight.href} className="mt-2 inline-flex h-8 items-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] px-2 text-[11px] font-bold text-[#5d956d]">
+                記録を見る
+              </Link>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <EmptyState
+          title="まだ記録はありません。"
+          text="レッスン後に気づきを残すと、生徒カルテや次回プランに活かせます。"
+          actions={[
+            { href: "/lessons?tab=records", label: "記録を見る" },
+            { href: "/schedules/new", label: "予定を登録" },
+          ]}
+        />
+      )}
     </SoftCard>
   );
 }
@@ -527,11 +527,6 @@ function InfoLine({ label, value }: { label: string; value: string }) {
   return <p className="mt-1 line-clamp-2 text-[11px] font-medium leading-4"><span className="font-bold text-[#8b704c]">{label}: </span>{value}</p>;
 }
 
-function CheckStatus({ status }: { status: PreparationCheckItem["status"] }) {
-  const className = status === "OK" ? "border-[#cfe1ca] bg-[#edf5ef] text-[#4f875a]" : status === "要確認" ? "border-[#efd3a7] bg-[#fff7e8] text-[#9b7338]" : "border-[#f2c9bd] bg-[#fff0ea] text-[#b75b48]";
-  return <span className={cn("inline-flex h-7 w-fit items-center justify-center rounded-full border px-2 text-[11px] font-bold", className)}>{status}</span>;
-}
-
 function statusDotClass(status: DashboardSchedule["status"]) {
   if (status === "record_pending") return "bg-[#ec907d]";
   if (status === "recorded") return "bg-[#5d956d]";
@@ -551,15 +546,82 @@ function displayScheduleName(schedule: DashboardSchedule) {
   return schedule.lessonPlanId ? schedule.lessonPlanName : schedule.lessonName;
 }
 
-type PreparationCheckItem = {
-  label: string;
-  detail: string;
-  status: "OK" | "要確認" | "未設定";
-  href: string | null;
-  actionLabel: string;
+type TodayActionItem = DashboardTask;
+
+type HeroVariant = {
+  eyebrow: string;
+  title: string;
+  description: string;
+  meta?: string;
+  actions: Array<{ href: string | null; label: string }>;
 };
 
-type TodayActionItem = DashboardTask;
+function buildPendingHero(schedule: DashboardSchedule): HeroVariant {
+  return {
+    eyebrow: "今日の主役",
+    title: "前回の気づきを、次のレッスンにつなげましょう。",
+    description: "記録待ちのレッスンがあります。忘れないうちに、生徒の反応や改善点を残しておきましょう。",
+    meta: `${formatDateKeyJa(schedule.dateKey)} / ${displayScheduleName(schedule)} / 参加予定 ${schedule.participantCount}名 / ${schedule.statusLabel}`,
+    actions: [
+      { href: `/lessons/${schedule.id}/record`, label: "記録を書く" },
+      { href: `/schedules/${schedule.id}`, label: "レッスンを見る" },
+    ],
+  };
+}
+
+function buildTodayHero(schedule: DashboardSchedule, attentionCount: number): HeroVariant {
+  return {
+    eyebrow: "今日の主役",
+    title: "今日のレッスンを安心して届けましょう。",
+    description: "原稿と参加予定生徒を確認して、前回の気づきを今日の声かけに活かしましょう。",
+    meta: `${schedule.startTime} ${displayScheduleName(schedule)} / 参加予定 ${schedule.participantCount}名 / 注意あり ${attentionCount}名`,
+    actions: [
+      { href: schedule.lessonPlanId ? `/lessons/${schedule.lessonPlanId}/script` : null, label: "原稿を見る" },
+      { href: `/schedules/${schedule.id}`, label: "参加生徒を確認" },
+      { href: `/lessons/${schedule.id}/record`, label: "記録を書く" },
+    ],
+  };
+}
+
+function buildNextHero(schedule: DashboardSchedule): HeroVariant {
+  return {
+    eyebrow: "次の準備",
+    title: "次のレッスンに向けて準備しましょう。",
+    description: "前回メモや生徒の注意点を見ながら、次のレッスンを少しずつ整えられます。",
+    meta: `次回: ${formatDateKeyJa(schedule.dateKey)} ${schedule.startTime} ${displayScheduleName(schedule)}`,
+    actions: [
+      { href: `/schedules/${schedule.id}`, label: "次回の予定を見る" },
+      { href: schedule.lessonPlanId ? `/lessons/${schedule.lessonPlanId}/script` : null, label: "原稿を見る" },
+      { href: `/schedules/${schedule.id}`, label: "参加生徒を確認" },
+    ],
+  };
+}
+
+function buildStarterHero(): HeroVariant {
+  return {
+    eyebrow: "はじめの一歩",
+    title: "まずは、レッスンの土台をひとつ作りましょう。",
+    description: "ブロックを登録すると、レッスンプランをゼロから作らなくても、自分の言葉や流れを再利用できるようになります。",
+    actions: [
+      { href: "#lesson-seeds", label: "スターターブロックを見る" },
+      { href: "#lesson-seeds", label: "レッスンプラン例を見る" },
+      { href: "/blocks/new", label: "ブロックを登録" },
+    ],
+  };
+}
+
+function buildNormalHero(): HeroVariant {
+  return {
+    eyebrow: "今日の育てどころ",
+    title: "次のレッスンに使える準備を育てましょう。",
+    description: "ブロックを整えたり、手書きメモを登録しておくと、次のレッスン準備がもっと楽になります。",
+    actions: [
+      { href: "/blocks/new", label: "ブロックを登録" },
+      { href: "/lessons/new", label: "プランを作成" },
+      { href: "/settings/knowledge/upload", label: "学習メモを追加" },
+    ],
+  };
+}
 
 function buildLibrarySummary(data: DashboardData): Array<{ label: string; value: string; description: string; href: string; icon: LucideIcon }> {
   return [
@@ -581,12 +643,12 @@ function buildTodayActionItems(data: DashboardData): TodayActionItem[] {
       id: "hint-plan",
       kind: "prepare",
       time: "準備",
-      title: "レッスンプランを少し増やしておきましょう",
-      note: "よく使うブロックから1本作ると、次の予定登録が楽になります。",
+      title: "レッスンプランの土台を作る",
+      note: "スターター例から1本下書きのイメージをつかんでみましょう。",
       statusLabel: "育てる",
       tone: "beige",
-      href: "/lessons/new",
-      actionLabel: "プランを作成",
+      href: "#lesson-seeds",
+      actionLabel: "レッスンの種を見る",
     });
   }
 
@@ -635,57 +697,53 @@ function buildTodayActionItems(data: DashboardData): TodayActionItem[] {
     }
   }
 
-  return items.slice(0, 6);
+  return items.slice(0, 3);
 }
 
-function buildPreparationChecks(data: DashboardData, todaySchedules: DashboardSchedule[]): PreparationCheckItem[] {
-  const firstToday = todaySchedules[0];
-  const firstPlanSchedule = todaySchedules.find((schedule) => schedule.lessonPlanId);
-  const firstMissingPlan = todaySchedules.find((schedule) => !schedule.lessonPlanId || schedule.lessonPlanStatus === "draft");
-  const firstNoParticipants = todaySchedules.find((schedule) => schedule.participantCount === 0);
-  const pendingTask = data.tasks.find((task) => task.kind === "record_pending");
-  const followStudent = data.attentionStudents.find((student) => student.nextFollow);
+const starterBlocks = [
+  {
+    name: "スターター：呼吸を整える導入",
+    category: "導入",
+    durationMinutes: 5,
+    purpose: "レッスン冒頭で呼吸と姿勢に意識を向け、落ち着いて始めるための導入。",
+    useCase: "初回参加や緊張がありそうなクラスの冒頭",
+    cautions: "息を深めようとしすぎず、苦しさがあれば自然な呼吸に戻るよう案内します。",
+    script: "楽な姿勢で座り、背骨をすっと長くします。肩の力を抜いて、まずは今の呼吸をそのまま感じましょう。吸う息で胸の内側に少し広がりを感じ、吐く息で肩や表情の力をゆるめます。呼吸を無理に変えようとせず、今日の体の状態に気づく時間にしていきます。",
+    tags: ["#呼吸", "#導入", "#初心者向け"],
+  },
+  {
+    name: "スターター：肩まわりをほぐすウォームアップ",
+    category: "ウォーミングアップ",
+    durationMinutes: 8,
+    purpose: "首肩まわりをやさしく動かし、上半身の緊張に気づくためのウォームアップ。",
+    useCase: "肩こりが出やすい生徒やデスクワーク後のクラス",
+    cautions: "首や肩に痛みがある場合は可動域を小さくし、強く伸ばさないようにします。",
+    script: "吸う息で肩を耳に近づけ、吐く息で肩を後ろから下へゆっくり下ろします。動きの大きさよりも、どこに力が入りやすいかを観察しましょう。次に両手を肩に添え、肘で小さな円を描きます。呼吸が止まらない範囲で、肩甲骨まわりにやさしく空間を作ります。",
+    tags: ["#肩こり改善", "#ウォームアップ", "#やさしい"],
+  },
+  {
+    name: "スターター：シャバーサナ前の声かけ",
+    category: "クールダウン",
+    durationMinutes: 4,
+    purpose: "最後の休息に入りやすくするため、体の力を抜く準備を整える声かけ。",
+    useCase: "リラックス系レッスンや夜のクラスの終盤",
+    cautions: "腰や首に違和感がある場合は膝下や頭の高さを調整するよう促します。",
+    script: "仰向けになったら、足幅を少し開き、手のひらを楽な向きにします。腰や首に違和感があれば、膝を立てたり、頭の下に高さを入れても大丈夫です。吐く息ごとに、床に体を預けていきます。今日動かしたところ、がんばったところに、やさしく休む許可を出していきましょう。",
+    tags: ["#クールダウン", "#リラックス", "#シャバーサナ"],
+  },
+] as const;
 
-  return [
-    {
-      label: "レッスンプラン",
-      status: todaySchedules.length === 0 ? "OK" : firstMissingPlan ? "要確認" : "OK",
-      detail: todaySchedules.length === 0 ? "今日の予定はありません。次のプランを整える余白にできます。" : firstMissingPlan ? "プラン未設定、または下書きの予定があります。" : "今日の予定にプランが紐づいています。",
-      href: firstMissingPlan ? `/schedules/${firstMissingPlan.id}` : firstPlanSchedule?.lessonPlanId ? `/lessons/${firstPlanSchedule.lessonPlanId}` : null,
-      actionLabel: firstMissingPlan ? "予定を見る" : "プランを見る",
-    },
-    {
-      label: "原稿確認",
-      status: todaySchedules.length === 0 ? "OK" : firstPlanSchedule ? "OK" : "未設定",
-      detail: firstPlanSchedule ? "レッスン前に流れと声かけを確認できます。" : todaySchedules.length === 0 ? "今日の原稿確認はありません。" : "原稿を出すにはプランの紐づけが必要です。",
-      href: firstPlanSchedule?.lessonPlanId ? `/lessons/${firstPlanSchedule.lessonPlanId}/script` : null,
-      actionLabel: "原稿を見る",
-    },
-    {
-      label: "参加予定生徒",
-      status: todaySchedules.length === 0 ? "OK" : firstNoParticipants ? "要確認" : "OK",
-      detail: firstNoParticipants ? "参加予定生徒が未登録の予定があります。" : todaySchedules.length === 0 ? "今日の参加予定はありません。" : "生徒の注意点を事前に確認できます。",
-      href: firstNoParticipants ? `/schedules/${firstNoParticipants.id}` : firstToday ? `/schedules/${firstToday.id}` : null,
-      actionLabel: "予定を見る",
-    },
-    {
-      label: "記録待ち",
-      status: pendingTask ? "要確認" : "OK",
-      detail: pendingTask ? "前回の気づきが薄れる前に残しておきましょう。" : "未処理の記録待ちはありません。",
-      href: pendingTask?.href ?? null,
-      actionLabel: "記録を書く",
-    },
-    {
-      label: "次回フォロー",
-      status: followStudent ? "要確認" : "OK",
-      detail: followStudent ? "前回のメモから、次回声をかけたい内容があります。" : "次回フォローはありません。",
-      href: followStudent ? `/students/${followStudent.id}#next-follow` : null,
-      actionLabel: "生徒カルテ",
-    },
-  ];
-}
-
-function formatShortDate(dateKey: string) {
-  const [, month, day] = dateKey.split("-");
-  return `${Number(month)}/${Number(day)}`;
-}
+const starterPlans = [
+  {
+    name: "やさしい呼吸とリラックスヨガ 60分",
+    minutes: 60,
+    purpose: "呼吸・肩まわり・クールダウンを中心に、落ち着いて体を整えるプラン例。",
+    blocks: ["呼吸を整える導入", "肩まわりウォームアップ", "シャバーサナ前の声かけ"],
+  },
+  {
+    name: "肩まわりをゆるめるベーシックフロー",
+    minutes: 60,
+    purpose: "上半身の緊張に気づきながら、やさしい立位と呼吸を組み合わせるプラン例。",
+    blocks: ["肩まわりウォームアップ", "ベーシック立位", "クールダウン"],
+  },
+] as const;
