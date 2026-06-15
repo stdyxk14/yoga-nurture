@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 const mojibakePattern = /\?{5,}|・ｽ|郢|邵|隴|驍|陷|鬮|繝|縺|螳|逕|譛|謠|險|蛹|蜿|鬆/;
 
 const protectedPages = [
-  { path: "/dashboard", text: "今日のホーム" },
+  { path: "/dashboard", text: "今日のレッスンを整えましょう" },
   { path: "/students", text: "生徒カルテ" },
   { path: "/lessons", text: "レッスンカルテ" },
   { path: "/reports", text: "レポート" },
