@@ -218,7 +218,7 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
   return (
     <>
       <form action={formAction} className="space-y-4 pb-24 md:pb-0">
-      <div className="grid gap-4 xl:grid-cols-[300px_minmax(0,1fr)_340px]">
+      <div className="grid gap-4 xl:grid-cols-[280px_minmax(640px,1fr)] 2xl:grid-cols-[280px_minmax(640px,1fr)_320px]">
         <div className="space-y-4">
           <SoftCard className="p-4">
             <SectionTitle icon={FileText} title={mode === "new" ? "レッスンプランを作成" : "レッスンプランを編集"} subtitle="ブロックを組み合わせて、印刷できる原稿を作ります。" />
@@ -269,15 +269,17 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
         </div>
 
         <SoftCard className="min-w-0 !overflow-visible p-4">
-          <div ref={searchHeaderRef} className="-mx-2 -mt-2 rounded-3xl border border-[#e5ded3] bg-[#fffdf8] p-2">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <SectionTitle icon={Plus} title="ブロック候補" subtitle={`${filteredBlocks.length}件中 ${visibleBlocks.length}件を表示`} />
-              <Link href="/blocks/new" className="inline-flex h-9 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
+          <div ref={searchHeaderRef} className="-mx-1 -mt-1 rounded-3xl border border-[#e5ded3] bg-[#fffdf8] p-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <SectionTitle icon={Plus} title="ブロック候補" subtitle={`${filteredBlocks.length}件中 ${visibleBlocks.length}件を表示`} />
+              </div>
+              <Link href="/blocks/new" className="inline-flex h-9 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
                 ブロックを登録
               </Link>
             </div>
 
-            <div className="mt-3 grid gap-2">
+            <div className="mt-3 grid gap-3">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8a9286]" />
                 <Input
@@ -293,11 +295,11 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
                 ) : null}
               </div>
 
-              <div className="flex gap-2 overflow-x-auto pb-1">
+              <div className="flex gap-2 overflow-x-auto overscroll-x-contain whitespace-nowrap pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <button
                   type="button"
                   onClick={() => { setCategoryId(""); setSubcategoryId(""); }}
-                  className={!categoryId ? "shrink-0 rounded-full bg-[#7ea06f] px-4 py-2 text-[12px] font-bold text-white" : "shrink-0 rounded-full border border-[#e1d9ce] bg-white px-4 py-2 text-[12px] font-bold text-[#5d6b58]"}
+                  className={!categoryId ? "min-w-fit shrink-0 whitespace-nowrap rounded-full bg-[#7ea06f] px-4 py-2 text-[12px] font-bold text-white" : "min-w-fit shrink-0 whitespace-nowrap rounded-full border border-[#e1d9ce] bg-white px-4 py-2 text-[12px] font-bold text-[#5d6b58]"}
                 >
                   すべて
                 </button>
@@ -306,15 +308,15 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
                     key={category.id}
                     type="button"
                     onClick={() => { setCategoryId(category.id); setSubcategoryId(""); }}
-                    className={categoryId === category.id ? "shrink-0 rounded-full bg-[#7ea06f] px-4 py-2 text-[12px] font-bold text-white" : "shrink-0 rounded-full border border-[#e1d9ce] bg-white px-4 py-2 text-[12px] font-bold text-[#5d6b58]"}
+                    className={categoryId === category.id ? "min-w-fit shrink-0 whitespace-nowrap rounded-full bg-[#7ea06f] px-4 py-2 text-[12px] font-bold text-white" : "min-w-fit shrink-0 whitespace-nowrap rounded-full border border-[#e1d9ce] bg-white px-4 py-2 text-[12px] font-bold text-[#5d6b58]"}
                   >
                     {category.name}
                   </button>
                 ))}
               </div>
 
-              <div className="grid gap-2 lg:grid-cols-[1fr_auto_auto] lg:items-center">
-                <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-col gap-2">
+                <div className="flex min-w-0 flex-wrap gap-1.5">
                   {hasFilters ? (
                     <>
                       {query ? <ActiveFilterChip label={`検索: ${query}`} onClear={() => setQuery("")} /> : null}
@@ -328,22 +330,25 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
                       {condition ? <ActiveFilterChip label={conditionLabel(condition)} onClear={() => setCondition("")} /> : null}
                     </>
                   ) : (
-                    <span className="rounded-full bg-[#f8f6f0] px-3 py-1 text-[11px] font-bold text-[#6b7468]">PCでは候補カードを作成中プランへドラッグして追加できます</span>
+                    <span className="hidden max-w-full overflow-hidden truncate whitespace-nowrap rounded-full bg-[#f8f6f0] px-3 py-1 text-[11px] font-bold text-[#6b7468] lg:inline-flex">
+                      PCでは、候補カードを作成中プランへドラッグして追加できます。
+                    </span>
                   )}
                 </div>
-                <div className="grid grid-cols-2 gap-2 sm:flex">
-                  <button type="button" onClick={() => setFiltersOpen(true)} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={() => setFiltersOpen(true)} className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
                     <Filter className="h-3.5 w-3.5" />
                     詳細フィルター
                   </button>
                   {hasFilters ? (
-                    <button type="button" onClick={clearFilters} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
+                    <button type="button" onClick={clearFilters} className="inline-flex h-9 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
                       条件をクリア
                     </button>
                   ) : null}
-                </div>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,170px)_auto]">
-                  <select value={sort} onChange={(event) => setSort(event.target.value)} className="h-9 rounded-xl border border-[#e1d9ce] bg-white px-3 text-[12px] font-bold text-[#4f5a48]">
+                  </div>
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <select value={sort} onChange={(event) => setSort(event.target.value)} className="h-9 min-w-[150px] shrink-0 rounded-xl border border-[#e1d9ce] bg-white px-3 text-[12px] font-bold text-[#4f5a48]">
                     <option value="recent">最近使った順</option>
                     <option value="usage">使用回数順</option>
                     <option value="good">良かった率順</option>
@@ -351,10 +356,11 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
                     <option value="name">ブロック名順</option>
                     <option value="duration">目安時間順</option>
                   </select>
-                  <div className="grid grid-cols-3 rounded-xl border border-[#e1d9ce] bg-white p-0.5">
+                  <div className="grid shrink-0 grid-cols-3 rounded-xl border border-[#e1d9ce] bg-white p-0.5">
                     <ViewModeButton active={viewMode === "cards"} icon={LayoutGrid} label="カード" onClick={() => setViewMode("cards")} />
                     <ViewModeButton active={viewMode === "compact"} icon={List} label="一覧" onClick={() => setViewMode("compact")} />
                     <ViewModeButton active={viewMode === "category"} icon={Layers3} label="カテゴリ別" onClick={() => setViewMode("category")} />
+                  </div>
                   </div>
                 </div>
               </div>
@@ -487,7 +493,7 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
         </SoftCard>
 
         <SoftCard
-          className="sticky bottom-20 z-10 max-h-[72vh] overflow-auto p-4 md:bottom-4 xl:top-4 xl:max-h-none xl:!overflow-visible"
+          className="sticky bottom-20 z-10 max-h-[72vh] overflow-auto p-4 md:bottom-4 xl:col-span-2 xl:max-h-none xl:!overflow-visible 2xl:col-span-1"
           onDragOver={(event) => event.preventDefault()}
           onDrop={(event) => handleDrop(event)}
         >
@@ -811,7 +817,7 @@ function FloatingBlockSearchBar({
   setViewMode: (value: BlockViewMode) => void;
 }) {
   return (
-    <div className="pointer-events-none fixed bottom-5 left-[528px] right-[372px] z-40 hidden xl:block">
+    <div className="pointer-events-none fixed bottom-5 left-[220px] right-6 z-40 hidden xl:block 2xl:left-[500px] 2xl:right-[350px]">
       {filtersOpen ? (
         <div className="pointer-events-auto mb-2 max-h-[56vh] overflow-y-auto rounded-3xl border border-[#e5ded3] bg-[#fffdf8] p-3 shadow-[0_12px_30px_rgba(75,65,48,0.12)]">
           <FilterControls
@@ -841,7 +847,7 @@ function FloatingBlockSearchBar({
       ) : null}
       <div className="pointer-events-auto rounded-3xl border border-[#e5ded3] bg-[#fffdf8]/96 p-2 shadow-[0_10px_26px_rgba(75,65,48,0.12)] backdrop-blur">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative min-w-[190px] flex-1">
+          <div className="relative min-w-[260px] flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#8a9286]" />
             <Input
               value={query}
@@ -861,18 +867,18 @@ function FloatingBlockSearchBar({
               setCategoryId(event.target.value);
               setSubcategoryId("");
             }}
-            className="h-9 w-[126px] rounded-xl border border-[#e1d9ce] bg-white px-2 text-[12px] font-bold text-[#4f5a48]"
+            className="h-9 w-[150px] shrink-0 rounded-xl border border-[#e1d9ce] bg-white px-2 text-[12px] font-bold text-[#4f5a48]"
           >
             <option value="">すべて</option>
             {categories.filter((category) => !category.archived).map((category) => (
               <option key={category.id} value={category.id}>{category.name}</option>
             ))}
           </select>
-          <button type="button" onClick={() => setFiltersOpen(!filtersOpen)} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
+          <button type="button" onClick={() => setFiltersOpen(!filtersOpen)} className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
             <Filter className="h-3.5 w-3.5" />
             絞り込み
           </button>
-          <select value={sort} onChange={(event) => setSort(event.target.value)} className="h-9 w-[132px] rounded-xl border border-[#e1d9ce] bg-white px-2 text-[12px] font-bold text-[#4f5a48]">
+          <select value={sort} onChange={(event) => setSort(event.target.value)} className="h-9 w-[142px] shrink-0 rounded-xl border border-[#e1d9ce] bg-white px-2 text-[12px] font-bold text-[#4f5a48]">
             <option value="recent">最近使った順</option>
             <option value="usage">使用回数順</option>
             <option value="good">良かった率順</option>
@@ -880,16 +886,16 @@ function FloatingBlockSearchBar({
             <option value="name">ブロック名順</option>
             <option value="duration">目安時間順</option>
           </select>
-          <div className="grid grid-cols-3 rounded-xl border border-[#e1d9ce] bg-white p-0.5">
+          <div className="hidden shrink-0 grid-cols-3 rounded-xl border border-[#e1d9ce] bg-white p-0.5 2xl:grid">
             <ViewModeButton active={viewMode === "cards"} icon={LayoutGrid} label="カード" onClick={() => setViewMode("cards")} />
             <ViewModeButton active={viewMode === "compact"} icon={List} label="一覧" onClick={() => setViewMode("compact")} />
             <ViewModeButton active={viewMode === "category"} icon={Layers3} label="カテゴリ別" onClick={() => setViewMode("category")} />
           </div>
-          <span className="shrink-0 rounded-full bg-[#edf5ef] px-2.5 py-1 text-[11px] font-extrabold text-[#4f875a]">
+          <span className="shrink-0 whitespace-nowrap rounded-full bg-[#edf5ef] px-2.5 py-1 text-[11px] font-extrabold text-[#4f875a]">
             {filteredCount}件中 {visibleCount}件
           </span>
           {hasFilters ? (
-            <button type="button" onClick={clearFilters} className="inline-flex h-8 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white px-2.5 text-[11px] font-bold text-[#4f7b58]">
+            <button type="button" onClick={clearFilters} className="inline-flex h-8 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-[#d8e3d4] bg-white px-2.5 text-[11px] font-bold text-[#4f7b58]">
               クリア
             </button>
           ) : null}
@@ -983,7 +989,7 @@ function BlockCompactRow({
 
 function ActiveFilterChip({ label, onClear }: { label: string; onClear: () => void }) {
   return (
-    <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-[#edf5ef] px-2.5 py-1 text-[11px] font-bold text-[#4f875a]">
+    <span className="inline-flex max-w-full shrink-0 items-center gap-1 rounded-full bg-[#edf5ef] px-2.5 py-1 text-[11px] font-bold text-[#4f875a]">
       <span className="truncate">{label}</span>
       <button type="button" onClick={onClear} className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-white/80" aria-label={`${label}を解除`}>
         <X className="h-3 w-3" />
@@ -994,7 +1000,7 @@ function ActiveFilterChip({ label, onClear }: { label: string; onClear: () => vo
 
 function ViewModeButton({ active, icon: Icon, label, onClick }: { active: boolean; icon: typeof LayoutGrid; label: string; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className={active ? "inline-flex h-8 items-center justify-center gap-1 rounded-lg bg-[#7ea06f] px-2 text-[11px] font-bold text-white" : "inline-flex h-8 items-center justify-center gap-1 rounded-lg px-2 text-[11px] font-bold text-[#5d6b58]"}>
+    <button type="button" onClick={onClick} className={active ? "inline-flex h-8 min-w-9 items-center justify-center gap-1 whitespace-nowrap rounded-lg bg-[#7ea06f] px-2 text-[11px] font-bold text-white" : "inline-flex h-8 min-w-9 items-center justify-center gap-1 whitespace-nowrap rounded-lg px-2 text-[11px] font-bold text-[#5d6b58]"}>
       <Icon className="h-3.5 w-3.5" />
       <span className="hidden sm:inline">{label}</span>
     </button>
