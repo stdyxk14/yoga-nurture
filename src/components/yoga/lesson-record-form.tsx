@@ -58,6 +58,12 @@ type LessonRecordFormData = {
     id: string;
     name: string;
     caution: string;
+    pendingFollowUps: Array<{
+      id: string;
+      text: string;
+      lessonName: string;
+      date: string;
+    }>;
     attendanceStatus: "present" | "cancelled" | "no_show";
     todayNote: string;
     personalMemo: string;
@@ -233,6 +239,33 @@ export function LessonRecordForm({
                     </select>
                   </Field>
                 </div>
+                {student.pendingFollowUps.length ? (
+                  <div className="mb-3 grid gap-2 rounded-2xl border border-[#efd3a7] bg-[#fffaf0] p-3">
+                    <p className="text-[12px] font-extrabold text-[#9b7338]">前回からのフォロー</p>
+                    {student.pendingFollowUps.map((follow) => (
+                      <div key={follow.id} className="rounded-xl bg-white/70 p-3">
+                        <input type="hidden" name={`student_${student.id}_pending_follow_up_ids`} value={follow.id} />
+                        <p className="text-[12px] font-bold text-[#6b7468]">{follow.date} / {follow.lessonName}</p>
+                        <p className="mt-1 text-[13px] font-semibold leading-5 text-[#394238]">{follow.text}</p>
+                        <div className="mt-3 grid gap-2 text-[12px] font-bold md:grid-cols-3">
+                          <label className="flex items-center gap-2 rounded-lg border border-[#cfe1ca] bg-white px-2 py-2">
+                            <input type="radio" name={`follow_up_${follow.id}_status`} value="completed" className="h-4 w-4 accent-[#5d956d]" />
+                            今回確認しました
+                          </label>
+                          <label className="flex items-center gap-2 rounded-lg border border-[#d8e3d4] bg-white px-2 py-2">
+                            <input type="radio" name={`follow_up_${follow.id}_status`} value="pending" defaultChecked className="h-4 w-4 accent-[#9b7338]" />
+                            まだ継続する
+                          </label>
+                          <label className="flex items-center gap-2 rounded-lg border border-[#ead7d2] bg-white px-2 py-2">
+                            <input type="radio" name={`follow_up_${follow.id}_status`} value="dismissed" className="h-4 w-4 accent-[#d96c55]" />
+                            見送りにする
+                          </label>
+                        </div>
+                        <Input name={`follow_up_${follow.id}_note`} placeholder="対応メモ（任意）" className="mt-2 h-9 bg-white/90 text-[12px]" />
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
                 <div className="grid gap-3 md:grid-cols-3">
                   <Field label="今日の様子">
                     <Textarea name={`student_${student.id}_today_note`} defaultValue={student.todayNote} className="min-h-[82px] bg-white/90 text-[13px]" />

@@ -120,6 +120,13 @@ export type StudentObservation = {
   date: string;
   lessonTitle: string;
   lessonId?: string;
+  scheduleId?: string | null;
+  lessonRecordId?: string | null;
+  lessonPlanId?: string | null;
+  followUpId?: string | null;
+  followUpStatus?: FollowUpStatus;
+  followUpCompletedAt?: string | null;
+  followUpCompletedNote?: string | null;
   attendanceStatus: AttendanceStatus;
   condition: string;
   memo?: string;
@@ -128,6 +135,13 @@ export type StudentObservation = {
 
 export type StudentLessonHistory = {
   lessonId: string;
+  scheduleId?: string | null;
+  lessonRecordId?: string | null;
+  lessonPlanId?: string | null;
+  followUpId?: string | null;
+  followUpStatus?: FollowUpStatus;
+  followUpCompletedAt?: string | null;
+  followUpCompletedNote?: string | null;
   date: string;
   lessonTitle: string;
   planName: string;
@@ -146,6 +160,8 @@ export type StudentAttendanceStats = {
   lastAttendedDate: string;
   nextScheduledDate: string;
 };
+
+export type FollowUpStatus = "none" | "pending" | "completed" | "dismissed";
 
 export const students: StudentRecord[] = [
   {

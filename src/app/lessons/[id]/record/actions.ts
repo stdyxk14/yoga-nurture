@@ -5,6 +5,11 @@ import { redirect } from "next/navigation";
 import { parseLessonRecordPayload, type LessonRecordFormState } from "@/lib/lesson-records";
 import { requireUserId } from "@/lib/students";
 
+function isMissingFollowUpColumn(error: { message?: string; code?: string } | null | undefined) {
+  const message = error?.message?.toLowerCase() ?? "";
+  return error?.code === "42703" || message.includes("follow_up_status") || message.includes("follow_up_completed");
+}
+
 export async function saveLessonRecordAction(
   _prevState: LessonRecordFormState,
   formData: FormData,
@@ -85,20 +90,53 @@ export async function saveLessonRecordAction(
       if (blockError) return { error: `ブロックごとの記録を保存できませんでした: ${blockError.message}` };
     }
 
+    for (const followUp of parsed.previousFollowUps) {
+      if (!followUp.id || followUp.status === "pending") continue;
+      const now = new Date().toISOString();
+      const { error: followError } = await supabase
+        .from("lesson_record_students")
+        .update({
+          follow_up_status: followUp.status,
+          follow_up_completed_at: now,
+          follow_up_completed_note: followUp.note,
+          follow_up_updated_at: now,
+        })
+        .eq("id", followUp.id);
+
+      if (isMissingFollowUpColumn(followError)) {
+        return { error: "次回フォローの状態管理カラムがまだSupabaseに適用されていません。004_follow_up_status.sql を実行してください。" };
+      }
+      if (followError) return { error: `前回フォローを更新できませんでした: ${followError.message}` };
+    }
+
     const { error: deleteStudentsError } = await supabase.from("lesson_record_students").delete().eq("lesson_record_id", recordId);
     if (deleteStudentsError) return { error: `既存の生徒別記録を更新できませんでした: ${deleteStudentsError.message}` };
 
     if (parsed.students.length) {
-      const { error: studentError } = await supabase.from("lesson_record_students").insert(
-        parsed.students.map((student) => ({
-          lesson_record_id: recordId,
+      const studentRows = parsed.students.map((student) => ({
+        lesson_record_id: recordId,
+        student_id: student.student_id,
+        attendance_status: student.attendance_status,
+        condition: student.condition,
+        memo: student.memo,
+        next_follow: student.next_follow,
+        follow_up_status: student.next_follow ? "pending" : "none",
+        follow_up_updated_at: new Date().toISOString(),
+      }));
+      let { error: studentError } = await supabase.from("lesson_record_students").insert(studentRows);
+
+      if (isMissingFollowUpColumn(studentError)) {
+        const fallbackRows = studentRows.map((student) => ({
+          lesson_record_id: student.lesson_record_id,
           student_id: student.student_id,
           attendance_status: student.attendance_status,
           condition: student.condition,
           memo: student.memo,
           next_follow: student.next_follow,
-        })),
-      );
+        }));
+        const fallback = await supabase.from("lesson_record_students").insert(fallbackRows);
+        studentError = fallback.error;
+      }
 
       if (studentError) return { error: `参加生徒ごとの記録を保存できませんでした: ${studentError.message}` };
     }

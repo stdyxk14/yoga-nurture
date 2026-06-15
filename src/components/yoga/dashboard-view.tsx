@@ -5,6 +5,7 @@ import { useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { AlertCircle, Blocks, BookOpenText, CalendarDays, ChevronRight, ClipboardCheck, FilePenLine, HeartHandshake, LibraryBig, ListTodo, Plus, Sparkles, UserPlus, UserRound } from "lucide-react";
 import { importStarterBlockAction } from "@/app/dashboard/actions";
+import { updateFollowUpStatusAction } from "@/app/follow-ups/actions";
 import { SectionTitle, SoftCard } from "@/components/yoga/page-kit";
 import type { DashboardData, DashboardSchedule, DashboardTask } from "@/lib/dashboard";
 import { formatDateKeyJa } from "@/lib/date-format";
@@ -351,9 +352,23 @@ function NextFollow({ students }: { students: DashboardData["attentionStudents"]
             <span className="shrink-0 rounded-full bg-white px-2 py-1 text-[10px] font-bold text-[#d95c70]">要フォロー</span>
           </div>
           <p className="mt-3 line-clamp-3 text-[13px] font-semibold leading-6 text-[#4c554a]">{follow.nextFollow}</p>
-          <Link href={`/students/${follow.id}#next-follow`} className="mt-3 inline-flex h-9 items-center justify-center rounded-xl bg-[#5d956d] px-3 text-[12px] font-bold text-white">
-            生徒カルテを見る
-          </Link>
+          <div className="mt-3 grid gap-2">
+            <Link href={`/students/${follow.id}#next-follow`} className="inline-flex h-9 items-center justify-center rounded-xl bg-[#5d956d] px-3 text-[12px] font-bold text-white">
+              生徒カルテを見る
+            </Link>
+            {follow.followUpId ? (
+              <form action={updateFollowUpStatusAction} className="grid gap-2">
+                <input type="hidden" name="follow_up_id" value={follow.followUpId} />
+                <input type="hidden" name="student_id" value={follow.id} />
+                <input type="hidden" name="schedule_id" value={follow.followScheduleId ?? ""} />
+                <input type="hidden" name="status" value="completed" />
+                <input type="text" name="note" placeholder="対応メモ（任意）" className="h-9 rounded-xl border border-[#ead7d2] bg-white/80 px-3 text-[12px] font-semibold outline-none" />
+                <button className="inline-flex h-9 items-center justify-center rounded-xl border border-[#ead7d2] bg-white px-3 text-[12px] font-bold text-[#b65c4b]">
+                  対応済みにする
+                </button>
+              </form>
+            ) : null}
+          </div>
         </div>
       ) : (
         <p className="rounded-xl border border-dashed border-[#d8e3d4] bg-[#f8fcf6] p-3 text-[12px] font-semibold leading-5 text-[#657064]">

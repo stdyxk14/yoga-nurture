@@ -1,4 +1,4 @@
-import type { AttendanceStatus, BlockUsageHistory, StudentAttendanceStats, StudentLessonHistory, StudentObservation } from "@/components/yoga/records";
+import type { AttendanceStatus, BlockUsageHistory, FollowUpStatus, StudentAttendanceStats, StudentLessonHistory, StudentObservation } from "@/components/yoga/records";
 import { formatJapaneseDate } from "@/lib/date-format";
 import { getScheduleById, type DbSchedule } from "@/lib/schedules";
 import { requireUserId } from "@/lib/students";
@@ -34,10 +34,18 @@ export type LessonRecordStudentFormItem = {
   caution: string;
   memo: string;
   recordStudentId?: string;
+  pendingFollowUps: PendingFollowUp[];
   attendanceStatus: StudentAttendanceCode;
   todayNote: string;
   personalMemo: string;
   nextFollow: string;
+};
+
+export type PendingFollowUp = {
+  id: string;
+  text: string;
+  lessonName: string;
+  date: string;
 };
 
 export type LessonRecordFormData = {
@@ -107,7 +115,7 @@ type RawRecordBlock = {
     lesson_plan_id: string | null;
     schedule?: {
       starts_at: string | null;
-      lesson_plan?: { name: string | null } | null;
+      lesson_plan?: { id?: string | null; name: string | null } | null;
     } | null;
   } | null;
 };
@@ -120,6 +128,10 @@ type RawStudentRecord = {
   condition: string | null;
   memo: string | null;
   next_follow: string | null;
+  follow_up_status?: FollowUpStatus | null;
+  follow_up_completed_at?: string | null;
+  follow_up_completed_note?: string | null;
+  follow_up_updated_at?: string | null;
   record?: {
     id: string;
     schedule_id: string | null;
@@ -168,6 +180,16 @@ export const attendanceOptions = [
   { value: "cancelled", label: "キャンセル" },
   { value: "no_show", label: "無断欠席" },
 ] as const;
+
+function normalizeFollowUpStatus(row: Pick<RawStudentRecord, "next_follow" | "follow_up_status">): FollowUpStatus {
+  if (row.follow_up_status) return row.follow_up_status;
+  return row.next_follow?.trim() ? "pending" : "none";
+}
+
+function isMissingFollowUpColumn(error: { message?: string; code?: string } | null | undefined) {
+  const message = error?.message?.toLowerCase() ?? "";
+  return error?.code === "42703" || message.includes("follow_up_status") || message.includes("follow_up_completed");
+}
 
 function formatDate(value: string | null | undefined) {
   if (!value) return "未記録";
@@ -246,11 +268,101 @@ async function getRecordStudentRows(recordId: string | undefined) {
   const { supabase } = await requireUserId();
   const { data, error } = await supabase
     .from("lesson_record_students")
-    .select("id,lesson_record_id,student_id,attendance_status,condition,memo,next_follow")
+    .select("id,lesson_record_id,student_id,attendance_status,condition,memo,next_follow,follow_up_status,follow_up_completed_at,follow_up_completed_note,follow_up_updated_at")
     .eq("lesson_record_id", recordId);
+
+  if (isMissingFollowUpColumn(error)) {
+    const fallback = await supabase
+      .from("lesson_record_students")
+      .select("id,lesson_record_id,student_id,attendance_status,condition,memo,next_follow")
+      .eq("lesson_record_id", recordId);
+    if (fallback.error) throw new Error(fallback.error.message);
+    return (fallback.data ?? []) as RawStudentRecord[];
+  }
 
   if (error) throw new Error(`生徒別記録を取得できませんでした: ${error.message}`);
   return (data ?? []) as RawStudentRecord[];
+}
+
+async function getPendingFollowUpsForStudents(studentIds: string[], currentRecordId?: string) {
+  if (!studentIds.length) return new Map<string, PendingFollowUp[]>();
+  const { supabase } = await requireUserId();
+  const extendedResult = await supabase
+    .from("lesson_record_students")
+    .select(`
+      id,
+      lesson_record_id,
+      student_id,
+      attendance_status,
+      condition,
+      memo,
+      next_follow,
+      follow_up_status,
+      follow_up_completed_at,
+      follow_up_completed_note,
+      follow_up_updated_at,
+      record:lesson_records(
+        id,
+        schedule_id,
+        lesson_name,
+        record_date,
+        lesson_plan_id,
+        schedule:schedules(starts_at,lesson_plan:lesson_plans(id,name))
+      )
+    `)
+    .in("student_id", studentIds)
+    .not("next_follow", "is", null)
+    .order("created_at", { ascending: false });
+
+  let rows: RawStudentRecord[] = [];
+  if (isMissingFollowUpColumn(extendedResult.error)) {
+    const fallbackResult = await supabase
+      .from("lesson_record_students")
+      .select(`
+        id,
+        lesson_record_id,
+        student_id,
+        attendance_status,
+        condition,
+        memo,
+        next_follow,
+        record:lesson_records(
+          id,
+          schedule_id,
+          lesson_name,
+          record_date,
+          lesson_plan_id,
+          schedule:schedules(starts_at,lesson_plan:lesson_plans(name))
+        )
+      `)
+      .in("student_id", studentIds)
+      .not("next_follow", "is", null)
+      .order("created_at", { ascending: false });
+    if (fallbackResult.error) return new Map<string, PendingFollowUp[]>();
+    rows = (fallbackResult.data ?? []) as unknown as RawStudentRecord[];
+  } else {
+    if (extendedResult.error) return new Map<string, PendingFollowUp[]>();
+    rows = (extendedResult.data ?? []) as unknown as RawStudentRecord[];
+  }
+
+  const pending = new Map<string, PendingFollowUp[]>();
+
+  for (const row of rows) {
+    if (!row.next_follow?.trim()) continue;
+    if (row.lesson_record_id === currentRecordId) continue;
+    if (normalizeFollowUpStatus(row) !== "pending") continue;
+
+    const items = pending.get(row.student_id) ?? [];
+    items.push({
+      id: row.id,
+      text: row.next_follow,
+      lessonName: row.record?.lesson_name ?? "レッスン",
+      date: formatDate(row.record?.schedule?.starts_at ?? row.record?.record_date),
+    });
+    pending.set(row.student_id, items);
+  }
+
+  return pending;
 }
 
 async function getPlanBlocksForSchedule(schedule: DbSchedule | null) {
@@ -328,6 +440,7 @@ export async function getLessonRecordFormData(scheduleId: string): Promise<Lesso
     });
 
   const recordStudentByStudent = new Map(recordStudents.map((item) => [item.student_id, item]));
+  const pendingFollowUpsByStudent = await getPendingFollowUpsForStudents(schedule.participants.map((student) => student.id), record?.id);
   const students = schedule.participants.map((student) => {
     const existing = recordStudentByStudent.get(student.id);
     return {
@@ -336,6 +449,7 @@ export async function getLessonRecordFormData(scheduleId: string): Promise<Lesso
       caution: student.caution,
       memo: student.memo,
       recordStudentId: existing?.id,
+      pendingFollowUps: pendingFollowUpsByStudent.get(student.id) ?? [],
       attendanceStatus: existing?.attendance_status ?? student.attendanceStatus,
       todayNote: existing?.condition ?? "",
       personalMemo: existing?.memo ?? "",
@@ -373,7 +487,7 @@ export async function getLessonRecords() {
 
 export async function getStudentRecordInsights(studentId: string) {
   const { supabase } = await requireUserId();
-  const { data, error } = await supabase
+  const extendedResult = await supabase
     .from("lesson_record_students")
     .select(`
       id,
@@ -383,25 +497,65 @@ export async function getStudentRecordInsights(studentId: string) {
       condition,
       memo,
       next_follow,
+      follow_up_status,
+      follow_up_completed_at,
+      follow_up_completed_note,
+      follow_up_updated_at,
       record:lesson_records(
         id,
         schedule_id,
         lesson_name,
         record_date,
         lesson_plan_id,
-        schedule:schedules(starts_at,lesson_plan:lesson_plans(name))
+        schedule:schedules(starts_at,lesson_plan:lesson_plans(id,name))
       )
     `)
     .eq("student_id", studentId)
     .order("created_at", { ascending: false });
 
-  if (error) throw new Error(`生徒の実施後記録を取得できませんでした: ${error.message}`);
-  const rows = (data ?? []) as unknown as RawStudentRecord[];
+  let rows: RawStudentRecord[] = [];
+  let queryError = extendedResult.error;
+  if (isMissingFollowUpColumn(extendedResult.error)) {
+    const fallbackResult = await supabase
+      .from("lesson_record_students")
+      .select(`
+        id,
+        lesson_record_id,
+        student_id,
+        attendance_status,
+        condition,
+        memo,
+        next_follow,
+        record:lesson_records(
+          id,
+          schedule_id,
+          lesson_name,
+          record_date,
+          lesson_plan_id,
+          schedule:schedules(starts_at,lesson_plan:lesson_plans(id,name))
+        )
+      `)
+      .eq("student_id", studentId)
+      .order("created_at", { ascending: false });
+    queryError = fallbackResult.error;
+    rows = (fallbackResult.data ?? []) as unknown as RawStudentRecord[];
+  } else {
+    rows = (extendedResult.data ?? []) as unknown as RawStudentRecord[];
+  }
+
+  if (queryError) throw new Error(`生徒の実施後記録を取得できませんでした: ${queryError.message}`);
 
   const observations: StudentObservation[] = rows.map((row) => ({
     date: formatDate(row.record?.schedule?.starts_at ?? row.record?.record_date),
     lessonTitle: row.record?.lesson_name ?? "レッスン",
     lessonId: row.record?.schedule_id ?? row.lesson_record_id,
+    scheduleId: row.record?.schedule_id ?? null,
+    lessonRecordId: row.lesson_record_id,
+    lessonPlanId: row.record?.lesson_plan_id ?? null,
+    followUpId: row.id,
+    followUpStatus: normalizeFollowUpStatus(row),
+    followUpCompletedAt: row.follow_up_completed_at ?? null,
+    followUpCompletedNote: row.follow_up_completed_note ?? null,
     attendanceStatus: attendanceLabels[row.attendance_status],
     condition: row.condition ?? "",
     memo: row.memo ?? "",
@@ -412,6 +566,13 @@ export async function getStudentRecordInsights(studentId: string) {
     date: formatDate(row.record?.schedule?.starts_at ?? row.record?.record_date),
     lessonTitle: row.record?.lesson_name ?? "レッスン",
     lessonId: row.record?.schedule_id ?? row.lesson_record_id,
+    scheduleId: row.record?.schedule_id ?? null,
+    lessonRecordId: row.lesson_record_id,
+    lessonPlanId: row.record?.lesson_plan_id ?? null,
+    followUpId: row.id,
+    followUpStatus: normalizeFollowUpStatus(row),
+    followUpCompletedAt: row.follow_up_completed_at ?? null,
+    followUpCompletedNote: row.follow_up_completed_note ?? null,
     planName: row.record?.schedule?.lesson_plan?.name ?? "未設定",
     attendanceStatus: attendanceLabels[row.attendance_status],
     teacherMemo: "",
@@ -518,6 +679,13 @@ export function parseLessonRecordPayload(formData: FormData) {
   });
 
   const studentIds = formData.getAll("student_ids").map(String);
+  const previousFollowUps = studentIds.flatMap((studentId) =>
+    formData.getAll(`student_${studentId}_pending_follow_up_ids`).map((followUpId) => ({
+      id: String(followUpId),
+      status: String(formData.get(`follow_up_${followUpId}_status`) ?? "pending") as FollowUpStatus,
+      note: String(formData.get(`follow_up_${followUpId}_note`) ?? "").trim(),
+    })),
+  );
   const students = studentIds.map((studentId) => {
     const attendanceStatus = String(formData.get(`student_${studentId}_attendance_status`) ?? "present") as StudentAttendanceCode;
     return {
@@ -538,5 +706,6 @@ export function parseLessonRecordPayload(formData: FormData) {
     improvementPoints,
     blocks,
     students,
+    previousFollowUps,
   };
 }

@@ -39,9 +39,11 @@ export type DashboardAttentionStudent = {
   gender: string;
   caution: string;
   memo: string;
+  followUpId?: string;
   nextFollow: string;
   followLessonName?: string;
   followDate?: string;
+  followScheduleId?: string | null;
 };
 
 export type DashboardInsight = {
@@ -111,6 +113,7 @@ type RawRecord = {
     condition: string | null;
     memo: string | null;
     next_follow: string | null;
+    follow_up_status?: "none" | "pending" | "completed" | "dismissed" | null;
     student?: RawStudent | null;
   }>;
 };
@@ -205,6 +208,7 @@ async function fetchDashboardData(): Promise<DashboardData> {
           condition,
           memo,
           next_follow,
+          follow_up_status,
           student:students(id,name,age_group,gender,caution,memo)
         )
       `)
@@ -404,13 +408,15 @@ function buildSuggestions({
 
 function buildAttentionStudents(students: RawStudent[], records: RawRecord[], schedules: DashboardSchedule[], todayKey: string) {
   const followRows = getFollowItems(records);
-  const followByStudent = new Map<string, { text: string; lessonName: string; date: string }>();
+  const followByStudent = new Map<string, { id: string; text: string; lessonName: string; date: string; scheduleId: string | null }>();
   for (const row of followRows) {
     if (!followByStudent.has(row.student_id) && row.next_follow) {
       followByStudent.set(row.student_id, {
+        id: row.id,
         text: row.next_follow,
         lessonName: row.record.lesson_name,
         date: row.record.record_date,
+        scheduleId: row.record.schedule_id,
       });
     }
   }
@@ -433,15 +439,19 @@ function buildAttentionStudents(students: RawStudent[], records: RawRecord[], sc
       gender: genderLabels[student.gender ?? ""] ?? "未設定",
       caution: student.caution ?? "",
       memo: student.memo ?? "",
+      followUpId: followByStudent.get(student.id)?.id,
       nextFollow: followByStudent.get(student.id)?.text ?? "",
       followLessonName: followByStudent.get(student.id)?.lessonName,
       followDate: followByStudent.get(student.id)?.date,
+      followScheduleId: followByStudent.get(student.id)?.scheduleId,
     }))
     .slice(0, 4);
 }
 
 function getFollowItems(records: RawRecord[]) {
-  return records.flatMap((record) => (record.lesson_record_students ?? []).map((row) => ({ ...row, record }))).filter((row) => Boolean(row.next_follow?.trim()));
+  return records
+    .flatMap((record) => (record.lesson_record_students ?? []).map((row) => ({ ...row, record })))
+    .filter((row) => Boolean(row.next_follow?.trim()) && (row.follow_up_status ?? "pending") === "pending");
 }
 
 function buildRecentInsights(records: RawRecord[]): DashboardInsight[] {

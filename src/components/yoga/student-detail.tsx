@@ -1,9 +1,10 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ArrowDownUp, BarChart3, Dumbbell, HeartHandshake, NotebookPen, Sparkles, Target, UserRound } from "lucide-react";
+import { updateFollowUpStatusAction } from "@/app/follow-ups/actions";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PageHeader, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
-import type { StudentAttendanceStats, StudentLessonHistory, StudentObservation, StudentRecord } from "@/components/yoga/records";
+import type { FollowUpStatus, StudentAttendanceStats, StudentLessonHistory, StudentObservation, StudentRecord } from "@/components/yoga/records";
 import { StudentAiButton } from "@/components/yoga/student-ai-button";
 import { StudentAiSuggestionPanel } from "@/components/yoga/student-ai-suggestion-panel";
 import type { StudentAiSuggestionState } from "@/lib/ai-suggestions";
@@ -26,7 +27,7 @@ export function StudentDetail({
     ["ケガなどの注意点", student.caution, HeartHandshake],
     ["その他メモ", student.memo, NotebookPen],
   ] as const;
-  const latestFollow = observations.find((memo) => memo.nextFollow.trim());
+  const latestFollow = observations.find((memo) => memo.nextFollow.trim() && (memo.followUpStatus ?? "pending") === "pending");
 
   return (
     <>
@@ -79,7 +80,7 @@ export function StudentDetail({
           <SummaryCard label="次回予定日" value={stats.nextScheduledDate} compact />
         </div>
 
-        {latestFollow ? <NextFollowCard memo={latestFollow} /> : null}
+        {latestFollow ? <NextFollowCard memo={latestFollow} studentId={student.id} /> : null}
 
         <section id="observations" className="mt-4 grid grid-cols-[1.15fr_1fr] gap-4">
           <SoftCard>
@@ -157,7 +158,7 @@ function MobileStudentDetail({
     ["ケガなどの注意点", student.caution, HeartHandshake],
     ["その他メモ", student.memo, NotebookPen],
   ] as const;
-  const latestFollow = observations.find((memo) => memo.nextFollow.trim());
+  const latestFollow = observations.find((memo) => memo.nextFollow.trim() && (memo.followUpStatus ?? "pending") === "pending");
 
   return (
     <div className="mx-auto max-w-[430px] space-y-4 overflow-x-hidden">
@@ -187,7 +188,7 @@ function MobileStudentDetail({
         <SummaryCard label="次回予定日" value={stats.nextScheduledDate} compact />
       </section>
 
-      {latestFollow ? <NextFollowCard memo={latestFollow} mobile /> : null}
+      {latestFollow ? <NextFollowCard memo={latestFollow} studentId={student.id} mobile /> : null}
 
       <section className="space-y-3">
         {infoItems.map(([label, value, Icon]) => (
@@ -276,7 +277,8 @@ function EmptyHistoryMessage({ text }: { text: string }) {
   );
 }
 
-function NextFollowCard({ memo, mobile = false }: { memo: StudentObservation; mobile?: boolean }) {
+function NextFollowCard({ memo, studentId, mobile = false }: { memo: StudentObservation; studentId: string; mobile?: boolean }) {
+  const recordHref = getRecordHref(memo);
   return (
     <section id="next-follow" className={`${mobile ? "rounded-[24px]" : "mt-4 rounded-2xl"} border border-[#efd3a7] bg-[#fffaf0] p-4 shadow-[0_10px_24px_rgba(122,104,80,0.06)]`}>
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -289,11 +291,14 @@ function NextFollowCard({ memo, mobile = false }: { memo: StudentObservation; mo
             <span>個別メモ：{memo.memo || "記録なし"}</span>
           </div>
         </div>
-        {memo.lessonId ? (
-          <Link href={`/lessons/${memo.lessonId}/record`} className="inline-flex h-9 shrink-0 items-center justify-center rounded-xl bg-[#5d956d] px-3 text-[12px] font-bold text-white">
-            関連する記録を見る
-          </Link>
-        ) : null}
+        <div className="grid shrink-0 gap-2">
+          {recordHref ? (
+            <Link href={recordHref} className="inline-flex h-9 items-center justify-center rounded-xl bg-[#5d956d] px-3 text-[12px] font-bold text-white">
+              関連する記録を見る
+            </Link>
+          ) : null}
+          <FollowUpActionForms memo={memo} studentId={studentId} />
+        </div>
       </div>
     </section>
   );
@@ -361,6 +366,66 @@ function getBasicInfoSuggestions(student: StudentRecord) {
   return suggestions.slice(0, 3);
 }
 
+function getDetailHref(item: Pick<StudentLessonHistory, "scheduleId" | "lessonPlanId">) {
+  if (item.scheduleId) return `/schedules/${item.scheduleId}`;
+  if (item.lessonPlanId) return `/lessons/${item.lessonPlanId}`;
+  return null;
+}
+
+function getRecordHref(item: Pick<StudentLessonHistory, "scheduleId"> | Pick<StudentObservation, "scheduleId">) {
+  return item.scheduleId ? `/lessons/${item.scheduleId}/record` : null;
+}
+
+function getFollowUpStatusLabel(status?: FollowUpStatus) {
+  if (status === "completed") return "対応済み";
+  if (status === "dismissed") return "見送り";
+  if (status === "pending") return "要フォロー";
+  return "";
+}
+
+function FollowUpStatusBadge({ status }: { status?: FollowUpStatus }) {
+  const label = getFollowUpStatusLabel(status);
+  if (!label) return null;
+  const className = status === "pending"
+    ? "bg-[#fff7f8] text-[#d95c70] border-[#f1d8dd]"
+    : status === "completed"
+      ? "bg-[#edf5ef] text-[#4f875a] border-[#cfe1ca]"
+      : "bg-[#f5f1ea] text-[#8b704c] border-[#e6d9c8]";
+  return <span className={`inline-flex w-fit rounded-full border px-2 py-0.5 text-[10px] font-bold ${className}`}>{label}</span>;
+}
+
+function FollowUpActionForms({ memo, studentId }: { memo: StudentObservation; studentId: string }) {
+  if (!memo.followUpId || (memo.followUpStatus ?? "pending") !== "pending") return null;
+  return (
+    <div className="grid gap-2">
+      <form action={updateFollowUpStatusAction} className="grid gap-2">
+        <input type="hidden" name="follow_up_id" value={memo.followUpId} />
+        <input type="hidden" name="status" value="completed" />
+        <input type="hidden" name="student_id" value={studentId} />
+        <input type="hidden" name="schedule_id" value={memo.scheduleId ?? ""} />
+        <textarea
+          name="note"
+          rows={2}
+          placeholder="対応メモ（任意）"
+          className="w-full rounded-xl border border-[#e6d9c8] bg-white/80 px-3 py-2 text-[12px] font-semibold outline-none"
+        />
+        <button className="inline-flex h-9 items-center justify-center rounded-xl border border-[#cfe1ca] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
+          対応済みにする
+        </button>
+      </form>
+      <form action={updateFollowUpStatusAction}>
+        <input type="hidden" name="follow_up_id" value={memo.followUpId} />
+        <input type="hidden" name="status" value="dismissed" />
+        <input type="hidden" name="student_id" value={studentId} />
+        <input type="hidden" name="schedule_id" value={memo.scheduleId ?? ""} />
+        <button className="inline-flex h-8 w-full items-center justify-center rounded-xl border border-[#ead7d2] bg-white/70 px-3 text-[12px] font-bold text-[#b65c4b]">
+          見送りにする
+        </button>
+      </form>
+    </div>
+  );
+}
+
 function LessonHistoryTable({ histories }: { histories: StudentLessonHistory[] }) {
   return (
     <Table>
@@ -376,28 +441,37 @@ function LessonHistoryTable({ histories }: { histories: StudentLessonHistory[] }
         </TableRow>
       </TableHeader>
       <TableBody>
-        {histories.map((history) => (
-          <TableRow key={`${history.lessonId}-${history.date}`} className="soft-table-row">
-            <TableCell className="whitespace-nowrap">{history.date}</TableCell>
-            <TableCell className="font-bold">{history.lessonTitle}</TableCell>
-            <TableCell>{history.planName}</TableCell>
-            <TableCell><AttendanceBadge status={history.attendanceStatus} /></TableCell>
-            <TableCell className="max-w-[220px]"><span className="line-clamp-2">{history.observation}</span></TableCell>
-            <TableCell className="max-w-[260px]"><span className="line-clamp-2">{history.memo} / {history.nextFollow}</span></TableCell>
-            <TableCell className="text-right">
-              <div className="flex justify-end gap-1.5">
-                <Link href={`/lessons/${history.lessonId}`} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] px-2 text-[12px] font-bold text-[#5d956d]">詳細</Link>
-                <Link href={`/lessons/${history.lessonId}/record`} className="inline-flex h-8 items-center justify-center rounded-lg bg-[#5d956d] px-2 text-[12px] font-bold text-white">記録</Link>
-              </div>
-            </TableCell>
-          </TableRow>
-        ))}
+        {histories.map((history) => {
+          const detailHref = getDetailHref(history);
+          const recordHref = getRecordHref(history);
+          return (
+            <TableRow key={`${history.lessonRecordId ?? history.lessonId}-${history.date}`} className="soft-table-row">
+              <TableCell className="whitespace-nowrap">{history.date}</TableCell>
+              <TableCell className="font-bold">{history.lessonTitle}</TableCell>
+              <TableCell>{history.planName}</TableCell>
+              <TableCell><AttendanceBadge status={history.attendanceStatus} /></TableCell>
+              <TableCell className="max-w-[220px]"><span className="line-clamp-2">{history.observation}</span></TableCell>
+              <TableCell className="max-w-[260px]">
+                <span className="line-clamp-2">{history.memo} / {history.nextFollow}</span>
+                {history.nextFollow ? <div className="mt-1"><FollowUpStatusBadge status={history.followUpStatus} /></div> : null}
+              </TableCell>
+              <TableCell className="text-right">
+                <div className="flex justify-end gap-1.5">
+                  {detailHref ? <Link href={detailHref} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] px-2 text-[12px] font-bold text-[#5d956d]">詳細</Link> : null}
+                  {recordHref ? <Link href={recordHref} className="inline-flex h-8 items-center justify-center rounded-lg bg-[#5d956d] px-2 text-[12px] font-bold text-white">記録</Link> : null}
+                </div>
+              </TableCell>
+            </TableRow>
+          );
+        })}
       </TableBody>
     </Table>
   );
 }
 
 function LessonHistoryCard({ history }: { history: StudentLessonHistory }) {
+  const detailHref = getDetailHref(history);
+  const recordHref = getRecordHref(history);
   return (
     <article className="rounded-2xl border border-[#eee4d8] bg-white/76 p-3">
       <div className="flex items-start justify-between gap-2">
@@ -411,15 +485,17 @@ function LessonHistoryCard({ history }: { history: StudentLessonHistory }) {
       <p className="mt-2 line-clamp-2 text-[12px] font-medium leading-5 text-[#50584e]">今日の様子：{history.observation}</p>
       <p className="mt-1 line-clamp-2 text-[12px] font-medium leading-5 text-[#50584e]">個別メモ：{history.memo}</p>
       <p className="mt-1 line-clamp-2 text-[12px] font-medium leading-5 text-[#50584e]">次回フォロー：{history.nextFollow}</p>
+      {history.nextFollow ? <div className="mt-2"><FollowUpStatusBadge status={history.followUpStatus} /></div> : null}
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <Link href={`/lessons/${history.lessonId}`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#cfe1ca] bg-[#f8fcf6] px-2 text-[12px] font-bold text-[#5d956d]">詳細を見る</Link>
-        <Link href={`/lessons/${history.lessonId}/record`} className="inline-flex h-9 items-center justify-center rounded-xl bg-[#5d956d] px-2 text-[12px] font-bold text-white">記録を見る</Link>
+        {detailHref ? <Link href={detailHref} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#cfe1ca] bg-[#f8fcf6] px-2 text-[12px] font-bold text-[#5d956d]">詳細を見る</Link> : null}
+        {recordHref ? <Link href={recordHref} className="inline-flex h-9 items-center justify-center rounded-xl bg-[#5d956d] px-2 text-[12px] font-bold text-white">記録を見る</Link> : null}
       </div>
     </article>
   );
 }
 
 function ObservationRow({ memo }: { memo: StudentObservation }) {
+  const recordHref = getRecordHref(memo);
   return (
     <div className="rounded-xl border border-[#eee4d8] bg-white/72 p-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -430,9 +506,10 @@ function ObservationRow({ memo }: { memo: StudentObservation }) {
         <PlainMemo label="今日の様子" value={memo.condition} />
         <PlainMemo label="個別メモ" value={memo.memo ?? "記録なし"} />
         <PlainMemo label="次回フォロー" value={memo.nextFollow} />
+        {memo.nextFollow ? <FollowUpStatusBadge status={memo.followUpStatus} /> : null}
       </div>
-      {memo.lessonId ? (
-        <Link href={`/lessons/${memo.lessonId}/record`} className="mt-2 inline-flex h-7 items-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] px-2 text-[11px] font-bold text-[#5d956d]">関連するレッスン記録へ</Link>
+      {recordHref ? (
+        <Link href={recordHref} className="mt-2 inline-flex h-7 items-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] px-2 text-[11px] font-bold text-[#5d956d]">関連するレッスン記録へ</Link>
       ) : null}
     </div>
   );

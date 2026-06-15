@@ -194,12 +194,16 @@ create table if not exists public.lesson_record_students (
   lesson_record_id uuid not null references public.lesson_records(id) on delete cascade,
   student_id uuid not null references public.students(id) on delete cascade,
   attendance_status text not null default 'present' check (attendance_status in ('present', 'cancelled', 'no_show')),
-  condition text,
-  memo text,
-  next_follow text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique (lesson_record_id, student_id)
+    condition text,
+    memo text,
+    next_follow text,
+    follow_up_status text not null default 'none' check (follow_up_status in ('none', 'pending', 'completed', 'dismissed')),
+    follow_up_completed_at timestamptz,
+    follow_up_completed_note text,
+    follow_up_updated_at timestamptz,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now(),
+    unique (lesson_record_id, student_id)
 );
 
 create table if not exists public.ai_suggestions (
@@ -411,9 +415,10 @@ create index if not exists students_user_id_idx on public.students(user_id);
 create index if not exists student_observation_notes_student_id_idx on public.student_observation_notes(student_id);
 create index if not exists block_templates_user_id_idx on public.block_templates(user_id);
 create index if not exists lesson_plans_user_id_idx on public.lesson_plans(user_id);
-create index if not exists schedules_user_id_starts_at_idx on public.schedules(user_id, starts_at);
-create index if not exists lesson_records_user_id_record_date_idx on public.lesson_records(user_id, record_date);
-create index if not exists ai_suggestions_user_target_idx on public.ai_suggestions(user_id, target_type, target_id, created_at desc);
+  create index if not exists schedules_user_id_starts_at_idx on public.schedules(user_id, starts_at);
+  create index if not exists lesson_records_user_id_record_date_idx on public.lesson_records(user_id, record_date);
+  create index if not exists lesson_record_students_follow_up_idx on public.lesson_record_students(student_id, follow_up_status, updated_at desc);
+  create index if not exists ai_suggestions_user_target_idx on public.ai_suggestions(user_id, target_type, target_id, created_at desc);
 create index if not exists knowledge_documents_user_status_idx on public.knowledge_documents(user_id, status, updated_at desc);
 create index if not exists knowledge_documents_user_source_idx on public.knowledge_documents(user_id, source_type, updated_at desc);
 create index if not exists knowledge_cards_user_status_idx on public.knowledge_cards(user_id, status, updated_at desc);
