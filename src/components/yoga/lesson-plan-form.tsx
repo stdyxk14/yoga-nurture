@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useActionState } from "react";
+import { useEffect, useMemo, useRef, useState, useActionState } from "react";
 import type { DragEvent, ReactNode } from "react";
 import Link from "next/link";
 import { ArrowDown, ArrowUp, Clock, FileText, Filter, LayoutGrid, Layers3, List, Plus, Save, Search, Trash2, X } from "lucide-react";
@@ -49,9 +49,12 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
   const [usageFilter, setUsageFilter] = useState("");
   const [ratingFilter, setRatingFilter] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [floatingFiltersOpen, setFloatingFiltersOpen] = useState(false);
+  const [showFloatingSearch, setShowFloatingSearch] = useState(false);
   const [viewMode, setViewMode] = useState<BlockViewMode>("cards");
   const [visibleCount, setVisibleCount] = useState(18);
   const [previewBlock, setPreviewBlock] = useState<DbBlockTemplate | null>(null);
+  const searchHeaderRef = useRef<HTMLDivElement | null>(null);
   const action = mode === "edit" && initialPlan ? updateLessonPlanAction.bind(null, initialPlan.id) : createLessonPlanAction;
   const [state, formAction, pending] = useActionState(action, initialState);
 
@@ -141,6 +144,36 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
       document.body.style.overflow = previousOverflow;
     };
   }, [filtersOpen, previewBlock]);
+
+  useEffect(() => {
+    const target = searchHeaderRef.current;
+    if (!target) return;
+
+    const mediaQuery = window.matchMedia("(min-width: 1280px)");
+    const updateFloatingSearch = () => {
+      if (!mediaQuery.matches) {
+        setShowFloatingSearch(false);
+        setFloatingFiltersOpen(false);
+        return;
+      }
+
+      const rect = target.getBoundingClientRect();
+      const shouldShow = rect.bottom < 0;
+      setShowFloatingSearch((current) => (current === shouldShow ? current : shouldShow));
+      if (!shouldShow) setFloatingFiltersOpen(false);
+    };
+
+    updateFloatingSearch();
+    window.addEventListener("scroll", updateFloatingSearch, { passive: true });
+    window.addEventListener("resize", updateFloatingSearch);
+    mediaQuery.addEventListener("change", updateFloatingSearch);
+
+    return () => {
+      window.removeEventListener("scroll", updateFloatingSearch);
+      window.removeEventListener("resize", updateFloatingSearch);
+      mediaQuery.removeEventListener("change", updateFloatingSearch);
+    };
+  }, []);
 
   const insertBlock = (block: DbBlockTemplate, index?: number) => {
     setSelectedBlocks((current) => {
@@ -236,7 +269,7 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
         </div>
 
         <SoftCard className="min-w-0 !overflow-visible p-4">
-          <div className="sticky top-4 z-20 -mx-2 -mt-2 rounded-3xl border border-[#e5ded3] bg-[#fffdf8] p-2 shadow-[0_4px_12px_rgba(75,65,48,0.05)]">
+          <div ref={searchHeaderRef} className="-mx-2 -mt-2 rounded-3xl border border-[#e5ded3] bg-[#fffdf8] p-2">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <SectionTitle icon={Plus} title="ブロック候補" subtitle={`${filteredBlocks.length}件中 ${visibleBlocks.length}件を表示`} />
               <Link href="/blocks/new" className="inline-flex h-9 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
@@ -505,6 +538,42 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
         </SoftCard>
       </div>
       </form>
+      {showFloatingSearch ? (
+        <FloatingBlockSearchBar
+          query={query}
+          setQuery={setQuery}
+          categories={categories}
+          categoryId={categoryId}
+          setCategoryId={setCategoryId}
+          filteredCount={filteredBlocks.length}
+          visibleCount={visibleBlocks.length}
+          filtersOpen={floatingFiltersOpen}
+          setFiltersOpen={setFloatingFiltersOpen}
+          hasFilters={hasFilters}
+          clearFilters={clearFilters}
+          visibleSubcategories={visibleSubcategories}
+          tags={tags}
+          levels={levels}
+          subcategoryId={subcategoryId}
+          setSubcategoryId={setSubcategoryId}
+          tag={tag}
+          setTag={setTag}
+          level={level}
+          setLevel={setLevel}
+          durationFilter={durationFilter}
+          setDurationFilter={setDurationFilter}
+          usageFilter={usageFilter}
+          setUsageFilter={setUsageFilter}
+          ratingFilter={ratingFilter}
+          setRatingFilter={setRatingFilter}
+          condition={condition}
+          setCondition={setCondition}
+          sort={sort}
+          setSort={setSort}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+        />
+      ) : null}
       {previewBlock ? <BlockScriptModal block={previewBlock} onClose={() => setPreviewBlock(null)} /> : null}
     </>
   );
@@ -669,6 +738,162 @@ function FilterControls({
         <button type="button" onClick={onClose} className="inline-flex h-10 items-center justify-center rounded-xl bg-[#5d956d] px-4 text-[12px] font-bold text-white">
           適用
         </button>
+      </div>
+    </div>
+  );
+}
+
+function FloatingBlockSearchBar({
+  query,
+  setQuery,
+  categories,
+  categoryId,
+  setCategoryId,
+  filteredCount,
+  visibleCount,
+  filtersOpen,
+  setFiltersOpen,
+  hasFilters,
+  clearFilters,
+  visibleSubcategories,
+  tags,
+  levels,
+  subcategoryId,
+  setSubcategoryId,
+  tag,
+  setTag,
+  level,
+  setLevel,
+  durationFilter,
+  setDurationFilter,
+  usageFilter,
+  setUsageFilter,
+  ratingFilter,
+  setRatingFilter,
+  condition,
+  setCondition,
+  sort,
+  setSort,
+  viewMode,
+  setViewMode,
+}: {
+  query: string;
+  setQuery: (value: string) => void;
+  categories: BlockCategory[];
+  categoryId: string;
+  setCategoryId: (value: string) => void;
+  filteredCount: number;
+  visibleCount: number;
+  filtersOpen: boolean;
+  setFiltersOpen: (value: boolean) => void;
+  hasFilters: boolean;
+  clearFilters: () => void;
+  visibleSubcategories: Array<{ id: string; name: string }>;
+  tags: string[];
+  levels: string[];
+  subcategoryId: string;
+  setSubcategoryId: (value: string) => void;
+  tag: string;
+  setTag: (value: string) => void;
+  level: string;
+  setLevel: (value: string) => void;
+  durationFilter: string;
+  setDurationFilter: (value: string) => void;
+  usageFilter: string;
+  setUsageFilter: (value: string) => void;
+  ratingFilter: string;
+  setRatingFilter: (value: string) => void;
+  condition: string;
+  setCondition: (value: string) => void;
+  sort: string;
+  setSort: (value: string) => void;
+  viewMode: BlockViewMode;
+  setViewMode: (value: BlockViewMode) => void;
+}) {
+  return (
+    <div className="pointer-events-none fixed bottom-5 left-[528px] right-[372px] z-40 hidden xl:block">
+      {filtersOpen ? (
+        <div className="pointer-events-auto mb-2 max-h-[56vh] overflow-y-auto rounded-3xl border border-[#e5ded3] bg-[#fffdf8] p-3 shadow-[0_12px_30px_rgba(75,65,48,0.12)]">
+          <FilterControls
+            visibleSubcategories={visibleSubcategories}
+            tags={tags}
+            levels={levels}
+            subcategoryId={subcategoryId}
+            setSubcategoryId={setSubcategoryId}
+            tag={tag}
+            setTag={setTag}
+            level={level}
+            setLevel={setLevel}
+            durationFilter={durationFilter}
+            setDurationFilter={setDurationFilter}
+            usageFilter={usageFilter}
+            setUsageFilter={setUsageFilter}
+            ratingFilter={ratingFilter}
+            setRatingFilter={setRatingFilter}
+            condition={condition}
+            setCondition={setCondition}
+            sort={sort}
+            setSort={setSort}
+            onClear={clearFilters}
+            onClose={() => setFiltersOpen(false)}
+          />
+        </div>
+      ) : null}
+      <div className="pointer-events-auto rounded-3xl border border-[#e5ded3] bg-[#fffdf8]/96 p-2 shadow-[0_10px_26px_rgba(75,65,48,0.12)] backdrop-blur">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-[190px] flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#8a9286]" />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="ブロック名・原稿・タグで検索"
+              className="h-9 rounded-2xl pl-8 pr-8 text-[12px]"
+            />
+            {query ? (
+              <button type="button" onClick={() => setQuery("")} className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-[#f3efe7] text-[#6b7468]" aria-label="検索をクリア">
+                <X className="h-3 w-3" />
+              </button>
+            ) : null}
+          </div>
+          <select
+            value={categoryId}
+            onChange={(event) => {
+              setCategoryId(event.target.value);
+              setSubcategoryId("");
+            }}
+            className="h-9 w-[126px] rounded-xl border border-[#e1d9ce] bg-white px-2 text-[12px] font-bold text-[#4f5a48]"
+          >
+            <option value="">すべて</option>
+            {categories.filter((category) => !category.archived).map((category) => (
+              <option key={category.id} value={category.id}>{category.name}</option>
+            ))}
+          </select>
+          <button type="button" onClick={() => setFiltersOpen(!filtersOpen)} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
+            <Filter className="h-3.5 w-3.5" />
+            絞り込み
+          </button>
+          <select value={sort} onChange={(event) => setSort(event.target.value)} className="h-9 w-[132px] rounded-xl border border-[#e1d9ce] bg-white px-2 text-[12px] font-bold text-[#4f5a48]">
+            <option value="recent">最近使った順</option>
+            <option value="usage">使用回数順</option>
+            <option value="good">良かった率順</option>
+            <option value="updated">更新日順</option>
+            <option value="name">ブロック名順</option>
+            <option value="duration">目安時間順</option>
+          </select>
+          <div className="grid grid-cols-3 rounded-xl border border-[#e1d9ce] bg-white p-0.5">
+            <ViewModeButton active={viewMode === "cards"} icon={LayoutGrid} label="カード" onClick={() => setViewMode("cards")} />
+            <ViewModeButton active={viewMode === "compact"} icon={List} label="一覧" onClick={() => setViewMode("compact")} />
+            <ViewModeButton active={viewMode === "category"} icon={Layers3} label="カテゴリ別" onClick={() => setViewMode("category")} />
+          </div>
+          <span className="shrink-0 rounded-full bg-[#edf5ef] px-2.5 py-1 text-[11px] font-extrabold text-[#4f875a]">
+            {filteredCount}件中 {visibleCount}件
+          </span>
+          {hasFilters ? (
+            <button type="button" onClick={clearFilters} className="inline-flex h-8 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white px-2.5 text-[11px] font-bold text-[#4f7b58]">
+              クリア
+            </button>
+          ) : null}
+        </div>
       </div>
     </div>
   );
