@@ -235,7 +235,7 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
           </SoftCard>
         </div>
 
-        <SoftCard className="min-w-0 p-4">
+        <SoftCard className="min-w-0 !overflow-visible p-4">
           <div className="sticky top-4 z-20 -mx-2 -mt-2 rounded-3xl border border-[#e5ded3] bg-[#fffdf8] p-2 shadow-[0_4px_12px_rgba(75,65,48,0.05)]">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <SectionTitle icon={Plus} title="ブロック候補" subtitle={`${filteredBlocks.length}件中 ${visibleBlocks.length}件を表示`} />
@@ -454,7 +454,7 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
         </SoftCard>
 
         <SoftCard
-          className="sticky bottom-20 z-10 max-h-[72vh] overflow-auto p-4 md:bottom-4 xl:top-4"
+          className="sticky bottom-20 z-10 max-h-[72vh] overflow-auto p-4 md:bottom-4 xl:top-4 xl:max-h-none xl:!overflow-visible"
           onDragOver={(event) => event.preventDefault()}
           onDrop={(event) => handleDrop(event)}
         >
