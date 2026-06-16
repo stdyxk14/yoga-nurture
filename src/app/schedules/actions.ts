@@ -116,3 +116,22 @@ export async function updateScheduleAction(
   revalidatePath(`/schedules/${id}`);
   redirect(nextPath);
 }
+
+export async function deleteScheduleAction(id: string, formData?: FormData): Promise<void> {
+  void formData;
+  const { supabase, userId } = await requireUserId();
+  const { error } = await supabase
+    .from("schedules")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", userId);
+
+  if (error) {
+    redirect(`/schedules/${id}?error=${encodeURIComponent(`予定を削除できませんでした: ${error.message}`)}`);
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/lessons");
+  revalidatePath("/schedules");
+  redirect("/lessons?tab=schedule");
+}

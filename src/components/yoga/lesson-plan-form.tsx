@@ -18,9 +18,12 @@ type Props = {
   tags: string[];
   initialPlan?: DbLessonPlan;
   aiSuggestionState?: StudentAiSuggestionState;
+  deleteAction?: DeleteAction;
+  deleteError?: string;
 };
 
 const initialState: LessonPlanFormState = {};
+type DeleteAction = (formData: FormData) => void | Promise<void>;
 
 type BlockViewMode = "cards" | "compact" | "category";
 
@@ -36,7 +39,7 @@ const lessonPlanStatusOptions = [
   { value: "archived", label: "アーカイブ" },
 ] as const;
 
-export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: Props) {
+export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, deleteAction, deleteError }: Props) {
   const [selectedBlocks, setSelectedBlocks] = useState<DbBlockTemplate[]>(initialPlan?.blocks ?? []);
   const [query, setQuery] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -57,6 +60,7 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
   const searchHeaderRef = useRef<HTMLDivElement | null>(null);
   const action = mode === "edit" && initialPlan ? updateLessonPlanAction.bind(null, initialPlan.id) : createLessonPlanAction;
   const [state, formAction, pending] = useActionState(action, initialState);
+  const formError = state.error ?? deleteError;
 
   const selectedCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -222,8 +226,8 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
         <div className="space-y-4">
           <SoftCard className="p-4">
             <SectionTitle icon={FileText} title={mode === "new" ? "レッスンプランを作成" : "レッスンプランを編集"} subtitle="ブロックを組み合わせて、印刷できる原稿を作ります。" />
-            {state.error ? (
-              <p className="mt-3 rounded-xl border border-[#f2c7be] bg-[#fff0ea] px-3 py-2 text-[12px] font-bold text-[#c4523d]">{state.error}</p>
+            {formError ? (
+              <p className="mt-3 rounded-xl border border-[#f2c7be] bg-[#fff0ea] px-3 py-2 text-[12px] font-bold text-[#c4523d]">{formError}</p>
             ) : null}
             <div className="mt-4 space-y-3">
               <Label text="レッスンプラン名">
@@ -541,6 +545,7 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan }: 
             <Save className="h-4 w-4" />
             {pending ? "保存中..." : mode === "new" ? "プランを保存" : "変更を保存"}
           </button>
+          {deleteAction ? <DeleteLessonPlanButton action={deleteAction} /> : null}
         </SoftCard>
       </div>
       </form>
@@ -1013,6 +1018,24 @@ function PreviewInfo({ title, value }: { title: string; value: string }) {
       <p className="text-[12px] font-bold text-[#8b704c]">{title}</p>
       <p className="mt-1 text-[13px] font-medium leading-6 text-[#30362f]">{value}</p>
     </div>
+  );
+}
+
+function DeleteLessonPlanButton({ action }: { action: DeleteAction }) {
+  return (
+    <button
+      type="submit"
+      formAction={action}
+      onClick={(event) => {
+        if (!window.confirm("このレッスンプランを削除します。予定や記録からの紐づきは解除されます。よろしいですか？")) {
+          event.preventDefault();
+        }
+      }}
+      className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#f2c9bd] bg-[#fff0ea] px-4 text-[13px] font-bold text-[#d96c55]"
+    >
+      <Trash2 className="h-4 w-4" />
+      レッスンプランを削除
+    </button>
   );
 }
 

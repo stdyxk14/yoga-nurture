@@ -1,12 +1,19 @@
 import Link from "next/link";
-import { ArrowLeft, FileText, Pencil, Printer, UsersRound } from "lucide-react";
+import { ArrowLeft, FileText, Pencil, Printer, Trash2, UsersRound } from "lucide-react";
+
+import { deleteScheduleAction } from "@/app/schedules/actions";
+import { ConfirmSubmitButton } from "@/components/yoga/confirm-submit-button";
 import { PageHeader, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
 import type { DbSchedule } from "@/lib/schedules";
 
-export function ScheduleDetail({ schedule }: { schedule: DbSchedule }) {
+export function ScheduleDetail({ schedule, error }: { schedule: DbSchedule; error?: string }) {
   return (
     <div className="space-y-4">
       <PageHeader title={schedule.lessonName} subtitle="登録済みレッスン予定の詳細" />
+
+      {error ? (
+        <p className="rounded-xl border border-[#f2c7be] bg-[#fff0ea] px-4 py-3 text-[13px] font-bold text-[#c4523d]">{error}</p>
+      ) : null}
 
       <SoftCard className="p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -14,7 +21,9 @@ export function ScheduleDetail({ schedule }: { schedule: DbSchedule }) {
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-[#edf5ef] px-3 py-1 text-[12px] font-bold text-[#4f875a]">{schedule.statusLabel}</span>
               <span className="rounded-full bg-[#fff7e8] px-3 py-1 text-[12px] font-bold text-[#9b7338]">{schedule.dateLabel}</span>
-              <span className="rounded-full bg-[#f3eefb] px-3 py-1 text-[12px] font-bold text-[#7469bf]">{schedule.startTimeLabel}-{schedule.endTimeLabel}</span>
+              <span className="rounded-full bg-[#f3eefb] px-3 py-1 text-[12px] font-bold text-[#7469bf]">
+                {schedule.startTimeLabel}-{schedule.endTimeLabel}
+              </span>
             </div>
             <dl className="mt-4 grid gap-3 text-[13px] font-semibold text-[#4d554b] sm:grid-cols-2 lg:grid-cols-4">
               <Info label="使用レッスンプラン" value={schedule.lessonPlanName} />
@@ -23,7 +32,8 @@ export function ScheduleDetail({ schedule }: { schedule: DbSchedule }) {
               <Info label="参加予定人数" value={`${schedule.participantCount}名`} />
             </dl>
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:w-[420px]">
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 lg:w-[520px]">
             <Link href="/lessons" className="inline-flex h-9 items-center justify-center gap-1 rounded-xl border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
               <ArrowLeft className="h-3.5 w-3.5" />
               一覧
@@ -44,6 +54,15 @@ export function ScheduleDetail({ schedule }: { schedule: DbSchedule }) {
               <Pencil className="h-3.5 w-3.5" />
               編集する
             </Link>
+            <form action={deleteScheduleAction.bind(null, schedule.id)} className="contents">
+              <ConfirmSubmitButton
+                message="この予定を削除します。実施後記録がある場合、記録は残り予定との紐づきだけ解除されます。よろしいですか？"
+                className="inline-flex h-9 items-center justify-center gap-1 rounded-xl border border-[#f2c9bd] bg-[#fff0ea] px-3 text-[12px] font-bold text-[#d96c55]"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                削除
+              </ConfirmSubmitButton>
+            </form>
           </div>
         </div>
       </SoftCard>

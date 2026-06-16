@@ -130,3 +130,21 @@ export async function updateLessonPlanAction(
   revalidatePath(`/lessons/${planId}`);
   redirect(`/lessons/${planId}`);
 }
+
+export async function deleteLessonPlanAction(planId: string, formData?: FormData): Promise<void> {
+  void formData;
+  const { supabase, userId } = await requireUserId();
+  const { error } = await supabase
+    .from("lesson_plans")
+    .delete()
+    .eq("id", planId)
+    .eq("user_id", userId);
+
+  if (error) {
+    redirect(`/lessons/${planId}/edit?error=${encodeURIComponent(`レッスンプランを削除できませんでした: ${error.message}`)}`);
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/lessons");
+  redirect("/lessons?tab=plans");
+}
