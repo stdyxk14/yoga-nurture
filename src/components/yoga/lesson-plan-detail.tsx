@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { ArrowLeft, FileText, Pencil, Printer } from "lucide-react";
+import { ArrowLeft, Copy, FileText, Pencil, Printer } from "lucide-react";
+
+import { duplicateLessonPlanAction } from "@/app/lessons/lesson-plan-actions";
 import { LessonPlanAiSuggestionPanel } from "@/components/yoga/lesson-plan-ai-suggestion-panel";
 import { PageHeader, Pill, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
 import { formatJapaneseDate } from "@/lib/date-format";
@@ -29,7 +31,7 @@ export function LessonPlanDetail({ plan, aiSuggestionState }: { plan: DbLessonPl
               {plan.tags.length ? plan.tags.map((tag) => <Pill key={tag}>{tag}</Pill>) : <Pill>タグ未設定</Pill>}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:w-[390px]">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 lg:w-[500px]">
             <Link href="/lessons?tab=plans" className="inline-flex h-9 items-center justify-center gap-1 rounded-xl border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
               <ArrowLeft className="h-3.5 w-3.5" />
               一覧
@@ -38,6 +40,12 @@ export function LessonPlanDetail({ plan, aiSuggestionState }: { plan: DbLessonPl
               <Printer className="h-3.5 w-3.5" />
               原稿
             </Link>
+            <form action={duplicateLessonPlanAction.bind(null, plan.id)} className="contents">
+              <button type="submit" className="inline-flex h-9 items-center justify-center gap-1 rounded-xl border border-[#e6dff2] bg-[#faf7ff] px-3 text-[12px] font-bold text-[#7469bf]">
+                <Copy className="h-3.5 w-3.5" />
+                複製
+              </button>
+            </form>
             <Link href={`/lessons/${plan.id}/edit`} className="inline-flex h-9 items-center justify-center gap-1 rounded-xl border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58] sm:col-span-2">
               <Pencil className="h-3.5 w-3.5" />
               編集する
@@ -59,7 +67,9 @@ export function LessonPlanDetail({ plan, aiSuggestionState }: { plan: DbLessonPl
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#edf5ef] text-[13px] font-extrabold text-[#4f875a]">{index + 1}</span>
                     <div className="min-w-0">
                       <h2 className="text-[15px] font-extrabold">{block.name}</h2>
-                      <p className="mt-1 text-[12px] font-bold text-[#5d956d]">{block.majorCategory} / {block.minorCategory} / {block.plannedDurationMinutes}分</p>
+                      <p className="mt-1 text-[12px] font-bold text-[#5d956d]">
+                        {block.majorCategory} / {block.minorCategory} / {block.plannedDurationMinutes}分
+                      </p>
                     </div>
                   </div>
                   <Link href={`/blocks/${block.id}`} className="inline-flex h-8 shrink-0 items-center justify-center rounded-lg border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
@@ -68,7 +78,7 @@ export function LessonPlanDetail({ plan, aiSuggestionState }: { plan: DbLessonPl
                 </div>
                 <div className="mt-3 grid gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
                   <div className="rounded-xl bg-[#fff7e8] p-3 text-[12px] font-bold leading-5 text-[#9b7338]">
-                    注意点：{block.cautionsOverride || block.cautions || "未入力"}
+                    注意点: {block.cautionsOverride || block.cautions || "未入力"}
                   </div>
                   <p className="line-clamp-3 text-[12px] font-medium leading-5 text-[#50584e]">{block.scriptOverride || block.script || "誘導セリフは未入力です。"}</p>
                 </div>
