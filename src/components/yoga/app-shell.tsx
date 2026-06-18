@@ -18,8 +18,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const current = navItems.find((item) => isActivePath(pathname, item.href));
+  const isPrintRoute = pathname?.endsWith("/script/print");
 
-  if (pathname === "/login") {
+  if (pathname === "/login" || isPrintRoute) {
     return <>{children}</>;
   }
 
@@ -84,7 +85,7 @@ function isActivePath(pathname: string, href: string) {
 
 function MobileTopBar({ title, onMenuClick }: { title: string; onMenuClick: () => void }) {
   return (
-    <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-[#e7dfd4] bg-[#fbfaf6]/95 px-4 backdrop-blur md:hidden">
+    <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-[#e7dfd4] bg-[#fbfaf6]/95 px-4 backdrop-blur print:hidden md:hidden">
       <button type="button" onClick={onMenuClick} className="flex h-9 w-9 items-center justify-center rounded-full text-[#5d6b58]" aria-label="メニューを開く">
         <Menu className="h-5 w-5" />
       </button>
@@ -104,7 +105,7 @@ function MobileTopBar({ title, onMenuClick }: { title: string; onMenuClick: () =
 
 function MobileMenu({ open, pathname, onClose }: { open: boolean; pathname: string; onClose: () => void }) {
   return (
-    <div className={cn("fixed inset-0 z-[60] md:hidden", open ? "pointer-events-auto" : "pointer-events-none")}>
+    <div className={cn("fixed inset-0 z-[60] print:hidden md:hidden", open ? "pointer-events-auto" : "pointer-events-none")}>
       <button
         type="button"
         aria-label="メニューを閉じる"
@@ -153,7 +154,7 @@ function MobileMenu({ open, pathname, onClose }: { open: boolean; pathname: stri
 
 function MobileBottomNav({ pathname }: { pathname: string }) {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-[#e7dfd4] bg-[#fbfaf6]/96 px-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(91,76,53,0.08)] backdrop-blur md:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-[#e7dfd4] bg-[#fbfaf6]/96 px-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(91,76,53,0.08)] backdrop-blur print:hidden md:hidden">
       <div className="grid h-16 grid-cols-5">
         {navItems.map((item) => {
           const active = isActivePath(pathname, item.href);

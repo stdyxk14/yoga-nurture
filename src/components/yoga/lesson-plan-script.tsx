@@ -1,10 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Copy, ExternalLink, Pencil } from "lucide-react";
+import { Copy, Pencil, Printer } from "lucide-react";
 import { LessonPlanAiSuggestionPanel } from "@/components/yoga/lesson-plan-ai-suggestion-panel";
 import { LessonPlanPrintDocument } from "@/components/yoga/lesson-plan-print-document";
-import { ScriptPrintButton } from "@/components/yoga/script-print-actions";
 import type { StudentAiSuggestionState } from "@/lib/ai-suggestions";
 import type { DbLessonPlan } from "@/lib/lesson-plans";
 import type { DbSchedule } from "@/lib/schedules";
@@ -33,14 +32,13 @@ export function LessonPlanScript({ plan, schedule, aiSuggestionState }: Props) {
                 : "レッスンプラン単体の印刷原稿です。予定ごとのメモは含めません。"}
             </p>
             <p className="mt-1 text-[12px] font-semibold text-[#8a7d6c]">
-              ブラウザの印刷設定でヘッダーとフッターをOFFにすると、よりきれいに印刷できます。
+              「印刷」から、紙で使うために整えた専用レイアウトを開けます。
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:min-w-[430px]">
-            <ScriptPrintButton label="この画面を印刷" />
-            <Link href={printHref} className="inline-flex h-10 items-center justify-center gap-1 rounded-xl bg-[#2f4535] px-3 text-[12px] font-bold text-white">
-              <ExternalLink className="h-4 w-4" />
-              印刷用ページ
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:min-w-[360px]">
+            <Link href={printHref} className="inline-flex h-10 items-center justify-center gap-1 rounded-xl bg-[#5d956d] px-3 text-[12px] font-bold text-white shadow-[0_10px_22px_rgba(70,115,78,0.18)]">
+              <Printer className="h-4 w-4" />
+              印刷
             </Link>
             <button type="button" onClick={() => void navigator.clipboard.writeText(copyText)} className="inline-flex h-10 items-center justify-center gap-1 rounded-xl border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
               <Copy className="h-4 w-4" />

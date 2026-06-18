@@ -183,7 +183,7 @@ function PrintStyles() {
     <style>{`
       @page {
         size: A4 portrait;
-        margin: 14mm 13mm 15mm;
+        margin: 15mm 14mm 16mm;
       }
 
       @media print {
@@ -194,38 +194,48 @@ function PrintStyles() {
           print-color-adjust: exact;
         }
 
+        body {
+          margin: 0 !important;
+        }
+
         .script-print-wrap {
           background: #fff !important;
           padding: 0 !important;
+          width: 100% !important;
         }
 
         .script-print-document {
           box-shadow: none !important;
           border: 0 !important;
           width: auto !important;
+          max-width: none !important;
+          font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
 
         .print-cover {
           break-after: page;
           page-break-after: always;
+          min-height: auto;
         }
 
         .script-body {
-          break-before: page;
-          page-break-before: always;
+          break-before: auto;
+          page-break-before: auto;
         }
 
         .script-block {
           break-inside: auto;
           page-break-inside: auto;
-          padding: 0 0 8mm;
-          margin: 0 0 8mm;
+          padding: 0 0 7mm;
+          margin: 0 0 7mm;
           border-bottom: 1px solid #d9d1c6;
         }
 
         .script-block-header {
           break-after: avoid;
           page-break-after: avoid;
+          break-inside: avoid;
+          page-break-inside: avoid;
         }
 
         .script-text {

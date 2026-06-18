@@ -2,7 +2,7 @@
 
 import { Printer } from "lucide-react";
 
-export function ScriptPrintButton({ label = "印刷する" }: { label?: string }) {
+export function ScriptPrintButton({ label = "印刷" }: { label?: string }) {
   return (
     <button
       type="button"

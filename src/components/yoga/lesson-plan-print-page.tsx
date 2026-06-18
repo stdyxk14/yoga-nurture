@@ -20,7 +20,7 @@ export function LessonPlanPrintPage({ plan, schedule, backHref }: Props) {
             <p className="text-[12px] font-extrabold tracking-[0.18em] text-[#5d956d]">PRINT DOCUMENT</p>
             <h1 className="mt-1 text-[22px] font-extrabold">{plan.name}</h1>
             <p className="mt-1 text-[12px] font-semibold text-[#6b7468]">
-              ブラウザの印刷設定でヘッダーとフッターをOFFにすると、よりきれいに印刷できます。
+              紙で配れるレッスン原稿として整えた印刷用レイアウトです。必要に応じて印刷設定でヘッダーとフッターをOFFにしてください。
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
