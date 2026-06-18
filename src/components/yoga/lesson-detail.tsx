@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { FileText, ListChecks, MessageSquareText, Printer, UserRound } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PageHeader, Pill, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
+import { RichScriptText } from "@/components/yoga/rich-script-text";
 import { getLessonBlocks, getStudent, lessons } from "@/components/yoga/records";
 import type { LessonRecord, LessonStatus } from "@/components/yoga/records";
 
@@ -79,7 +80,7 @@ export function LessonDetail({ lesson }: { lesson: LessonRecord }) {
                     <span className="text-[12px] font-bold text-[#5d956d]">{block.minorCategory}</span>
                     <span className="ml-auto text-[12px] font-bold text-[#6b7468]">{block.duration}</span>
                   </div>
-                  <p className="line-clamp-3 text-[12px] font-medium leading-5 text-[#50584e]">{block.script}</p>
+                  <RichScriptText text={block.script} className="line-clamp-3 text-[12px] font-medium leading-5 text-[#50584e]" />
                   <p className="mt-1 text-[11px] font-bold text-[#d96c55]">注意：{block.cautions}</p>
                 </div>
               ))}
@@ -198,7 +199,7 @@ function MobileLessonDetail({
                   <p className="mt-1 text-[11px] font-bold text-[#5d956d]">{block.majorCategory} / {block.minorCategory} / {block.duration}</p>
                 </div>
               </div>
-              <p className="line-clamp-3 text-[12px] font-medium leading-5 text-[#50584e]">{block.script}</p>
+              <RichScriptText text={block.script} className="line-clamp-3 text-[12px] font-medium leading-5 text-[#50584e]" />
               <p className="mt-2 line-clamp-2 text-[11px] font-bold text-[#d96c55]">注意：{block.cautions}</p>
             </Link>
           ))}

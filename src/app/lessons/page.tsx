@@ -13,7 +13,8 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { PageHeader, Pill, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
-import { getBlockCategories, getBlocks, getBlockTags, type BlockCategory, type DbBlockTemplate } from "@/lib/blocks";
+import { RichScriptText } from "@/components/yoga/rich-script-text";
+import { getBlockCategories, getBlocks, getBlockTags, type BlockCategory, type BlockListFilters, type DbBlockTemplate } from "@/lib/blocks";
 import { getLessonPlans, type DbLessonPlan } from "@/lib/lesson-plans";
 import { getLessonRecords, type DbLessonRecord } from "@/lib/lesson-records";
 import { getSchedules, type DbSchedule } from "@/lib/schedules";
@@ -32,7 +33,7 @@ const tabs: Array<{ id: LessonTab; label: string; href: string; icon: LucideIcon
 export default async function LessonsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; q?: string; category?: string; subcategory?: string; tag?: string; sort?: string; analysis?: string }>;
+  searchParams: Promise<{ tab?: string; q?: string; category?: string; subcategory?: string; tag?: string; sort?: string; view?: string; analysis?: string }>;
 }) {
   const params = await searchParams;
   const { tab } = params;
@@ -86,7 +87,7 @@ export default async function LessonsPage({
 
       {activeTab === "schedule" ? <ScheduleTab schedules={schedules} /> : null}
       {activeTab === "plans" ? <PlansTab plans={plans} /> : null}
-      {activeTab === "blocks" ? <BlocksTab blocks={blocks} categories={categories} tags={tags.map((tag) => tag.name)} /> : null}
+      {activeTab === "blocks" ? <BlocksTab blocks={blocks} categories={categories} tags={tags.map((tag) => tag.name)} filters={params} /> : null}
       {activeTab === "records" ? <RecordsTab records={records} /> : null}
       {activeTab === "analysis" ? <AnalysisTab blocks={blocks} activeAxis={activeAnalysis} /> : null}
       </div>
@@ -165,7 +166,7 @@ function MobileScheduleTab({ schedules }: { schedules: DbSchedule[] }) {
           <div className="mt-3 grid grid-cols-3 gap-2">
             <Link href={`/schedules/${schedule.id}`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#cfe1ca] bg-[#f8fcf6] text-[12px] font-bold text-[#5d956d]">詳細</Link>
             {schedule.lessonPlanId ? (
-              <Link href={`/lessons/${schedule.lessonPlanId}/script`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#e6dff2] bg-[#faf7ff] text-[12px] font-bold text-[#7469bf]">原稿</Link>
+              <Link href={`/schedules/${schedule.id}/script`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#e6dff2] bg-[#faf7ff] text-[12px] font-bold text-[#7469bf]">原稿</Link>
             ) : (
               <span className="inline-flex h-9 items-center justify-center rounded-xl border border-[#e7dfd4] bg-[#f4f1ea] text-[12px] font-bold text-[#9b8c7b]">原稿なし</span>
             )}
@@ -259,7 +260,7 @@ function MobileBlockListCard({ block, index }: { block: DbBlockTemplate; index: 
         <MiniStat label="改善メモ" value={`${block.improvementCount ?? 0}件`} />
         <MiniStat label="最近" value={block.lastUsed} />
       </div>
-      <p className="mt-2 line-clamp-2 text-[12px] font-medium leading-5 text-[#50584e]">{block.script}</p>
+      <RichScriptText text={block.script} emptyText="原稿は未入力です。" className="mt-2 line-clamp-2 text-[12px] font-medium leading-5 text-[#50584e]" />
       <div className="mt-3 grid grid-cols-3 gap-2">
         <Link href={`/blocks/${block.id}`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white text-[12px] font-bold text-[#4f7b58]">詳細</Link>
         <Link href={`/blocks/${block.id}/edit`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white text-[12px] font-bold text-[#4f7b58]">編集</Link>
@@ -356,7 +357,7 @@ function ScheduleTab({ schedules }: { schedules: DbSchedule[] }) {
                     詳細
                   </Link>
                   {schedule.lessonPlanId ? (
-                    <Link href={`/lessons/${schedule.lessonPlanId}/script`} className="inline-flex h-8 items-center justify-center rounded-lg bg-[#5d956d] px-2 text-[11px] font-bold text-white">
+                    <Link href={`/schedules/${schedule.id}/script`} className="inline-flex h-8 items-center justify-center rounded-lg bg-[#5d956d] px-2 text-[11px] font-bold text-white">
                       原稿
                     </Link>
                   ) : (
@@ -422,80 +423,248 @@ function PlansTab({ plans }: { plans: DbLessonPlan[] }) {
   );
 }
 
-function BlocksTab({ blocks, categories, tags }: { blocks: DbBlockTemplate[]; categories: BlockCategory[]; tags: string[] }) {
-  return (
-    <>
-      <form action="/lessons" className="mb-3 grid grid-cols-[minmax(0,1fr)_150px_150px_140px_130px_auto_auto] items-center gap-2">
-        <input type="hidden" name="tab" value="blocks" />
-        <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-[#e7dfd4] bg-white/80 px-3 py-2">
-          <Search className="h-4 w-4 shrink-0 text-[#6b7468]" />
-          <Input name="q" placeholder="ブロック名、タグ、原稿内の言葉で検索" className="h-8 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0" />
-        </div>
-        <select name="category" className="h-10 rounded-xl border border-[#e1d9ce] bg-white/80 px-3 text-[12px] font-bold text-[#5d6b58]">
-          <option value="">大カテゴリー</option>
-          {categories.filter((category) => !category.archived).map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
-        </select>
-        <select name="subcategory" className="h-10 rounded-xl border border-[#e1d9ce] bg-white/80 px-3 text-[12px] font-bold text-[#5d6b58]">
-          <option value="">小カテゴリー</option>
-          {categories.flatMap((category) => category.subcategories).filter((subcategory) => !subcategory.archived).map((subcategory) => <option key={subcategory.id} value={subcategory.id}>{subcategory.name}</option>)}
-        </select>
-        <select name="tag" className="h-10 rounded-xl border border-[#e1d9ce] bg-white/80 px-3 text-[12px] font-bold text-[#5d6b58]">
-          <option value="">タグ</option>
-          {tags.map((tag) => <option key={tag} value={tag}>{tag}</option>)}
-        </select>
-        <select name="sort" className="h-10 rounded-xl border border-[#e1d9ce] bg-white/80 px-3 text-[12px] font-bold text-[#5d6b58]">
-          <option value="updated">更新日順</option>
-          <option value="duration">目安時間順</option>
-          <option value="name">ブロック名順</option>
-        </select>
-        <button className="inline-flex h-10 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white px-4 text-[12px] font-bold text-[#4f7b58]">検索</button>
-        <Link href="/blocks/new" className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#5d956d] px-4 text-[13px] font-bold text-white">
-          <Plus className="h-4 w-4" />
-          ブロックを登録
-        </Link>
-      </form>
+function BlocksTab({
+  blocks,
+  categories,
+  tags,
+  filters,
+}: {
+  blocks: DbBlockTemplate[];
+  categories: BlockCategory[];
+  tags: string[];
+  filters: BlockListFilters & { view?: string };
+}) {
+  const activeCategories = categories.filter((category) => !category.archived);
+  const activeSubcategories = categories
+    .flatMap((category) => category.subcategories)
+    .filter((subcategory) => !subcategory.archived);
+  const view = filters.view === "card" || filters.view === "category" ? filters.view : "compact";
+  const currentFilters = [
+    filters.q ? `検索: ${filters.q}` : "",
+    filters.category ? `大カテゴリー: ${activeCategories.find((item) => item.id === filters.category)?.name ?? "選択中"}` : "",
+    filters.subcategory ? `小カテゴリー: ${activeSubcategories.find((item) => item.id === filters.subcategory)?.name ?? "選択中"}` : "",
+    filters.tag ? `タグ: ${filters.tag}` : "",
+  ].filter(Boolean);
 
-      <SoftCard className="mb-3 p-3">
-        <div className="flex flex-wrap gap-2">
-          <Pill active>実データ表示</Pill>
-          <Pill>良かった率：レッスン後記録で「良かった」と記録された割合</Pill>
-          <Pill>改善メモ数：ブロック改善候補の件数</Pill>
+  return (
+    <div className="space-y-3">
+      <SoftCard className="p-3">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <SectionTitle
+                icon={Layers3}
+                title="ブロックテンプレート"
+                subtitle="誘導セリフやレッスンパートを検索して、使いやすく管理"
+              />
+              <p className="mt-1 text-[12px] font-bold text-[#6b7468]">{blocks.length}件を表示</p>
+            </div>
+            <Link href="/blocks/new" className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-[#5d956d] px-4 text-[13px] font-bold text-white">
+              <Plus className="h-4 w-4" />
+              ブロックを登録
+            </Link>
+          </div>
+
+          <form action="/lessons" className="grid gap-2">
+        <input type="hidden" name="tab" value="blocks" />
+            <div className="flex min-w-0 items-center gap-2 rounded-xl border border-[#e7dfd4] bg-white/80 px-3 py-2">
+              <Search className="h-4 w-4 shrink-0 text-[#6b7468]" />
+              <Input name="q" defaultValue={filters.q ?? ""} placeholder="ブロック名・原稿・タグで検索" className="h-9 min-w-0 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0" />
+              {filters.q ? (
+                <Link href={buildBlockHref(filters, { q: "" })} className="shrink-0 rounded-full border border-[#e1d9ce] px-2 py-1 text-[11px] font-bold text-[#6b7468]">
+                  クリア
+                </Link>
+              ) : null}
+            </div>
+
+            <div className="overflow-x-auto pb-1">
+              <div className="flex min-w-max gap-2">
+                <Link href={buildBlockHref(filters, { category: "", subcategory: "" })} className={categoryChipClass(!filters.category)}>
+                  すべて
+                </Link>
+                {activeCategories.map((category) => (
+                  <Link key={category.id} href={buildBlockHref(filters, { category: category.id, subcategory: "" })} className={categoryChipClass(filters.category === category.id)}>
+                    {category.name}
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <select name="subcategory" defaultValue={filters.subcategory ?? ""} className="h-10 min-w-[150px] shrink-0 rounded-xl border border-[#e1d9ce] bg-white/80 px-3 text-[12px] font-bold text-[#5d6b58]">
+                <option value="">小カテゴリー</option>
+                {activeSubcategories.map((subcategory) => <option key={subcategory.id} value={subcategory.id}>{subcategory.name}</option>)}
+              </select>
+              <select name="tag" defaultValue={filters.tag ?? ""} className="h-10 min-w-[120px] shrink-0 rounded-xl border border-[#e1d9ce] bg-white/80 px-3 text-[12px] font-bold text-[#5d6b58]">
+                <option value="">タグ</option>
+                {tags.map((tag) => <option key={tag} value={tag}>{tag}</option>)}
+              </select>
+              <select name="sort" defaultValue={filters.sort ?? "updated"} className="h-10 min-w-[145px] shrink-0 rounded-xl border border-[#e1d9ce] bg-white/80 px-3 text-[12px] font-bold text-[#5d6b58]">
+                <option value="updated">更新日順</option>
+                <option value="usage">使用回数順</option>
+                <option value="good">良かった率順</option>
+                <option value="recent">最近使用順</option>
+                <option value="duration">目安時間順</option>
+                <option value="name">ブロック名順</option>
+              </select>
+              <div className="flex shrink-0 rounded-xl border border-[#dbe4d6] bg-white/80 p-1">
+                <Link href={buildBlockHref(filters, { view: "compact" })} className={viewModeClass(view === "compact")}>一覧</Link>
+                <Link href={buildBlockHref(filters, { view: "card" })} className={viewModeClass(view === "card")}>カード</Link>
+                <Link href={buildBlockHref(filters, { view: "category" })} className={viewModeClass(view === "category")}>カテゴリ別</Link>
+              </div>
+              <button className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white px-4 text-[12px] font-bold text-[#4f7b58]">
+                検索
+              </button>
+            </div>
+          </form>
+
+          <div className="flex flex-wrap gap-2">
+            <Pill active>実データ表示</Pill>
+            <Pill>良かった率：レッスン後記録で「良かった」と記録された割合</Pill>
+            <Pill>改善メモ数：ブロック改善候補の件数</Pill>
+            {currentFilters.map((filter) => <Pill key={filter}>{filter}</Pill>)}
+          </div>
         </div>
       </SoftCard>
 
-      {blocks.length ? (
-        <div className="grid grid-cols-3 items-stretch gap-3">
-        {blocks.map((block) => (
-          <SoftCard key={block.id} className="flex min-h-[305px] flex-col p-3">
-            <div className="mb-2 flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <h2 className="truncate text-[16px] font-extrabold">{block.name}</h2>
-                <p className="mt-1 truncate text-[12px] font-bold text-[#5d956d]" title={`${block.majorCategory} / ${block.minorCategory}`}>{block.majorCategory} / {block.minorCategory}</p>
-              </div>
-              <span className="rounded-full bg-[#edf5ef] px-2 py-1 text-[11px] font-bold text-[#4f875a]">{block.duration}</span>
+      {blocks.length ? <BlocksResultView blocks={blocks} view={view} /> : <BlocksEmptyState />}
+    </div>
+  );
+}
+
+function BlocksResultView({ blocks, view }: { blocks: DbBlockTemplate[]; view: string }) {
+  if (view === "card") {
+    return (
+      <div className="grid gap-3 xl:grid-cols-2 2xl:grid-cols-3">
+        {blocks.map((block) => <BlockCardResult key={block.id} block={block} />)}
+      </div>
+    );
+  }
+
+  if (view === "category") {
+    const grouped = blocks.reduce<Record<string, DbBlockTemplate[]>>((acc, block) => {
+      const key = block.majorCategory || "未分類";
+      acc[key] = acc[key] ?? [];
+      acc[key].push(block);
+      return acc;
+    }, {});
+
+    return (
+      <div className="space-y-4">
+        {Object.entries(grouped).map(([category, rows]) => (
+          <SoftCard key={category} className="p-3">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="text-[15px] font-extrabold text-[#273027]">{category}</h2>
+              <span className="rounded-full bg-[#edf5ef] px-2.5 py-1 text-[11px] font-bold text-[#4f875a]">{rows.length}件</span>
             </div>
-            <p className="line-clamp-3 min-h-[60px] text-[12px] font-medium leading-5 text-[#50584e]">{block.script}</p>
-            <p className="mt-1 line-clamp-1 min-h-5 text-[11px] font-bold text-[#d96c55]" title={block.cautions}>注意：{block.cautions}</p>
-            <div className="mt-2 flex min-h-[30px] flex-wrap gap-1 overflow-hidden">
-              {block.tags.slice(0, 3).map((tag) => <Pill key={tag}>{tag}</Pill>)}
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-2 text-center">
-              <MiniStat label="使用" value={`${block.usageCount}回`} />
-              <MiniStat label="良かった率" value={formatGoodRate(block)} />
-              <MiniStat label="改善メモ" value={`${block.improvementCount ?? 0}件`} />
-              <MiniStat label="最近" value={block.lastUsed} />
-            </div>
-            <div className="mt-auto grid grid-cols-3 gap-1.5 pt-3">
-              <Link href={`/blocks/${block.id}`} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] text-[12px] font-bold text-[#5d956d]">詳細</Link>
-              <Link href={`/blocks/${block.id}/edit`} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#e7dfd4] bg-white text-[12px] font-bold text-[#6b7468]">編集</Link>
-              <Link href="/lessons/new" className="inline-flex h-8 items-center justify-center rounded-lg bg-[#5d956d] text-[12px] font-bold text-white">使う</Link>
+            <div className="grid gap-2">
+              {rows.map((block) => <BlockCompactRow key={block.id} block={block} />)}
             </div>
           </SoftCard>
         ))}
-        </div>
-      ) : <BlocksEmptyState />}
-    </>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-2">
+      {blocks.map((block) => <BlockCompactRow key={block.id} block={block} />)}
+    </div>
   );
+}
+
+function BlockCompactRow({ block }: { block: DbBlockTemplate }) {
+  return (
+    <SoftCard className="grid gap-3 p-3 lg:grid-cols-[minmax(220px,1.15fr)_minmax(240px,1.4fr)_250px_190px] lg:items-center">
+      <div className="min-w-0">
+        <div className="flex min-w-0 items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h2 className="truncate text-[15px] font-extrabold text-[#273027]" title={block.name}>{block.name}</h2>
+            <p className="mt-1 truncate text-[12px] font-bold text-[#5d956d]" title={`${block.majorCategory} / ${block.minorCategory}`}>
+              {block.majorCategory} / {block.minorCategory}
+            </p>
+          </div>
+          <span className="shrink-0 rounded-full bg-[#edf5ef] px-2 py-1 text-[11px] font-bold text-[#4f875a]">{block.duration}</span>
+        </div>
+        <div className="mt-2 flex flex-wrap gap-1 overflow-hidden">
+          {block.tags.slice(0, 4).map((tag) => <Pill key={tag}>{tag}</Pill>)}
+          {block.tags.length > 4 ? <Pill>+{block.tags.length - 4}</Pill> : null}
+        </div>
+      </div>
+
+      <div className="min-w-0">
+        <p className="line-clamp-2 text-[12px] font-semibold leading-5 text-[#50584e]">{block.purpose || "目的は未入力です。"}</p>
+        <RichScriptText text={block.script} emptyText="原稿は未入力です。" className="mt-1 line-clamp-2 text-[12px] font-medium leading-5 text-[#6b7468]" />
+        {block.cautions ? <p className="mt-1 line-clamp-1 text-[11px] font-bold text-[#d96c55]" title={block.cautions}>注意：{block.cautions}</p> : null}
+      </div>
+
+      <div className="grid grid-cols-2 gap-1.5 text-center">
+        <MiniStat label="使用" value={`${block.usageCount}回`} />
+        <MiniStat label="良かった率" value={formatGoodRate(block)} />
+        <MiniStat label="最近使用" value={block.lastUsed} />
+        <MiniStat label="改善メモ" value={`${block.improvementCount ?? 0}件`} />
+      </div>
+
+      <div className="grid grid-cols-3 gap-1.5">
+        <Link href={`/blocks/${block.id}`} className="inline-flex h-9 items-center justify-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] text-[12px] font-bold text-[#5d956d]">詳細</Link>
+        <Link href={`/blocks/${block.id}/edit`} className="inline-flex h-9 items-center justify-center rounded-lg border border-[#e7dfd4] bg-white text-[12px] font-bold text-[#6b7468]">編集</Link>
+        <Link href="/lessons/new" className="inline-flex h-9 items-center justify-center rounded-lg bg-[#5d956d] text-[12px] font-bold text-white">プランに使う</Link>
+      </div>
+    </SoftCard>
+  );
+}
+
+function BlockCardResult({ block }: { block: DbBlockTemplate }) {
+  return (
+    <SoftCard className="flex min-h-[235px] flex-col p-3">
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h2 className="truncate text-[16px] font-extrabold">{block.name}</h2>
+          <p className="mt-1 truncate text-[12px] font-bold text-[#5d956d]" title={`${block.majorCategory} / ${block.minorCategory}`}>{block.majorCategory} / {block.minorCategory}</p>
+        </div>
+        <span className="shrink-0 rounded-full bg-[#edf5ef] px-2 py-1 text-[11px] font-bold text-[#4f875a]">{block.duration}</span>
+      </div>
+      <RichScriptText text={block.script} emptyText="原稿は未入力です。" className="line-clamp-3 min-h-[60px] text-[12px] font-medium leading-5 text-[#50584e]" />
+      {block.cautions ? <p className="mt-1 line-clamp-1 min-h-5 text-[11px] font-bold text-[#d96c55]" title={block.cautions}>注意：{block.cautions}</p> : null}
+      <div className="mt-2 flex min-h-[30px] flex-wrap gap-1 overflow-hidden">
+        {block.tags.slice(0, 3).map((tag) => <Pill key={tag}>{tag}</Pill>)}
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2 text-center">
+        <MiniStat label="使用" value={`${block.usageCount}回`} />
+        <MiniStat label="良かった率" value={formatGoodRate(block)} />
+        <MiniStat label="改善メモ" value={`${block.improvementCount ?? 0}件`} />
+        <MiniStat label="最近" value={block.lastUsed} />
+      </div>
+      <div className="mt-auto grid grid-cols-3 gap-1.5 pt-3">
+        <Link href={`/blocks/${block.id}`} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] text-[12px] font-bold text-[#5d956d]">詳細</Link>
+        <Link href={`/blocks/${block.id}/edit`} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#e7dfd4] bg-white text-[12px] font-bold text-[#6b7468]">編集</Link>
+        <Link href="/lessons/new" className="inline-flex h-8 items-center justify-center rounded-lg bg-[#5d956d] text-[12px] font-bold text-white">使う</Link>
+      </div>
+    </SoftCard>
+  );
+}
+
+function buildBlockHref(filters: BlockListFilters & { view?: string }, patch: Partial<BlockListFilters & { view?: string }>) {
+  const params = new URLSearchParams();
+  params.set("tab", "blocks");
+  const next = { ...filters, ...patch };
+  for (const key of ["q", "category", "subcategory", "tag", "sort", "view"] as const) {
+    const value = next[key];
+    if (value) params.set(key, value);
+  }
+  return `/lessons?${params.toString()}`;
+}
+
+function categoryChipClass(active: boolean) {
+  return active
+    ? "inline-flex h-9 shrink-0 items-center rounded-full bg-[#5d956d] px-4 text-[12px] font-extrabold text-white"
+    : "inline-flex h-9 shrink-0 items-center rounded-full border border-[#e1d9ce] bg-white px-4 text-[12px] font-bold text-[#5d6b58]";
+}
+
+function viewModeClass(active: boolean) {
+  return active
+    ? "inline-flex h-8 shrink-0 items-center rounded-lg bg-[#5d956d] px-3 text-[12px] font-bold text-white"
+    : "inline-flex h-8 shrink-0 items-center rounded-lg px-3 text-[12px] font-bold text-[#5d6b58]";
 }
 
 function BlocksEmptyState() {

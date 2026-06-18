@@ -143,6 +143,8 @@ create table if not exists public.schedules (
   ends_at timestamptz not null,
   place text,
   format text check (format in ('personal', 'group', 'online')),
+  schedule_caution text,
+  schedule_memo text,
   status text not null default 'scheduled' check (status in ('scheduled', 'preparing', 'prepared', 'record_pending', 'recorded')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

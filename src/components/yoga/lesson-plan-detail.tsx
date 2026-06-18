@@ -4,6 +4,7 @@ import { ArrowLeft, Copy, FileText, Pencil, Printer } from "lucide-react";
 import { duplicateLessonPlanAction } from "@/app/lessons/lesson-plan-actions";
 import { LessonPlanAiSuggestionPanel } from "@/components/yoga/lesson-plan-ai-suggestion-panel";
 import { PageHeader, Pill, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
+import { RichScriptText } from "@/components/yoga/rich-script-text";
 import { formatJapaneseDate } from "@/lib/date-format";
 import type { StudentAiSuggestionState } from "@/lib/ai-suggestions";
 import type { DbLessonPlan } from "@/lib/lesson-plans";
@@ -80,7 +81,7 @@ export function LessonPlanDetail({ plan, aiSuggestionState }: { plan: DbLessonPl
                   <div className="rounded-xl bg-[#fff7e8] p-3 text-[12px] font-bold leading-5 text-[#9b7338]">
                     注意点: {block.cautionsOverride || block.cautions || "未入力"}
                   </div>
-                  <p className="line-clamp-3 text-[12px] font-medium leading-5 text-[#50584e]">{block.scriptOverride || block.script || "誘導セリフは未入力です。"}</p>
+                  <RichScriptText text={block.scriptOverride || block.script} emptyText="誘導セリフは未入力です。" className="line-clamp-3 text-[12px] font-medium leading-5 text-[#50584e]" />
                 </div>
               </article>
             ))}

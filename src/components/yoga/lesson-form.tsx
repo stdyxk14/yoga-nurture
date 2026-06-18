@@ -22,6 +22,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeader, Pill, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
+import { RichScriptText } from "@/components/yoga/rich-script-text";
 import { blockTemplates, getLessonBlocks, students } from "@/components/yoga/records";
 import type { BlockTemplate, LessonRecord } from "@/components/yoga/records";
 
@@ -410,7 +411,7 @@ function MobileBlockCard({ block, index }: { block: BlockTemplate; index: number
         <MiniMeta label="評価" value={`★${block.averageRating}`} />
         <MiniMeta label="最終" value={block.lastUsed} />
       </div>
-      <p className="mt-2 line-clamp-2 text-[12px] font-medium leading-5 text-[#50584e]">{block.script}</p>
+      <RichScriptText text={block.script} className="mt-2 line-clamp-2 text-[12px] font-medium leading-5 text-[#50584e]" />
       <div className="mt-3 grid grid-cols-[1fr_92px] gap-2">
         <Link href={`/blocks/${block.id}`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white text-[12px] font-bold text-[#4f7b58]">詳細</Link>
         <button className="inline-flex h-9 items-center justify-center rounded-xl bg-[#7ea06f] text-[12px] font-bold text-white">追加</button>
@@ -500,7 +501,7 @@ function CandidateCard({ block, compact = false }: { block: BlockTemplate; compa
       </div>
       {!compact ? (
         <>
-          <p className="mt-2 line-clamp-2 text-[12px] font-medium leading-5 text-[#50584e]">{block.script}</p>
+          <RichScriptText text={block.script} className="mt-2 line-clamp-2 text-[12px] font-medium leading-5 text-[#50584e]" />
           <p className="mt-1 line-clamp-1 text-[11px] font-bold text-[#d96c55]">注意点：{block.cautions}</p>
         </>
       ) : null}

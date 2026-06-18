@@ -25,6 +25,8 @@ export type DbSchedule = {
   place: string;
   format: "personal" | "group" | "online" | "";
   formatLabel: string;
+  scheduleCaution: string;
+  scheduleMemo: string;
   status: ScheduleStatus;
   statusLabel: string;
   lessonPlanName: string;
@@ -46,6 +48,8 @@ type RawSchedule = {
   ends_at: string;
   place: string | null;
   format: "personal" | "group" | "online" | null;
+  schedule_caution?: string | null;
+  schedule_memo?: string | null;
   status: ScheduleStatus;
   created_at: string;
   updated_at: string;
@@ -133,6 +137,8 @@ function mapSchedule(row: RawSchedule): DbSchedule {
     place: row.place ?? "",
     format: row.format ?? "",
     formatLabel: getFormatLabel(row.format ?? ""),
+    scheduleCaution: row.schedule_caution ?? "",
+    scheduleMemo: row.schedule_memo ?? "",
     status: row.status,
     statusLabel: getScheduleStatusLabel(row.status),
     lessonPlanName: row.lesson_plan?.name ?? "未設定",
@@ -155,6 +161,8 @@ export async function getSchedules() {
       ends_at,
       place,
       format,
+      schedule_caution,
+      schedule_memo,
       status,
       created_at,
       updated_at,
@@ -186,6 +194,8 @@ export function getSchedulePayload(formData: FormData, plans: DbLessonPlan[]) {
   const place = String(formData.get("place") ?? "").trim();
   const format = String(formData.get("format") ?? "") as DbSchedule["format"];
   const status = String(formData.get("status") ?? "scheduled") as ScheduleStatus;
+  const scheduleCaution = String(formData.get("schedule_caution") ?? "").trim();
+  const scheduleMemo = String(formData.get("schedule_memo") ?? "").trim();
   const participantIds = formData.getAll("student_ids").map((value) => String(value)).filter(Boolean);
   const plan = plans.find((item) => item.id === lessonPlanId);
 
@@ -209,6 +219,8 @@ export function getSchedulePayload(formData: FormData, plans: DbLessonPlan[]) {
       ends_at: endsAt.toISOString(),
       place,
       format,
+      schedule_caution: scheduleCaution,
+      schedule_memo: scheduleMemo,
       status,
     },
     participantIds,

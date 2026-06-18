@@ -394,7 +394,7 @@ function ScheduleCards({ schedules }: { schedules: DashboardSchedule[] }) {
           </div>
           <div className="mt-3 grid grid-cols-3 gap-2">
             <ActionLink href={schedule.lessonPlanId ? `/lessons/${schedule.lessonPlanId}` : null} label="プラン" />
-            <ActionLink href={schedule.lessonPlanId ? `/lessons/${schedule.lessonPlanId}/script` : null} label="原稿" />
+            <ActionLink href={schedule.lessonPlanId ? `/schedules/${schedule.id}/script` : null} label="原稿" />
             <ActionLink href={`/lessons/${schedule.id}/record`} label="記録" primary />
           </div>
         </article>
@@ -591,7 +591,7 @@ function buildTodayHero(schedule: DashboardSchedule, attentionCount: number): He
     description: "原稿と参加予定生徒を確認して、前回の気づきを今日の声かけに活かしましょう。",
     meta: `${schedule.startTime} ${displayScheduleName(schedule)} / 参加予定 ${schedule.participantCount}名 / 注意あり ${attentionCount}名`,
     actions: [
-      { href: schedule.lessonPlanId ? `/lessons/${schedule.lessonPlanId}/script` : null, label: "原稿を見る" },
+      { href: schedule.lessonPlanId ? `/schedules/${schedule.id}/script` : null, label: "原稿を見る" },
       { href: `/schedules/${schedule.id}`, label: "参加生徒を確認" },
       { href: `/lessons/${schedule.id}/record`, label: "記録を書く" },
     ],
@@ -606,7 +606,7 @@ function buildNextHero(schedule: DashboardSchedule): HeroVariant {
     meta: `次回: ${formatDateKeyJa(schedule.dateKey)} ${schedule.startTime} ${displayScheduleName(schedule)}`,
     actions: [
       { href: `/schedules/${schedule.id}`, label: "次回の予定を見る" },
-      { href: schedule.lessonPlanId ? `/lessons/${schedule.lessonPlanId}/script` : null, label: "原稿を見る" },
+      { href: schedule.lessonPlanId ? `/schedules/${schedule.id}/script` : null, label: "原稿を見る" },
       { href: `/schedules/${schedule.id}`, label: "参加生徒を確認" },
     ],
   };

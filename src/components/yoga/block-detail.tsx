@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, BarChart3, FileText, History, MessageSquareText, Pencil, Sparkles } from "lucide-react";
 import { BlockAiSuggestionPanel } from "@/components/yoga/block-ai-suggestion-panel";
 import { PageHeader, Pill, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
+import { RichScriptText } from "@/components/yoga/rich-script-text";
 import type { BlockUsageHistory } from "@/components/yoga/records";
 import type { StudentAiSuggestionState } from "@/lib/ai-suggestions";
 import type { DbBlockTemplate } from "@/lib/blocks";
@@ -72,7 +73,7 @@ export function BlockDetail({
           <div className="mt-4">
             <SectionTitle icon={FileText} title="誘導セリフ全文" />
             <div className="rounded-xl border border-[#eee4d8] bg-white/72 p-4">
-              <p className="whitespace-pre-line text-[13px] font-medium leading-7 text-[#30362f]">{block.script}</p>
+              <RichScriptText text={block.script} className="whitespace-pre-wrap text-[13px] font-medium leading-7 text-[#30362f]" />
             </div>
           </div>
 
@@ -200,7 +201,7 @@ function MobileBlockDetail({
           <InfoCard label="注意点" value={block.cautions} tone="coral" />
           <div className="rounded-2xl border border-[#eee4d8] bg-white/72 p-3">
             <p className="text-[12px] font-bold text-[#4f7b58]">誘導セリフ全文</p>
-            <p className="mt-2 whitespace-pre-line text-[13px] font-medium leading-7 text-[#30362f]">{block.script}</p>
+            <RichScriptText text={block.script} className="mt-2 whitespace-pre-wrap text-[13px] font-medium leading-7 text-[#30362f]" />
           </div>
         </div>
       </section>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Copy, Download, Printer } from "lucide-react";
 import { PageHeader, Pill, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
+import { RichScriptText } from "@/components/yoga/rich-script-text";
 import { getLessonBlocks, getStudent } from "@/components/yoga/records";
 import type { LessonRecord } from "@/components/yoga/records";
 
@@ -55,7 +56,7 @@ export function LessonScript({ lesson }: { lesson: LessonRecord }) {
                 </div>
                 <span className="rounded-full bg-[#edf5ef] px-3 py-1 text-[12px] font-bold text-[#4f875a]">{block.duration}</span>
               </div>
-              <p className="whitespace-pre-line text-[13px] font-medium leading-7 text-[#30362f] print:text-[12px] print:leading-6">{block.script}</p>
+              <RichScriptText text={block.script} className="whitespace-pre-line text-[13px] font-medium leading-7 text-[#30362f] print:text-[12px] print:leading-6" />
               <div className="mt-3 rounded-lg bg-[#fff7e8] px-3 py-2 text-[12px] font-bold leading-5 text-[#8b704c]">
                 注意点：{block.cautions}
               </div>

@@ -132,7 +132,7 @@ export function LessonRecordForm({
           予定詳細へ戻る
         </Link>
         {schedule.lessonPlanId ? (
-          <Link href={`/lessons/${schedule.lessonPlanId}/script`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#e6dff2] bg-[#faf7ff] px-3 text-[12px] font-bold text-[#7469bf]">
+          <Link href={`/schedules/${schedule.id}/script`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#e6dff2] bg-[#faf7ff] px-3 text-[12px] font-bold text-[#7469bf]">
             原稿を見る
           </Link>
         ) : null}

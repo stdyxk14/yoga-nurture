@@ -39,7 +39,7 @@ export function ScheduleDetail({ schedule, error }: { schedule: DbSchedule; erro
               一覧
             </Link>
             {schedule.lessonPlanId ? (
-              <Link href={`/lessons/${schedule.lessonPlanId}/script`} className="inline-flex h-9 items-center justify-center gap-1 rounded-xl bg-[#5d956d] px-3 text-[12px] font-bold text-white">
+              <Link href={`/schedules/${schedule.id}/script`} className="inline-flex h-9 items-center justify-center gap-1 rounded-xl bg-[#5d956d] px-3 text-[12px] font-bold text-white">
                 <Printer className="h-3.5 w-3.5" />
                 原稿
               </Link>
@@ -66,6 +66,20 @@ export function ScheduleDetail({ schedule, error }: { schedule: DbSchedule; erro
           </div>
         </div>
       </SoftCard>
+
+      {(schedule.scheduleCaution || schedule.scheduleMemo) ? (
+        <SoftCard className="p-4">
+          <SectionTitle icon={FileText} title="この予定の確認メモ" subtitle="原稿上部にも表示される、当日だけの注意事項です。" />
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {schedule.scheduleCaution ? (
+              <Info label="注意事項" value={schedule.scheduleCaution} />
+            ) : null}
+            {schedule.scheduleMemo ? (
+              <Info label="メモ" value={schedule.scheduleMemo} />
+            ) : null}
+          </div>
+        </SoftCard>
+      ) : null}
 
       <SoftCard className="p-4">
         <SectionTitle icon={UsersRound} title="参加予定生徒" subtitle="予定登録時に選択された生徒です。" />

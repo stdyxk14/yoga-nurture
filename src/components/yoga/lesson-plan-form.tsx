@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowDown, ArrowUp, Clock, FileText, Filter, LayoutGrid, Layers3, List, Plus, Save, Search, Trash2, X } from "lucide-react";
 import { createLessonPlanAction, updateLessonPlanAction } from "@/app/lessons/lesson-plan-actions";
 import { Input } from "@/components/ui/input";
+import { RichScriptText } from "@/components/yoga/rich-script-text";
 import type { BlockCategory, DbBlockTemplate } from "@/lib/blocks";
 import type { StudentAiSuggestionState } from "@/lib/ai-suggestions";
 import type { DbLessonPlan, LessonPlanFormState } from "@/lib/lesson-plans";
@@ -615,7 +616,7 @@ function BlockScriptModal({ block, onClose }: { block: DbBlockTemplate; onClose:
           </div>
           <div className="mt-4 rounded-2xl border border-[#eee4d8] bg-white/80 p-4">
             <p className="text-[13px] font-extrabold text-[#4f7b58]">誘導セリフ全文</p>
-            <p className="mt-2 whitespace-pre-line break-words text-[13px] font-medium leading-7 text-[#30362f]">{block.script || "原稿は未入力です。"}</p>
+            <RichScriptText text={block.script} emptyText="原稿は未入力です。" className="mt-2 whitespace-pre-wrap break-words text-[13px] font-medium leading-7 text-[#30362f]" />
           </div>
         </div>
       </div>

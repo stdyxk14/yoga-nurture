@@ -212,6 +212,12 @@ export async function getBlocks(filters: BlockListFilters = {}) {
     blocks = blocks.sort((a, b) => a.durationMinutes - b.durationMinutes);
   } else if (filters.sort === "name") {
     blocks = blocks.sort((a, b) => a.name.localeCompare(b.name, "ja"));
+  } else if (filters.sort === "usage") {
+    blocks = blocks.sort((a, b) => b.usageCount - a.usageCount || a.name.localeCompare(b.name, "ja"));
+  } else if (filters.sort === "good") {
+    blocks = blocks.sort((a, b) => (b.goodRate ?? -1) - (a.goodRate ?? -1) || b.usageCount - a.usageCount);
+  } else if (filters.sort === "recent") {
+    blocks = blocks.sort((a, b) => (b.lastUsedAt || "").localeCompare(a.lastUsedAt || "") || a.name.localeCompare(b.name, "ja"));
   } else {
     blocks = blocks.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }

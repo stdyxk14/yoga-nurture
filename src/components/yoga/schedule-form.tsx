@@ -6,6 +6,7 @@ import Link from "next/link";
 import { CalendarDays, CheckCircle2, FileText, Save, UsersRound } from "lucide-react";
 import { createScheduleAction } from "@/app/schedules/actions";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import type { StudentRecord } from "@/components/yoga/records";
 import { PageHeader, Pill, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
 import type { DbLessonPlan } from "@/lib/lesson-plans";
@@ -140,6 +141,24 @@ export function ScheduleForm({ plans, students, initialPlanId, schedule, action 
                 <select name="status" defaultValue={schedule?.status ?? "scheduled"} className="h-10 w-full rounded-xl border border-[#e1d9ce] bg-white/90 px-3 text-[13px] font-semibold">
                   {scheduleStatusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
+              </Field>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <Field label="この予定の注意事項">
+                <Textarea
+                  name="schedule_caution"
+                  defaultValue={schedule?.scheduleCaution ?? ""}
+                  placeholder="例：今日は初参加の生徒がいるため、導入をゆっくりめにする"
+                  className="min-h-[96px] bg-white/90 text-[13px]"
+                />
+              </Field>
+              <Field label="この予定のメモ">
+                <Textarea
+                  name="schedule_memo"
+                  defaultValue={schedule?.scheduleMemo ?? ""}
+                  placeholder="例：スタジオBは床が冷えやすいのでブランケット確認"
+                  className="min-h-[96px] bg-white/90 text-[13px]"
+                />
               </Field>
             </div>
           </SoftCard>

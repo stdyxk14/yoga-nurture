@@ -11,7 +11,7 @@ import type { StudentRecord } from "@/components/yoga/records";
 import { genderOptions } from "@/lib/student-fields";
 import type { StudentFormState } from "@/lib/students";
 
-const ageGroups = ["10代", "20前半", "20半ば", "20後半", "30前半", "30半ば", "30後半", "40前半", "40半ば", "40後半", "50前半", "50半ば", "50後半", "60代以上"];
+const ageGroups = ["年齢不明", "10代", "20前半", "20半ば", "20後半", "30前半", "30半ば", "30後半", "40前半", "40半ば", "40後半", "50前半", "50半ば", "50後半", "60代以上"];
 type StudentAction = (state: StudentFormState, formData: FormData) => Promise<StudentFormState>;
 type DeleteAction = (formData: FormData) => Promise<void>;
 

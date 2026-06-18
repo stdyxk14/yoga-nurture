@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useMemo, useState, type ReactNode } from "react";
+import { useActionState, useMemo, useRef, useState, type ReactNode } from "react";
 import { FolderPlus, Plus, Save, Settings2, Tag, Trash2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -176,7 +176,12 @@ function BlockFields({
 
       <div className="mt-4 grid grid-cols-[minmax(0,1fr)_260px] gap-4">
         <Field label="誘導セリフ / レッスン原稿">
-          <Textarea name="script" defaultValue={block?.script ?? ""} placeholder="実際にインストラクターが話す誘導セリフを書きます。" className="min-h-[320px] bg-white/80 text-[14px]" />
+          <ScriptTextarea
+            name="script"
+            defaultValue={block?.script ?? ""}
+            placeholder="実際にインストラクターが話す誘導セリフを書きます。"
+            className="min-h-[320px] bg-white/80 text-[14px]"
+          />
         </Field>
         <div className="grid gap-4">
           <Field label="注意点">
@@ -330,12 +335,70 @@ function MobileBlockForm({
           </select>
         </Field>
         <Field label="注意点"><Textarea name="cautions" defaultValue={block?.cautions ?? ""} className="min-h-[110px] w-full bg-white/80 text-[14px]" /></Field>
-        <Field label="誘導セリフ / レッスン原稿"><Textarea name="script" defaultValue={block?.script ?? ""} className="min-h-[260px] w-full bg-white/80 text-[14px]" /></Field>
+        <Field label="誘導セリフ / レッスン原稿"><ScriptTextarea name="script" defaultValue={block?.script ?? ""} className="min-h-[260px] w-full bg-white/80 text-[14px]" /></Field>
         <Field label="メモ"><Textarea name="memo" defaultValue={block?.memo ?? ""} className="min-h-[120px] w-full bg-white/80 text-[14px]" /></Field>
         <Field label="タグ">
           <TagPanel selectedTags={selectedTags} draftTag={draftTag} setDraftTag={setDraftTag} toggleTag={toggleTag} addTag={addTag} tagCandidates={tagCandidates} submitLabel={submitLabel} pending={pending} error={error} deleteAction={deleteAction} />
         </Field>
       </section>
+    </div>
+  );
+}
+
+function ScriptTextarea({
+  name,
+  defaultValue,
+  placeholder,
+  className,
+}: {
+  name: string;
+  defaultValue: string;
+  placeholder?: string;
+  className?: string;
+}) {
+  const ref = useRef<HTMLTextAreaElement | null>(null);
+  const [value, setValue] = useState(defaultValue);
+
+  function insertBold() {
+    const textarea = ref.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selected = value.slice(start, end);
+    const insert = selected ? `**${selected}**` : "**太字**";
+    const next = `${value.slice(0, start)}${insert}${value.slice(end)}`;
+    setValue(next);
+
+    window.requestAnimationFrame(() => {
+      textarea.focus();
+      const cursorStart = selected ? start + 2 : start + 2;
+      const cursorEnd = selected ? start + 2 + selected.length : start + 4;
+      textarea.setSelectionRange(cursorStart, cursorEnd);
+    });
+  }
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-[#e1d9ce] bg-white/80">
+      <div className="flex items-center gap-2 border-b border-[#eee4d8] bg-[#fbfaf6] px-2 py-2">
+        <button
+          type="button"
+          onClick={insertBold}
+          className="inline-flex h-8 min-w-8 items-center justify-center rounded-lg border border-[#d8e3d4] bg-white px-2 text-[13px] font-extrabold text-[#4f7b58]"
+          title="選択した文字を太字にする"
+        >
+          B
+        </button>
+        <p className="truncate text-[11px] font-semibold text-[#6b7468]">強調したい言葉を選択してBを押すと太字になります。</p>
+      </div>
+      <Textarea
+        ref={ref}
+        name={name}
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        placeholder={placeholder}
+        className={`border-0 bg-transparent shadow-none focus-visible:ring-0 ${className ?? ""}`}
+      />
     </div>
   );
 }
