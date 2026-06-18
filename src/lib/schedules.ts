@@ -151,9 +151,28 @@ function mapSchedule(row: RawSchedule): DbSchedule {
 
 export async function getSchedules() {
   const { supabase } = await requireUserId();
-  const { data, error } = await supabase
+  const withNotes = await supabase
     .from("schedules")
-    .select(`
+    .select(scheduleSelect(true))
+    .order("starts_at", { ascending: true });
+
+  if (!withNotes.error) return ((withNotes.data ?? []) as unknown as RawSchedule[]).map(mapSchedule);
+
+  if (!isMissingScheduleNotesError(withNotes.error.message)) {
+    throw new Error(`予定を取得できませんでした: ${withNotes.error.message}`);
+  }
+
+  const fallback = await supabase
+    .from("schedules")
+    .select(scheduleSelect(false))
+    .order("starts_at", { ascending: true });
+
+  if (fallback.error) throw new Error(`予定を取得できませんでした: ${fallback.error.message}`);
+  return ((fallback.data ?? []) as unknown as RawSchedule[]).map(mapSchedule);
+}
+
+function scheduleSelect(includeNotes: boolean) {
+  return `
       id,
       lesson_plan_id,
       lesson_name,
@@ -161,8 +180,8 @@ export async function getSchedules() {
       ends_at,
       place,
       format,
-      schedule_caution,
-      schedule_memo,
+      ${includeNotes ? "schedule_caution," : ""}
+      ${includeNotes ? "schedule_memo," : ""}
       status,
       created_at,
       updated_at,
@@ -172,11 +191,11 @@ export async function getSchedules() {
         attendance_status,
         student:students(id,name,kana,age_group,gender,experience,caution,memo)
       )
-    `)
-    .order("starts_at", { ascending: true });
+    `;
+}
 
-  if (error) throw new Error(`予定を取得できませんでした: ${error.message}`);
-  return ((data ?? []) as unknown as RawSchedule[]).map(mapSchedule);
+function isMissingScheduleNotesError(message: string) {
+  return message.includes("schedule_caution") || message.includes("schedule_memo");
 }
 
 export async function getScheduleById(id: string) {
