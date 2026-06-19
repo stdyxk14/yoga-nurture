@@ -498,7 +498,7 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, de
         </SoftCard>
 
         <SoftCard
-          className="sticky bottom-20 z-10 max-h-[72vh] overflow-auto p-4 md:bottom-4 xl:col-span-2 xl:max-h-none xl:overflow-visible 2xl:sticky 2xl:top-6 2xl:bottom-auto 2xl:col-span-1 2xl:max-h-[calc(100dvh-3rem)] 2xl:self-start 2xl:overflow-y-auto"
+          className="p-4 xl:col-span-2 2xl:sticky 2xl:top-6 2xl:col-span-1 2xl:max-h-[calc(100dvh-3rem)] 2xl:self-start 2xl:overflow-y-auto"
           onDragOver={(event) => event.preventDefault()}
           onDrop={(event) => handleDrop(event)}
         >
