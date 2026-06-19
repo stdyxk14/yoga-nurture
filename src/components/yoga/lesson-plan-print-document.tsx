@@ -78,22 +78,35 @@ export function LessonPlanPrintDocument({ plan, schedule }: Props) {
             </section>
           ) : null}
 
-          <section className="mt-7">
-            <PrintSectionTitle title="目次 / ブロック一覧" />
-            <div className="mt-3 divide-y divide-[#ddd5ca] border-y border-[#bcb4a8]">
-              {plan.blocks.map((block, index) => (
-                <div key={block.planBlockId} className="grid grid-cols-[34px_minmax(0,1fr)_58px] gap-3 py-2 text-[12.5px] leading-5">
-                  <span className="font-black text-[#5d956d]">{index + 1}</span>
-                  <div className="min-w-0">
-                    <p className="font-extrabold text-[#20231e]">{block.name}</p>
-                    <p className="mt-0.5 text-[11px] font-semibold text-[#606a5e]">{block.majorCategory} / {block.minorCategory}</p>
-                  </div>
-                  <span className="text-right font-extrabold">{block.plannedDurationMinutes}分</span>
-                </div>
-              ))}
+        </section>
+
+        <section className="print-toc">
+          <div className="mb-5 flex items-end justify-between gap-6 border-b border-[#293225] pb-4">
+            <div>
+              <p className="text-[12px] font-extrabold tracking-[0.22em] text-[#5d956d]">YOGA NURTURE</p>
+              <h2 className="mt-2 text-[25px] font-black leading-tight text-[#20231e] print:text-[20pt]">目次 / ブロック一覧</h2>
+              <p className="mt-1 max-w-[680px] text-[12.5px] font-semibold leading-5 text-[#606a5e]">
+                {plan.name}
+              </p>
             </div>
-            <p className="mt-3 text-right text-[13px] font-black">合計 {plan.totalMinutes}分</p>
-          </section>
+            <div className="shrink-0 text-right">
+              <p className="text-[11px] font-bold text-[#6b7468]">合計時間</p>
+              <p className="text-[22px] font-black text-[#20231e]">{plan.totalMinutes}分</p>
+            </div>
+          </div>
+          <div className="print-toc-list divide-y divide-[#ddd5ca] border-y border-[#bcb4a8]">
+            {plan.blocks.map((block, index) => (
+              <div key={block.planBlockId} className="toc-row grid grid-cols-[34px_minmax(0,1fr)_58px] gap-3 py-1.5 text-[12.5px] leading-5">
+                <span className="font-black text-[#5d956d]">{index + 1}</span>
+                <div className="min-w-0">
+                  <p className="font-extrabold text-[#20231e]">{block.name}</p>
+                  <p className="mt-0.5 text-[11px] font-semibold text-[#606a5e]">{block.majorCategory} / {block.minorCategory}</p>
+                </div>
+                <span className="text-right font-extrabold">{block.plannedDurationMinutes}分</span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-right text-[13px] font-black">合計 {plan.totalMinutes}分</p>
         </section>
 
         <section className="script-body">
@@ -216,6 +229,29 @@ function PrintStyles() {
           break-after: page;
           page-break-after: always;
           min-height: auto;
+        }
+
+        .print-toc {
+          break-after: page;
+          page-break-after: always;
+        }
+
+        .print-toc-list {
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+
+        .toc-row {
+          break-inside: avoid;
+          page-break-inside: avoid;
+          font-size: 9.6pt !important;
+          line-height: 1.28 !important;
+          padding-top: 2.4mm !important;
+          padding-bottom: 2.4mm !important;
+        }
+
+        .toc-row p {
+          margin-top: 0 !important;
         }
 
         .script-body {
