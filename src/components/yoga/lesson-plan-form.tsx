@@ -55,6 +55,7 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, de
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [floatingFiltersOpen, setFloatingFiltersOpen] = useState(false);
   const [showFloatingSearch, setShowFloatingSearch] = useState(false);
+  const [mobilePlanOpen, setMobilePlanOpen] = useState(false);
   const [viewMode, setViewMode] = useState<BlockViewMode>("cards");
   const [visibleCount, setVisibleCount] = useState(18);
   const [previewBlock, setPreviewBlock] = useState<DbBlockTemplate | null>(null);
@@ -141,6 +142,7 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, de
   useEffect(() => {
     const shouldLockBody =
       Boolean(previewBlock) ||
+      mobilePlanOpen ||
       (filtersOpen && typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches);
     if (!shouldLockBody) return;
     const previousOverflow = document.body.style.overflow;
@@ -148,7 +150,7 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, de
     return () => {
       document.body.style.overflow = previousOverflow;
     };
-  }, [filtersOpen, previewBlock]);
+  }, [filtersOpen, mobilePlanOpen, previewBlock]);
 
   useEffect(() => {
     const target = searchHeaderRef.current;
@@ -222,9 +224,12 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, de
 
   return (
     <>
-      <form action={formAction} className="space-y-4 pb-24 md:pb-0">
-      <div className="grid gap-4 xl:grid-cols-[280px_minmax(640px,1fr)] 2xl:grid-cols-[280px_minmax(640px,1fr)_320px]">
-        <div className="space-y-4">
+      <form action={formAction} className="space-y-4 pb-36 min-[960px]:pb-0">
+      {selectedBlocks.map((block, index) => (
+        <input key={`${block.id}-${index}`} type="hidden" name="block_ids" value={block.id} />
+      ))}
+      <div className="grid gap-3 min-[960px]:grid-cols-[190px_minmax(0,1fr)_210px] lg:grid-cols-[220px_minmax(0,1fr)_240px] xl:grid-cols-[250px_minmax(0,1fr)_280px] 2xl:grid-cols-[280px_minmax(0,1fr)_320px]">
+        <div className="space-y-4 min-[960px]:sticky min-[960px]:top-4 min-[960px]:max-h-[calc(100dvh-2rem)] min-[960px]:self-start min-[960px]:overflow-y-auto">
           <SoftCard className="p-4">
             <SectionTitle icon={FileText} title={mode === "new" ? "レッスンプランを作成" : "レッスンプランを編集"} subtitle="ブロックを組み合わせて、印刷できる原稿を作ります。" />
             {formError ? (
@@ -240,7 +245,7 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, de
               <Label text="場所">
                 <Input name="place" defaultValue={initialPlan?.place ?? ""} className="h-10" />
               </Label>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-1">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 min-[960px]:grid-cols-1">
                 <Label text="形式">
                   <select name="format" defaultValue={initialPlan?.format || "group"} className="h-10 w-full rounded-xl border border-[#e1d9ce] bg-white px-3 text-[13px] font-semibold">
                     {lessonFormatOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -273,7 +278,7 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, de
           </SoftCard>
         </div>
 
-        <SoftCard className="min-w-0 !overflow-visible p-4">
+        <SoftCard className="min-w-0 !overflow-visible p-3 xl:p-4">
           <div ref={searchHeaderRef} className="-mx-1 -mt-1 rounded-3xl border border-[#e5ded3] bg-[#fffdf8] p-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
@@ -461,7 +466,7 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, de
                     <h3 className="truncate text-[15px] font-extrabold text-[#2f342e]">{group.category}</h3>
                     <span className="shrink-0 rounded-full bg-[#edf5ef] px-3 py-1 text-[11px] font-bold text-[#4f875a]">{group.items.length}件</span>
                   </div>
-                  <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+                  <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(210px,1fr))] xl:[grid-template-columns:repeat(auto-fit,minmax(230px,1fr))]">
                     {group.items.map((block) => (
                       <BlockCandidateCard
                         key={block.id}
@@ -477,7 +482,7 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, de
               ))}
             </div>
           ) : (
-            <div className="mt-4 grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+            <div className="mt-4 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(210px,1fr))] xl:[grid-template-columns:repeat(auto-fit,minmax(230px,1fr))]">
               {visibleBlocks.map((block) => (
                 <BlockCandidateCard
                   key={block.id}
@@ -498,56 +503,70 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, de
         </SoftCard>
 
         <SoftCard
-          className="p-4 xl:col-span-2 2xl:sticky 2xl:top-6 2xl:col-span-1 2xl:max-h-[calc(100dvh-3rem)] 2xl:self-start 2xl:overflow-y-auto"
+          className="hidden p-3 min-[960px]:sticky min-[960px]:top-4 min-[960px]:col-span-1 min-[960px]:block min-[960px]:max-h-[calc(100dvh-2rem)] min-[960px]:self-start min-[960px]:overflow-y-auto xl:p-4"
           onDragOver={(event) => event.preventDefault()}
           onDrop={(event) => handleDrop(event)}
         >
           <SectionTitle icon={Clock} title="作成中のプラン" subtitle={`${totalMinutes}分 / ${selectedBlocks.length}ブロック`} />
-          {selectedBlocks.map((block, index) => (
-            <input key={`${block.id}-${index}`} type="hidden" name="block_ids" value={block.id} />
-          ))}
-          <div className="mt-4 space-y-2">
-            {selectedBlocks.length ? selectedBlocks.map((block, index) => (
-              <article
-                key={`${block.id}-${index}`}
-                className="rounded-2xl border border-[#eee4d8] bg-white/78 p-3"
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={(event) => handleDrop(event, index)}
-              >
-                <div className="flex items-start gap-2">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#edf5ef] text-[12px] font-extrabold text-[#4f875a]">{index + 1}</span>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="truncate text-[13px] font-extrabold">{block.name}</h3>
-                    <p className="truncate text-[11px] font-bold text-[#6b7468]">{block.majorCategory} / {block.minorCategory} / {block.durationMinutes}分</p>
-                  </div>
-                </div>
-                <div className="mt-2 grid grid-cols-4 gap-1.5">
-                  <button type="button" onClick={() => moveBlock(index, -1)} disabled={index === 0} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#d8e3d4] bg-white text-[#4f7b58] disabled:opacity-35">
-                    <ArrowUp className="h-3.5 w-3.5" />
-                  </button>
-                  <button type="button" onClick={() => moveBlock(index, 1)} disabled={index === selectedBlocks.length - 1} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#d8e3d4] bg-white text-[#4f7b58] disabled:opacity-35">
-                    <ArrowDown className="h-3.5 w-3.5" />
-                  </button>
-                  <button type="button" onClick={() => setPreviewBlock(block)} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#e7dfd4] bg-white text-[11px] font-bold text-[#6b7468]">
-                    原稿
-                  </button>
-                  <button type="button" onClick={() => removeBlock(index)} className="inline-flex h-8 items-center justify-center rounded-lg bg-[#fff0ea] text-[#d96c55]">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </article>
-            )) : (
-              <div className="rounded-2xl border border-dashed border-[#d8e3d4] bg-white/55 p-4 text-center text-[12px] font-medium text-[#6b7468]">
-                左の候補からブロックを追加してください。
-              </div>
-            )}
-          </div>
+          <SelectedPlanItems
+            selectedBlocks={selectedBlocks}
+            moveBlock={moveBlock}
+            removeBlock={removeBlock}
+            onPreview={setPreviewBlock}
+            onDrop={handleDrop}
+          />
           <button type="submit" disabled={pending} className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#5d956d] text-[13px] font-bold text-white shadow-[0_8px_18px_rgba(64,113,77,0.18)] disabled:opacity-60">
             <Save className="h-4 w-4" />
             {pending ? "保存中..." : mode === "new" ? "プランを保存" : "変更を保存"}
           </button>
           {deleteAction ? <DeleteLessonPlanButton action={deleteAction} /> : null}
         </SoftCard>
+      </div>
+
+      <div className="min-[960px]:hidden">
+        <button
+          type="button"
+          onClick={() => setMobilePlanOpen(true)}
+          className="fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-40 flex min-h-14 items-center justify-between gap-3 rounded-2xl border border-[#d8e3d4] bg-[#fffdf8]/96 px-4 py-3 text-left shadow-[0_12px_34px_rgba(54,70,48,0.2)] backdrop-blur"
+        >
+          <span className="min-w-0">
+            <span className="block text-[12px] font-bold text-[#5d956d]">作成中のプラン</span>
+            <span className="block truncate text-[14px] font-extrabold text-[#20231e]">{totalMinutes}分 / {selectedBlocks.length}ブロック</span>
+          </span>
+          <span className="shrink-0 rounded-xl bg-[#5d956d] px-3 py-2 text-[12px] font-bold text-white">開く</span>
+        </button>
+
+        {mobilePlanOpen ? (
+          <div className="fixed inset-0 z-50 flex items-end bg-black/30 px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-4">
+            <div className="flex max-h-[86dvh] w-full flex-col overflow-hidden rounded-3xl border border-[#eee4d8] bg-[#fffdf8] shadow-[0_18px_48px_rgba(49,43,31,0.18)]">
+              <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#eee4d8] p-4">
+                <div className="min-w-0">
+                  <p className="text-[12px] font-bold text-[#5d956d]">作成中のプラン</p>
+                  <h2 className="mt-1 text-[20px] font-extrabold leading-tight">{totalMinutes}分 / {selectedBlocks.length}ブロック</h2>
+                </div>
+                <button type="button" onClick={() => setMobilePlanOpen(false)} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white text-[#4f7b58]" aria-label="閉じる">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                <SelectedPlanItems
+                  selectedBlocks={selectedBlocks}
+                  moveBlock={moveBlock}
+                  removeBlock={removeBlock}
+                  onPreview={setPreviewBlock}
+                  onDrop={handleDrop}
+                />
+              </div>
+              <div className="grid shrink-0 gap-2 border-t border-[#eee4d8] bg-[#fffdf8] p-4">
+                <button type="submit" disabled={pending} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#5d956d] text-[13px] font-bold text-white shadow-[0_8px_18px_rgba(64,113,77,0.18)] disabled:opacity-60">
+                  <Save className="h-4 w-4" />
+                  {pending ? "保存中..." : mode === "new" ? "プランを保存" : "変更を保存"}
+                </button>
+                {deleteAction ? <DeleteLessonPlanButton action={deleteAction} /> : null}
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
       </form>
       {showFloatingSearch ? (
@@ -588,6 +607,92 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, de
       ) : null}
       {previewBlock ? <BlockScriptModal block={previewBlock} onClose={() => setPreviewBlock(null)} /> : null}
     </>
+  );
+}
+
+function SelectedPlanItems({
+  selectedBlocks,
+  moveBlock,
+  removeBlock,
+  onPreview,
+  onDrop,
+}: {
+  selectedBlocks: DbBlockTemplate[];
+  moveBlock: (index: number, direction: -1 | 1) => void;
+  removeBlock: (index: number) => void;
+  onPreview: (block: DbBlockTemplate) => void;
+  onDrop: (event: DragEvent<HTMLElement>, index?: number) => void;
+}) {
+  if (!selectedBlocks.length) {
+    return (
+      <div
+        className="mt-4 rounded-2xl border border-dashed border-[#d8e3d4] bg-white/55 p-4 text-center text-[12px] font-medium text-[#6b7468]"
+        onDragOver={(event) => event.preventDefault()}
+        onDrop={(event) => onDrop(event)}
+      >
+        左の候補からブロックを追加してください。
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4 space-y-2">
+      {selectedBlocks.map((block, index) => (
+        <article
+          key={`${block.id}-${index}`}
+          className="rounded-2xl border border-[#eee4d8] bg-white/78 p-2.5"
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={(event) => onDrop(event, index)}
+        >
+          <div className="flex items-start gap-2">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#edf5ef] text-[12px] font-extrabold text-[#4f875a]">
+              {index + 1}
+            </span>
+            <div className="min-w-0 flex-1">
+              <h3 className="truncate text-[13px] font-extrabold text-[#20231e]">{block.name}</h3>
+              <p className="truncate text-[11px] font-bold text-[#6b7468]">
+                {block.majorCategory} / {block.minorCategory} / {block.durationMinutes}分
+              </p>
+            </div>
+          </div>
+          <div className="mt-2 grid grid-cols-4 gap-1.5">
+            <button
+              type="button"
+              onClick={() => moveBlock(index, -1)}
+              disabled={index === 0}
+              className="inline-flex h-8 items-center justify-center rounded-lg border border-[#d8e3d4] bg-white text-[#4f7b58] disabled:opacity-35"
+              aria-label="上へ移動"
+            >
+              <ArrowUp className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => moveBlock(index, 1)}
+              disabled={index === selectedBlocks.length - 1}
+              className="inline-flex h-8 items-center justify-center rounded-lg border border-[#d8e3d4] bg-white text-[#4f7b58] disabled:opacity-35"
+              aria-label="下へ移動"
+            >
+              <ArrowDown className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onPreview(block)}
+              className="inline-flex h-8 items-center justify-center rounded-lg border border-[#e7dfd4] bg-white text-[11px] font-bold text-[#6b7468]"
+            >
+              原稿
+            </button>
+            <button
+              type="button"
+              onClick={() => removeBlock(index)}
+              className="inline-flex h-8 items-center justify-center rounded-lg bg-[#fff0ea] text-[#d96c55]"
+              aria-label="削除"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </article>
+      ))}
+    </div>
   );
 }
 
@@ -928,32 +1033,32 @@ function BlockCandidateCard({
     <article
       draggable
       onDragStart={onDragStart}
-      className="flex min-h-[270px] min-w-0 cursor-grab flex-col rounded-2xl border border-[#eee4d8] bg-white/75 p-3 active:cursor-grabbing"
+      className="flex min-h-[238px] min-w-0 cursor-grab flex-col rounded-2xl border border-[#eee4d8] bg-white/75 p-2.5 active:cursor-grabbing xl:p-3"
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="truncate text-[15px] font-extrabold">{block.name}</h3>
+          <h3 className="truncate text-[14px] font-extrabold">{block.name}</h3>
           <p className="mt-1 truncate text-[11px] font-bold text-[#5d956d]">{block.majorCategory} / {block.minorCategory}</p>
         </div>
         <span className="shrink-0 rounded-full bg-[#edf5ef] px-2 py-1 text-[11px] font-bold text-[#4f875a]">{block.durationMinutes}分</span>
       </div>
       {selectedCount ? <span className="mt-2 w-fit rounded-full bg-[#f2efff] px-2 py-1 text-[11px] font-bold text-[#7469bf]">選択済み {selectedCount}回</span> : null}
-      <p className="mt-2 line-clamp-2 min-h-10 text-[12px] font-medium leading-5 text-[#50584e]">{block.purpose || block.script || "目的や原稿は未入力です。"}</p>
-      <p className="mt-2 line-clamp-2 min-h-10 text-[11px] font-bold leading-5 text-[#c86b55]">{block.cautions ? `注意点：${block.cautions}` : "注意点：未入力"}</p>
-      <div className="mt-2 flex min-h-7 flex-wrap gap-1 overflow-hidden">
+      <p className="mt-1.5 line-clamp-2 text-[11.5px] font-medium leading-5 text-[#50584e]">{block.purpose || block.script || "目的や原稿は未入力です。"}</p>
+      <p className="mt-1.5 line-clamp-2 text-[11px] font-bold leading-5 text-[#c86b55]">{block.cautions ? `注意点：${block.cautions}` : "注意点：未入力"}</p>
+      <div className="mt-1.5 flex min-h-6 flex-wrap gap-1 overflow-hidden">
         {block.tags.slice(0, 4).map((item) => <Pill key={item}>{item}</Pill>)}
       </div>
-      <div className="mt-2 grid grid-cols-2 gap-2 text-center">
+      <div className="mt-1.5 grid grid-cols-2 gap-1.5 text-center">
         <MiniSummary label="使用回数" value={`${block.usageCount}回`} />
         <MiniSummary label="良かった率" value={formatGoodRate(block)} />
         <MiniSummary label="最近使用" value={block.lastUsed} />
         <MiniSummary label="改善メモ" value={`${block.improvementCount ?? 0}件`} />
       </div>
-      <div className="mt-auto grid grid-cols-2 gap-2 pt-3">
-        <button type="button" onClick={onPreview} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white text-[12px] font-bold text-[#4f7b58]">
+      <div className="mt-auto grid grid-cols-2 gap-1.5 pt-2">
+        <button type="button" onClick={onPreview} className="inline-flex h-8 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white text-[12px] font-bold text-[#4f7b58]">
           原稿を見る
         </button>
-        <button type="button" onClick={onAdd} className="inline-flex h-9 items-center justify-center rounded-xl bg-[#5d956d] text-[12px] font-bold text-white">
+        <button type="button" onClick={onAdd} className="inline-flex h-8 items-center justify-center rounded-xl bg-[#5d956d] text-[12px] font-bold text-white">
           {selectedCount ? "もう一度追加" : "追加"}
         </button>
       </div>
@@ -1051,9 +1156,9 @@ function Label({ text, children }: { text: string; children: ReactNode }) {
 
 function MiniSummary({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-[#eee4d8] bg-white/70 px-2 py-2">
+    <div className="rounded-xl border border-[#eee4d8] bg-white/70 px-2 py-1.5">
       <p className="truncate text-[10px] font-bold text-[#7c8476]">{label}</p>
-      <p className="mt-0.5 truncate text-[13px] font-extrabold text-[#4f875a]">{value}</p>
+      <p className="mt-0.5 truncate text-[12px] font-extrabold text-[#4f875a]">{value}</p>
     </div>
   );
 }
