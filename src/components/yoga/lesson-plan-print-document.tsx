@@ -237,17 +237,17 @@ function PrintStyles() {
         }
 
         .print-toc-list {
-          break-inside: avoid;
-          page-break-inside: avoid;
+          break-inside: auto;
+          page-break-inside: auto;
         }
 
         .toc-row {
           break-inside: avoid;
           page-break-inside: avoid;
-          font-size: 9.6pt !important;
-          line-height: 1.28 !important;
-          padding-top: 2.4mm !important;
-          padding-bottom: 2.4mm !important;
+          font-size: 9.2pt !important;
+          line-height: 1.22 !important;
+          padding-top: 1.8mm !important;
+          padding-bottom: 1.8mm !important;
         }
 
         .toc-row p {
