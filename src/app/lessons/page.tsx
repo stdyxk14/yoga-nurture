@@ -438,7 +438,7 @@ function BlocksTab({
   const activeSubcategories = categories
     .flatMap((category) => category.subcategories)
     .filter((subcategory) => !subcategory.archived);
-  const view = filters.view === "card" || filters.view === "category" ? filters.view : "compact";
+  const view = filters.view === "compact" || filters.view === "card" || filters.view === "category" ? filters.view : "category";
   const currentFilters = [
     filters.q ? `検索: ${filters.q}` : "",
     filters.category ? `大カテゴリー: ${activeCategories.find((item) => item.id === filters.category)?.name ?? "選択中"}` : "",
@@ -608,7 +608,7 @@ function BlockCompactRow({ block }: { block: DbBlockTemplate }) {
       <div className="grid grid-cols-3 gap-1.5">
         <Link href={`/blocks/${block.id}`} className="inline-flex h-9 items-center justify-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] text-[12px] font-bold text-[#5d956d]">詳細</Link>
         <Link href={`/blocks/${block.id}/edit`} className="inline-flex h-9 items-center justify-center rounded-lg border border-[#e7dfd4] bg-white text-[12px] font-bold text-[#6b7468]">編集</Link>
-        <Link href="/lessons/new" className="inline-flex h-9 items-center justify-center rounded-lg bg-[#5d956d] text-[12px] font-bold text-white">プランに使う</Link>
+        <Link href="/lessons/new" className="inline-flex h-9 items-center justify-center rounded-lg bg-[#5d956d] text-[12px] font-bold text-white">使う</Link>
       </div>
     </SoftCard>
   );

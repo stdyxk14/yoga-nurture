@@ -143,7 +143,7 @@ export function LessonPlanPrintDocument({ plan, schedule }: Props) {
                 <RichScriptText
                   text={block.scriptOverride || block.script}
                   emptyText="誘導セリフは未入力です。"
-                  className="script-text mt-4 whitespace-pre-wrap break-words text-[15px] font-medium leading-8 text-[#252a23] print:text-[11.5pt] print:leading-[1.75]"
+                  className="script-text mt-4 whitespace-pre-wrap break-words text-[14px] font-medium leading-7 text-[#252a23] print:text-[10.5pt] print:leading-[1.65]"
                 />
               </section>
             ))}
