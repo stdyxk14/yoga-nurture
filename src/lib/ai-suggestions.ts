@@ -62,6 +62,16 @@ export async function getLessonRecordAiSuggestionState(recordId: string): Promis
   return getAiSuggestionState("lesson_record", recordId);
 }
 
+export async function getLessonRecordAiAvailabilityState(): Promise<StudentAiSuggestionState> {
+  const { user } = await requireUserId();
+  return {
+    isConfigured: isOpenAIConfigured(),
+    storageReady: true,
+    featureEnabled: isAiFeatureEnabled(getAiSettings(user.user_metadata?.ai_settings), "lesson_record"),
+    history: [],
+  };
+}
+
 async function getAiSuggestionState(targetType: "student" | "lesson_plan" | "block" | "lesson_record", targetId: string): Promise<StudentAiSuggestionState> {
   const { supabase, userId, user } = await requireUserId();
   const featureEnabled = isAiFeatureEnabled(getAiSettings(user.user_metadata?.ai_settings), targetType);
