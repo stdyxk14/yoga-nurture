@@ -207,6 +207,7 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, de
   };
   const handleDrop = (event: DragEvent<HTMLElement>, index?: number) => {
     event.preventDefault();
+    event.stopPropagation();
     const blockId = event.dataTransfer.getData("text/plain");
     const block = blocks.find((item) => item.id === blockId);
     if (block) insertBlock(block, index);
