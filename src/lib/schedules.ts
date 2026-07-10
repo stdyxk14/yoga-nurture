@@ -11,6 +11,12 @@ export type ScheduleParticipant = StudentRecord & {
   participantId: string;
   attendanceStatus: "present" | "cancelled" | "no_show";
   attendanceLabel: string;
+  pendingFollowUps?: Array<{
+    text: string;
+    personalMemo: string;
+    lessonName: string;
+    date: string;
+  }>;
 };
 
 export type DbSchedule = {
@@ -117,6 +123,7 @@ function mapParticipant(row: RawParticipant): ScheduleParticipant | null {
     participantId: row.id,
     attendanceStatus: row.attendance_status,
     attendanceLabel: getAttendanceLabel(row.attendance_status),
+    pendingFollowUps: [],
   };
 }
 
@@ -156,7 +163,7 @@ export async function getSchedules() {
     .select(scheduleSelect(true))
     .order("starts_at", { ascending: true });
 
-  if (!withNotes.error) return ((withNotes.data ?? []) as unknown as RawSchedule[]).map(mapSchedule);
+  if (!withNotes.error) return enrichScheduleParticipants(((withNotes.data ?? []) as unknown as RawSchedule[]).map(mapSchedule));
 
   if (!isMissingScheduleNotesError(withNotes.error.message)) {
     throw new Error(`予定を取得できませんでした: ${withNotes.error.message}`);
@@ -168,7 +175,95 @@ export async function getSchedules() {
     .order("starts_at", { ascending: true });
 
   if (fallback.error) throw new Error(`予定を取得できませんでした: ${fallback.error.message}`);
-  return ((fallback.data ?? []) as unknown as RawSchedule[]).map(mapSchedule);
+  return enrichScheduleParticipants(((fallback.data ?? []) as unknown as RawSchedule[]).map(mapSchedule));
+}
+
+type RawParticipantRecordInsight = {
+  student_id: string;
+  attendance_status: "present" | "cancelled" | "no_show" | null;
+  memo: string | null;
+  next_follow: string | null;
+  follow_up_status?: "none" | "pending" | "completed" | "dismissed" | null;
+  record?: {
+    lesson_name: string | null;
+    record_date: string | null;
+    schedule?: { starts_at: string | null } | null;
+  } | null;
+};
+
+async function enrichScheduleParticipants(schedules: DbSchedule[]) {
+  const studentIds = Array.from(new Set(schedules.flatMap((schedule) => schedule.participants.map((student) => student.id))));
+  if (!studentIds.length) return schedules;
+
+  const { supabase } = await requireUserId();
+  const result = await supabase
+    .from("lesson_record_students")
+    .select(`
+      student_id,
+      attendance_status,
+      memo,
+      next_follow,
+      follow_up_status,
+      record:lesson_records(
+        lesson_name,
+        record_date,
+        schedule:schedules(starts_at)
+      )
+    `)
+    .in("student_id", studentIds)
+    .order("created_at", { ascending: false });
+
+  let rows = (result.data ?? []) as unknown as RawParticipantRecordInsight[];
+  if (result.error) {
+    const fallback = await supabase
+      .from("lesson_record_students")
+      .select(`
+        student_id,
+        attendance_status,
+        memo,
+        next_follow,
+        record:lesson_records(
+          lesson_name,
+          record_date,
+          schedule:schedules(starts_at)
+        )
+      `)
+      .in("student_id", studentIds)
+      .order("created_at", { ascending: false });
+    if (fallback.error) return schedules;
+    rows = (fallback.data ?? []) as unknown as RawParticipantRecordInsight[];
+  }
+
+  const attendedCountByStudent = new Map<string, number>();
+  const followUpsByStudent = new Map<string, ScheduleParticipant["pendingFollowUps"]>();
+
+  for (const row of rows) {
+    if (row.attendance_status === "present") {
+      attendedCountByStudent.set(row.student_id, (attendedCountByStudent.get(row.student_id) ?? 0) + 1);
+    }
+
+    const followText = row.next_follow?.trim();
+    const followStatus = row.follow_up_status ?? (followText ? "pending" : "none");
+    if (followText && followStatus === "pending") {
+      const items = followUpsByStudent.get(row.student_id) ?? [];
+      items.push({
+        text: followText,
+        personalMemo: row.memo ?? "",
+        lessonName: row.record?.lesson_name ?? "レッスン",
+        date: formatJapaneseDate(new Date(row.record?.schedule?.starts_at ?? row.record?.record_date ?? new Date())),
+      });
+      followUpsByStudent.set(row.student_id, items);
+    }
+  }
+
+  return schedules.map((schedule) => ({
+    ...schedule,
+    participants: schedule.participants.map((student) => ({
+      ...student,
+      linkedLessonCount: attendedCountByStudent.get(student.id) ?? 0,
+      pendingFollowUps: (followUpsByStudent.get(student.id) ?? []).slice(0, 3),
+    })),
+  }));
 }
 
 function scheduleSelect(includeNotes: boolean) {

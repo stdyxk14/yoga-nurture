@@ -8,12 +8,17 @@ type Props = {
 };
 
 export function LessonPlanPrintDocument({ plan, schedule }: Props) {
-  const participantCautions =
-    schedule?.participants
-      .filter((student) => student.caution?.trim())
-      .map((student) => `${student.name}：${student.caution}`)
-      .slice(0, 10) ?? [];
-  const hasScheduleMemo = Boolean(schedule?.scheduleCaution || schedule?.scheduleMemo || participantCautions.length);
+  const participantItems =
+    schedule?.participants.map((student) => ({
+      id: student.id,
+      name: student.name,
+      lessonCount: student.linkedLessonCount ?? 0,
+      experience: student.experience?.trim() || "未登録",
+      memo: student.memo?.trim() || "未登録",
+      caution: student.caution?.trim() || "",
+      followUps: student.pendingFollowUps ?? [],
+    })) ?? [];
+  const hasScheduleMemo = Boolean(schedule?.scheduleCaution || schedule?.scheduleMemo || participantItems.length);
 
   return (
     <div className="script-print-wrap mx-auto max-w-[920px] bg-[#f6f2ea] px-4 py-6 text-[#20231e] print:max-w-none print:bg-white print:p-0">
@@ -62,22 +67,45 @@ export function LessonPlanPrintDocument({ plan, schedule }: Props) {
             <section className="mt-6 rounded-none border border-[#cfc7ba] p-4">
               <PrintSectionTitle title="この予定の確認メモ" />
               <div className="mt-3 space-y-3 text-[12.5px] leading-6">
-                {schedule.scheduleCaution ? (
-                  <MemoBlock title="注意事項" tone="caution" text={schedule.scheduleCaution} />
-                ) : null}
+                {schedule.scheduleCaution ? <MemoBlock title="注意事項" tone="caution" text={schedule.scheduleCaution} /> : null}
                 {schedule.scheduleMemo ? <MemoBlock title="メモ" text={schedule.scheduleMemo} /> : null}
-                {participantCautions.length ? (
+                {participantItems.length ? (
                   <div>
-                    <p className="text-[12px] font-extrabold text-[#374431]">参加予定生徒の注意点</p>
-                    <ul className="mt-1 list-disc space-y-1 pl-5 font-semibold">
-                      {participantCautions.map((item) => <li key={item}>{item}</li>)}
-                    </ul>
+                    <p className="text-[12px] font-extrabold text-[#374431]">参加生徒の確認情報</p>
+                    <div className="mt-2 grid gap-2">
+                      {participantItems.map((student) => (
+                        <section key={student.id} className="participant-print-card break-inside-avoid border border-[#ddd5ca] p-3">
+                          <div className="flex items-baseline justify-between gap-3 border-b border-[#ece4d8] pb-1.5">
+                            <p className="font-black text-[#20231e]">{student.name}</p>
+                            <p className="shrink-0 text-[11px] font-extrabold text-[#5d956d]">受講 {student.lessonCount}回</p>
+                          </div>
+                          <dl className="mt-2 grid gap-1.5 text-[11.5px] leading-5">
+                            <PrintDefinition label="ヨガ他経験" value={student.experience} />
+                            {student.caution ? <PrintDefinition label="ケガなどの注意点" value={student.caution} /> : null}
+                            <PrintDefinition label="その他メモ" value={student.memo} />
+                            {student.followUps.length ? (
+                              <div className="mt-1 rounded-none border-l-4 border-[#b35d3f] pl-2">
+                                <dt className="font-black text-[#9b4d33]">次回フォロー</dt>
+                                <dd className="mt-1 space-y-1 font-semibold text-[#20231e]">
+                                  {student.followUps.map((followUp) => (
+                                    <div key={`${student.id}-${followUp.date}-${followUp.text}`}>
+                                      <p>{followUp.text}</p>
+                                      {followUp.personalMemo ? <p className="text-[#606a5e]">個別メモ：{followUp.personalMemo}</p> : null}
+                                      <p className="text-[10.5px] text-[#6b7468]">{followUp.date} / {followUp.lessonName}</p>
+                                    </div>
+                                  ))}
+                                </dd>
+                              </div>
+                            ) : null}
+                          </dl>
+                        </section>
+                      ))}
+                    </div>
                   </div>
                 ) : null}
               </div>
             </section>
           ) : null}
-
         </section>
 
         <section className="print-toc">
@@ -85,9 +113,7 @@ export function LessonPlanPrintDocument({ plan, schedule }: Props) {
             <div>
               <p className="text-[12px] font-extrabold tracking-[0.22em] text-[#5d956d]">YOGA NURTURE</p>
               <h2 className="mt-2 text-[25px] font-black leading-tight text-[#20231e] print:text-[20pt]">目次 / ブロック一覧</h2>
-              <p className="mt-1 max-w-[680px] text-[12.5px] font-semibold leading-5 text-[#606a5e]">
-                {plan.name}
-              </p>
+              <p className="mt-1 max-w-[680px] text-[12.5px] font-semibold leading-5 text-[#606a5e]">{plan.name}</p>
             </div>
             <div className="shrink-0 text-right">
               <p className="text-[11px] font-bold text-[#6b7468]">合計時間</p>
@@ -106,7 +132,7 @@ export function LessonPlanPrintDocument({ plan, schedule }: Props) {
               </div>
             ))}
           </div>
-          <p className="mt-3 text-right text-[13px] font-black">合計 {plan.totalMinutes}分</p>
+          <p className="mt-3 text-right text-[13px] font-black">合計：{plan.totalMinutes}分</p>
         </section>
 
         <section className="script-body">
@@ -134,16 +160,14 @@ export function LessonPlanPrintDocument({ plan, schedule }: Props) {
 
                 <div className="mt-3 grid gap-2 text-[12px] leading-6">
                   {block.purpose ? <PrintInfo label="目的" value={block.purpose} /> : null}
-                  {(block.cautionsOverride || block.cautions) ? (
-                    <PrintInfo label="注意点" value={block.cautionsOverride || block.cautions} />
-                  ) : null}
+                  {block.cautionsOverride || block.cautions ? <PrintInfo label="注意点" value={block.cautionsOverride || block.cautions} /> : null}
                   {block.memo ? <PrintInfo label="改善メモ" value={block.memo} /> : null}
                 </div>
 
                 <RichScriptText
                   text={block.scriptOverride || block.script}
                   emptyText="誘導セリフは未入力です。"
-                  className="script-text mt-4 whitespace-pre-wrap break-words text-[14px] font-medium leading-7 text-[#252a23] print:text-[10.5pt] print:leading-[1.65]"
+                  className="script-text mt-4 whitespace-pre-wrap break-words text-[13px] font-medium leading-7 text-[#252a23] print:text-[9.8pt] print:leading-[1.6]"
                 />
               </section>
             ))}
@@ -155,11 +179,7 @@ export function LessonPlanPrintDocument({ plan, schedule }: Props) {
 }
 
 function PrintSectionTitle({ title }: { title: string }) {
-  return (
-    <h3 className="inline-flex border-b-2 border-[#5d956d] pb-1 text-[15px] font-black tracking-normal text-[#20231e] print:text-[13pt]">
-      {title}
-    </h3>
-  );
+  return <h3 className="inline-flex border-b-2 border-[#5d956d] pb-1 text-[15px] font-black tracking-normal text-[#20231e] print:text-[13pt]">{title}</h3>;
 }
 
 function PrintInfo({ label, value, wide = false }: { label: string; value: string; wide?: boolean }) {
@@ -171,12 +191,19 @@ function PrintInfo({ label, value, wide = false }: { label: string; value: strin
   );
 }
 
+function PrintDefinition({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid grid-cols-[92px_minmax(0,1fr)] gap-2">
+      <dt className="font-black text-[#4d584a]">{label}</dt>
+      <dd className="whitespace-pre-wrap font-semibold text-[#20231e]">{value}</dd>
+    </div>
+  );
+}
+
 function MemoBlock({ title, text, tone = "normal" }: { title: string; text: string; tone?: "normal" | "caution" }) {
   return (
     <div className={tone === "caution" ? "border-l-4 border-[#b35d3f] pl-3" : "border-l-4 border-[#5d956d] pl-3"}>
-      <p className={tone === "caution" ? "text-[12px] font-extrabold text-[#9b4d33]" : "text-[12px] font-extrabold text-[#374431]"}>
-        {title}
-      </p>
+      <p className={tone === "caution" ? "text-[12px] font-extrabold text-[#9b4d33]" : "text-[12px] font-extrabold text-[#374431]"}>{title}</p>
       <p className="mt-1 whitespace-pre-wrap font-semibold">{text}</p>
     </div>
   );
@@ -272,6 +299,11 @@ function PrintStyles() {
           page-break-after: avoid;
           break-inside: avoid;
           page-break-inside: avoid;
+        }
+
+        .participant-print-card {
+          font-size: 9.4pt !important;
+          line-height: 1.45 !important;
         }
 
         .script-text {
