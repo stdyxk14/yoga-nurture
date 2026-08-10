@@ -17,6 +17,16 @@ const knownMessages: Array<[string, string]> = [
   ["YN_RECORD_PLAN_ITEM_FORBIDDEN", "予定ブロックの一部を確認できません。画面を更新してください。"],
   ["YN_RECORD_BLOCK_FORBIDDEN", "実施ブロックの一部を確認できません。画面を更新してください。"],
   ["YN_RECORD_STUDENT_FORBIDDEN", "参加生徒の一部を確認できません。画面を更新してください。"],
+  ["YN_RECORD_UNCONFIRMED_ITEMS", "未確認の予定項目が残っています。STEP 1で実施状態を確定してください。"],
+  ["YN_RECORD_PLAN_ITEM_MISSING", "予定項目は削除できません。スキップまたは置き換えを選んでください。"],
+  ["YN_RECORD_PLAN_ITEM_DUPLICATE", "同じ予定項目が重複しています。画面を更新してください。"],
+  ["YN_RECORD_REPLACEMENT_INVALID", "置き換え元と実施項目の関係を確認できません。置き換えをやり直してください。"],
+  ["YN_RECORD_REPLACEMENT_MISSING", "置き換え後の実施項目が見つかりません。置き換えをやり直してください。"],
+  ["YN_RECORD_LIBRARY_BLOCK_INVALID", "追加したライブラリブロックを確認できません。ブロックを選び直してください。"],
+  ["YN_RECORD_IMPROVISED_NAME_REQUIRED", "即興内容の名前を入力してください。"],
+  ["YN_TEMPLATE_RECORD_ITEM_UNAVAILABLE", "この即興項目は既にテンプレート化されたか、利用できません。画面を更新してください。"],
+  ["YN_TEMPLATE_CATEGORY_FORBIDDEN", "選択した大カテゴリーを確認できません。"],
+  ["YN_TEMPLATE_SUBCATEGORY_FORBIDDEN", "選択した小カテゴリーを確認できません。"],
 ];
 
 export function formatRpcError(error: RpcErrorLike | null | undefined, fallback: string) {

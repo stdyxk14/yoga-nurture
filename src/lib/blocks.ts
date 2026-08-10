@@ -164,6 +164,62 @@ export async function getBlockTags() {
   return (data ?? []) as Array<{ id: string; name: string }>;
 }
 
+export async function getActiveBlockCategories(requestClient?: RequestSupabaseClient) {
+  const supabase = requestClient ?? (await requireUserId()).supabase;
+  const [{ data: categories, error: categoryError }, { data: subcategories, error: subcategoryError }] = await Promise.all([
+    supabase
+      .from("block_categories")
+      .select("id,name,color,icon,sort_order,archived,created_at,updated_at")
+      .eq("archived", false)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("block_subcategories")
+      .select("id,category_id,name,sort_order,archived,created_at,updated_at")
+      .eq("archived", false)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true }),
+  ]);
+
+  if (categoryError) throw new Error(`ブロックカテゴリーを取得できませんでした: ${categoryError.message}`);
+  if (subcategoryError) throw new Error(`小カテゴリーを取得できませんでした: ${subcategoryError.message}`);
+
+  return (categories ?? []).map((category) => ({
+    ...(category as Omit<BlockCategory, "subcategories">),
+    subcategories: (subcategories ?? []).filter((subcategory) => subcategory.category_id === category.id) as BlockSubcategory[],
+  })) as BlockCategory[];
+}
+
+export async function getLessonRecordBlockLibrary(requestClient?: RequestSupabaseClient) {
+  const supabase = requestClient ?? (await requireUserId()).supabase;
+  const { data, error } = await supabase
+    .from("block_templates")
+    .select(`
+      id,
+      category_id,
+      subcategory_id,
+      name,
+      duration_minutes,
+      purpose,
+      level,
+      cautions,
+      script,
+      memo,
+      favorite,
+      archived,
+      created_at,
+      updated_at,
+      category:block_categories(id,name),
+      subcategory:block_subcategories(id,name),
+      block_template_tags(tag:block_tags(id,name))
+    `)
+    .eq("archived", false)
+    .order("name", { ascending: true });
+
+  if (error) throw new Error(`追加用ブロック一覧を取得できませんでした: ${error.message}`);
+  return ((data ?? []) as unknown as RawBlock[]).map((row) => mapBlock(row));
+}
+
 export async function getBlocks(filters: BlockListFilters = {}) {
   const { supabase } = await requireUserId();
   const { data, error } = await supabase

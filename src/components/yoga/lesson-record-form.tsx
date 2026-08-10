@@ -1,357 +1,333 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
-import { useActionState } from "react";
-import { ArrowLeft, CheckCircle2, FilePenLine, MessageSquareText, Save, UserRound } from "lucide-react";
+import { useActionState, useMemo, useRef, useState, type FormEvent } from "react";
+import { ArrowLeft, FileText, ListChecks, MessageSquareText, Users } from "lucide-react";
 import { saveLessonRecordAction } from "@/app/lessons/[id]/record/actions";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { LessonRecordAiSuggestionPanel } from "@/components/yoga/lesson-record-ai-suggestion-panel";
-import { PageHeader, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
+import type { ImprovisedItemInput } from "@/components/yoga/improvised-item-dialog";
+import { LessonRecordFlowStep } from "@/components/yoga/lesson-record-flow-step";
+import { LessonRecordFooter } from "@/components/yoga/lesson-record-footer";
+import { LessonRecordReflectionStep } from "@/components/yoga/lesson-record-reflection-step";
+import { LessonRecordStudentsStep, type LessonRecordStudentEditorItem } from "@/components/yoga/lesson-record-students-step";
 import type { StudentAiSuggestionState } from "@/lib/ai-suggestions";
-
-type LessonRecordFormState = {
-  error?: string;
-};
-
-type LessonRecordFormData = {
-  schedule: {
-    id: string;
-    lessonPlanId: string | null;
-    lessonName: string;
-    dateLabel: string;
-    startTimeLabel: string;
-    endTimeLabel: string;
-    place: string;
-    formatLabel: string;
-    statusLabel: string;
-    lessonPlanName: string;
-    participantCount: number;
-  } | null;
-  record: {
-    id: string;
-    overallMemo: string;
-    overallReaction: string;
-    improvementPoints: string;
-    status: "draft" | "completed";
-  } | null;
-  blocks: Array<{
-    id: string;
-    fieldId: string;
-    planBlockId: string | null;
-    schedulePlanItemId: string | null;
-    blockTemplateId: string | null;
-    itemSource: "planned" | "library" | "improvised";
-    sortOrder: number;
-    name: string;
-    majorCategory: string;
-    minorCategory: string;
-    purpose: string;
-    level: string;
-    script: string;
-    cautions: string;
-    plannedMinutes: number;
-    done: boolean | null;
-    actualMinutes: number | null;
-    reaction: "good" | "neutral" | "poor" | null;
-    teacherMemo: string;
-    improvementMemo: string;
-    useAgain: boolean | null;
-    reviseScript: boolean;
-    scriptRevision: string;
-  }>;
-  students: Array<{
-    id: string;
-    name: string;
-    caution: string;
-    pendingFollowUps: Array<{
-      id: string;
-      text: string;
-      lessonName: string;
-      date: string;
-    }>;
-    attendanceStatus: "present" | "cancelled" | "no_show";
-    todayNote: string;
-    personalMemo: string;
-    nextFollow: string;
-  }>;
-};
-
-const recordStatusOptions = [
-  { value: "draft", label: "下書き" },
-  { value: "completed", label: "記録済み" },
-] as const;
-
-const blockReactionOptions = [
-  { value: "", label: "未評価" },
-  { value: "good", label: "良かった" },
-  { value: "neutral", label: "普通" },
-  { value: "poor", label: "いまいち" },
-] as const;
-
-const attendanceOptions = [
-  { value: "present", label: "参加" },
-  { value: "cancelled", label: "キャンセル" },
-  { value: "no_show", label: "無断欠席" },
-] as const;
+import type { DbBlockTemplate } from "@/lib/blocks";
+import { markUnconfirmedItemsAsPlanned, moveLessonExecutionItem } from "@/lib/lesson-record-flow";
+import type { LessonRecordBlockFormItem, LessonRecordFormData, LessonRecordFormState } from "@/lib/lesson-records";
+import { cn } from "@/lib/utils";
 
 const initialState: LessonRecordFormState = {};
+const steps = [
+  { id: 1, label: "実施フロー", icon: ListChecks },
+  { id: 2, label: "生徒ごとの記録", icon: Users },
+  { id: 3, label: "全体の振り返り", icon: MessageSquareText },
+] as const;
 
 export function LessonRecordForm({
   data,
   aiSuggestionState,
+  draftSaved = false,
 }: {
   data: LessonRecordFormData;
   aiSuggestionState?: StudentAiSuggestionState;
+  draftSaved?: boolean;
 }) {
   const [state, formAction, pending] = useActionState(saveLessonRecordAction, initialState);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [detailedMode, setDetailedMode] = useState(false);
+  const [blocks, setBlocks] = useState<LessonRecordBlockFormItem[]>(data.blocks);
+  const [students, setStudents] = useState<LessonRecordStudentEditorItem[]>(() => data.students.map((student) => ({
+    ...student,
+    pendingFollowUps: student.pendingFollowUps.map((follow) => ({ ...follow, status: "pending" as const, note: "" })),
+  })));
+  const [reflection, setReflection] = useState({
+    overallMemo: data.record?.overallMemo ?? "",
+    overallReaction: data.record?.overallReaction ?? "",
+    improvementPoints: data.record?.improvementPoints ?? "",
+  });
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [completionError, setCompletionError] = useState<number>();
+  const completeSubmitRef = useRef<HTMLButtonElement>(null);
 
-  if (!data.schedule) {
+  const schedule = data.schedule;
+  const legacyRecord = useMemo(() => Boolean(data.record && blocks.some((block) => (block.itemSource === "planned" && !block.schedulePlanItemId) || (block.done !== null && block.changeType === null))), [blocks, data.record]);
+
+  if (!schedule) {
     return (
-      <SoftCard className="p-6 text-center">
-        <p className="text-[16px] font-extrabold">予定が見つかりません</p>
-        <p className="mt-2 text-[13px] font-semibold leading-6 text-[#6b7468]">
-          削除済み、または現在のアカウントでは表示できない予定です。
-        </p>
-        <Link href="/lessons" className="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-[#5d956d] px-4 text-[13px] font-bold text-white">
-          レッスン管理へ戻る
-        </Link>
-      </SoftCard>
+      <div className="rounded-xl border border-[#dfe5da] bg-white p-8 text-center">
+        <p className="text-lg font-semibold">予定が見つかりません</p>
+        <p className="mt-2 text-sm text-[#687166]">削除済み、または現在のアカウントでは表示できない予定です。</p>
+        <Link href="/lessons" className="mt-4 inline-flex h-10 items-center rounded-lg bg-[#5d956d] px-4 text-sm font-medium text-white">レッスン管理へ戻る</Link>
+      </div>
     );
   }
 
-  const { schedule, record, blocks, students } = data;
+  function updateBlock(fieldId: string, patch: Partial<LessonRecordBlockFormItem>) {
+    setBlocks((current) => current.map((block) => block.fieldId === fieldId ? { ...block, ...patch } : block));
+    setCompletionError(undefined);
+  }
+
+  function reorderBlocks(fromIndex: number, toIndex: number) {
+    if (fromIndex < 0 || toIndex < 0 || fromIndex >= blocks.length || toIndex >= blocks.length || fromIndex === toIndex) return;
+    setBlocks((current) => current[fromIndex] ? moveLessonExecutionItem(current, current[fromIndex].fieldId, toIndex) : current);
+  }
+
+  function prepareReplacement(current: LessonRecordBlockFormItem[], replacesSchedulePlanItemId: string | null) {
+    if (!replacesSchedulePlanItemId) return current;
+    return current.map((block) => block.schedulePlanItemId === replacesSchedulePlanItemId && block.itemSource === "planned"
+      ? { ...block, changeType: "replaced" as const, done: false, actualMinutes: null }
+      : block);
+  }
+
+  function insertExtra(item: LessonRecordBlockFormItem, replacesSchedulePlanItemId: string | null) {
+    setBlocks((current) => {
+      const prepared = prepareReplacement(current, replacesSchedulePlanItemId);
+      const sourceIndex = replacesSchedulePlanItemId ? prepared.findIndex((block) => block.schedulePlanItemId === replacesSchedulePlanItemId && block.itemSource === "planned") : -1;
+      const insertAt = sourceIndex >= 0 ? sourceIndex + 1 : prepared.length;
+      const next = [...prepared];
+      next.splice(insertAt, 0, item);
+      return next.map((block, index) => ({ ...block, sortOrder: index }));
+    });
+  }
+
+  function addLibrary(block: DbBlockTemplate, replacesSchedulePlanItemId: string | null) {
+    const fieldId = crypto.randomUUID();
+    insertExtra({
+      ...block,
+      fieldId,
+      planBlockId: null,
+      schedulePlanItemId: null,
+      blockTemplateId: block.id,
+      itemSource: "library",
+      recordBlockId: undefined,
+      sortOrder: 0,
+      plannedSortOrder: null,
+      plannedMinutes: block.durationMinutes,
+      changeType: "added",
+      changeReasonCodes: [],
+      changeReasonNote: "",
+      actualContentNote: "",
+      replacesSchedulePlanItemId,
+      done: true,
+      actualMinutes: block.durationMinutes,
+      reaction: null,
+      teacherMemo: "",
+      improvementMemo: "",
+      useAgain: null,
+      reviseScript: false,
+      scriptRevision: "",
+    }, replacesSchedulePlanItemId);
+    setExpandedIds((current) => new Set(current).add(fieldId));
+  }
+
+  function addImprovised(input: ImprovisedItemInput, replacesSchedulePlanItemId: string | null) {
+    const fieldId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    insertExtra({
+      id: `improvised-${fieldId}`,
+      fieldId,
+      name: input.name,
+      categoryId: input.categoryId,
+      subcategoryId: input.subcategoryId,
+      majorCategory: input.majorCategory,
+      minorCategory: input.minorCategory,
+      duration: input.actualMinutes === null ? "未入力" : `${input.actualMinutes}分`,
+      durationMinutes: input.actualMinutes ?? 0,
+      purpose: input.purpose,
+      level: input.level,
+      cautions: input.cautions,
+      script: input.script,
+      tags: input.tags,
+      memo: input.memo,
+      usageCount: 0,
+      averageRating: 0,
+      goodRate: null,
+      improvementCount: 0,
+      skipCount: 0,
+      lastUsed: "未使用",
+      lastUsedAt: "",
+      archived: false,
+      favorite: false,
+      createdAt: now,
+      updatedAt: now,
+      planBlockId: null,
+      schedulePlanItemId: null,
+      blockTemplateId: null,
+      itemSource: "improvised",
+      recordBlockId: undefined,
+      sortOrder: 0,
+      plannedSortOrder: null,
+      plannedMinutes: 0,
+      changeType: "added",
+      changeReasonCodes: input.reasonCodes,
+      changeReasonNote: input.reasonNote,
+      actualContentNote: input.actualContentNote,
+      replacesSchedulePlanItemId,
+      done: true,
+      actualMinutes: input.actualMinutes,
+      reaction: null,
+      teacherMemo: "",
+      improvementMemo: "",
+      useAgain: null,
+      reviseScript: false,
+      scriptRevision: "",
+    }, replacesSchedulePlanItemId);
+    setExpandedIds((current) => new Set(current).add(fieldId));
+  }
+
+  function deleteExtra(fieldId: string) {
+    const target = blocks.find((block) => block.fieldId === fieldId);
+    if (!target || target.itemSource === "planned") return;
+    if (target.recordBlockId && !window.confirm(`保存済みの「${target.name}」を実施記録から削除しますか？`)) return;
+    setBlocks((current) => {
+      const next = current.filter((block) => block.fieldId !== fieldId).map((block) => target.replacesSchedulePlanItemId && block.schedulePlanItemId === target.replacesSchedulePlanItemId
+        ? { ...block, changeType: null, done: null, actualMinutes: null }
+        : block);
+      return next.map((block, index) => ({ ...block, sortOrder: index }));
+    });
+  }
+
+  function cancelReplacement(sourceFieldId: string) {
+    const source = blocks.find((block) => block.fieldId === sourceFieldId);
+    if (!source?.schedulePlanItemId) return;
+    const savedReplacement = blocks.find((block) => block.replacesSchedulePlanItemId === source.schedulePlanItemId && block.recordBlockId);
+    if (savedReplacement && !window.confirm("保存済みの置き換え内容を削除し、元の予定項目を未確認へ戻しますか？")) return;
+    setBlocks((current) => current
+      .filter((block) => block.replacesSchedulePlanItemId !== source.schedulePlanItemId)
+      .map((block) => block.fieldId === sourceFieldId ? { ...block, changeType: null, done: null, actualMinutes: null } : block)
+      .map((block, index) => ({ ...block, sortOrder: index })));
+  }
+
+  function toggleExpanded(fieldId: string) {
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      if (next.has(fieldId)) next.delete(fieldId); else next.add(fieldId);
+      return next;
+    });
+  }
+
+  function completeRecord() {
+    const unresolved = blocks.filter((block) => block.itemSource === "planned" && block.done === null).length;
+    if (unresolved) {
+      setCompletionError(unresolved);
+      setStep(1);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    completeSubmitRef.current?.click();
+  }
+
+  function guardSubmit(event: FormEvent<HTMLFormElement>) {
+    const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+    if (submitter?.value !== "completed") return;
+    const unresolved = blocks.filter((block) => block.itemSource === "planned" && block.done === null).length;
+    if (!unresolved) return;
+    event.preventDefault();
+    setCompletionError(unresolved);
+    setStep(1);
+  }
+
+  const blocksPayload = JSON.stringify(blocks.map((block, index) => ({
+    field_id: block.fieldId,
+    record_block_id: block.recordBlockId ?? null,
+    schedule_plan_item_id: block.schedulePlanItemId,
+    block_template_id: block.blockTemplateId,
+    lesson_plan_block_id: block.planBlockId,
+    item_source: block.itemSource,
+    sort_order: index,
+    display_name_snapshot: block.name,
+    category_name_snapshot: block.majorCategory,
+    subcategory_name_snapshot: block.minorCategory,
+    planned_duration_minutes: block.plannedMinutes,
+    purpose_snapshot: block.purpose,
+    level_snapshot: block.level,
+    script_snapshot: block.script,
+    cautions_snapshot: block.cautions,
+    memo_snapshot: block.memo,
+    tags_snapshot: block.tags,
+    change_type: block.changeType,
+    change_reason_codes: block.changeReasonCodes,
+    change_reason_note: block.changeReasonNote,
+    actual_content_note: block.actualContentNote,
+    replaces_schedule_plan_item_id: block.replacesSchedulePlanItemId,
+    done: block.done,
+    actual_duration_minutes: block.actualMinutes,
+    reaction: block.reaction,
+    teacher_memo: block.teacherMemo,
+    improvement_memo: block.improvementMemo,
+    use_again: block.useAgain,
+    script_revision: block.reviseScript ? block.scriptRevision : null,
+  })));
+  const studentsPayload = JSON.stringify(students.map((student) => ({ student_id: student.id, attendance_status: student.attendanceStatus, condition: student.todayNote, memo: student.personalMemo, next_follow: student.nextFollow })));
+  const followUpsPayload = JSON.stringify(students.flatMap((student) => student.pendingFollowUps.map((follow) => ({ id: follow.id, status: follow.status, note: follow.note }))));
 
   return (
-    <form action={formAction} className="space-y-4 pb-28 md:pb-0">
+    <form action={formAction} onSubmit={guardSubmit} className="space-y-4 pb-28">
       <input type="hidden" name="schedule_id" value={schedule.id} />
-      <input type="hidden" name="record_id" value={record?.id ?? ""} />
+      <input type="hidden" name="record_id" value={data.record?.id ?? ""} />
+      <input type="hidden" name="overall_memo" value={reflection.overallMemo} />
+      <input type="hidden" name="overall_reaction" value={reflection.overallReaction} />
+      <input type="hidden" name="improvement_points" value={reflection.improvementPoints} />
+      <input type="hidden" name="blocks_payload" value={blocksPayload} />
+      <input type="hidden" name="students_payload" value={studentsPayload} />
+      <input type="hidden" name="previous_followups_payload" value={followUpsPayload} />
+      <button ref={completeSubmitRef} type="submit" name="status" value="completed" className="hidden" tabIndex={-1}>完了</button>
 
-      <PageHeader title="レッスン後の記録" subtitle="実施内容・ブロックごとの反応・参加生徒ごとのコメントを保存します" />
+      <header className="rounded-xl border border-[#dfe5da] bg-[#fbfaf6] p-4">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <div className="flex flex-wrap items-center gap-2"><h1 className="text-xl font-semibold text-[#2f342e]">実施後記録</h1>{legacyRecord ? <span className="rounded-full bg-[#eeece7] px-2 py-1 text-xs text-[#656b64]">旧形式の記録</span> : null}</div>
+            <p className="mt-2 text-[15px] font-medium">{schedule.lessonName}</p>
+            <p className="mt-1 text-sm text-[#687166]">{schedule.dateLabel} {schedule.startTimeLabel}–{schedule.endTimeLabel} / {schedule.place || "場所未設定"} / {schedule.lessonPlanName}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link href={`/schedules/${schedule.id}`} className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#dfe3da] bg-white px-3 text-sm font-medium text-[#4f6f55]"><ArrowLeft className="h-4 w-4" />予定詳細</Link>
+            {schedule.lessonPlanId ? <Link href={`/schedules/${schedule.id}/script`} className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#ded7ef] bg-[#faf7ff] px-3 text-sm font-medium text-[#665ca4]"><FileText className="h-4 w-4" />原稿を見る</Link> : null}
+          </div>
+        </div>
 
-      {state.error ? (
-        <p className="rounded-xl border border-[#f2c7be] bg-[#fff0ea] px-4 py-3 text-[13px] font-bold text-[#c4523d]">{state.error}</p>
-      ) : null}
+        <div className="mt-4 flex flex-col gap-3 border-t border-[#e5e4dc] pt-4 lg:flex-row lg:items-center lg:justify-between">
+          <nav aria-label="記録ステップ" className="grid flex-1 grid-cols-3 overflow-hidden rounded-lg border border-[#dfe3da] bg-white">
+            {steps.map((item) => {
+              const Icon = item.icon;
+              return <button key={item.id} type="button" onClick={() => setStep(item.id)} aria-current={step === item.id ? "step" : undefined} className={cn("flex min-h-12 items-center justify-center gap-2 border-r border-[#dfe3da] px-2 text-sm font-medium last:border-r-0", step === item.id ? "bg-[#eaf3e8] text-[#3f6647]" : "text-[#687166] hover:bg-[#f6f8f4]")}><span className="hidden text-xs text-[#7a8278] md:inline">STEP {item.id}</span><Icon className="h-4 w-4" /><span>{item.label}</span></button>;
+            })}
+          </nav>
+          <div className="inline-flex w-fit rounded-lg border border-[#dfe3da] bg-white p-1" role="group" aria-label="記録モード">
+            <button type="button" onClick={() => setDetailedMode(false)} aria-pressed={!detailedMode} className={cn("h-8 rounded-md px-3 text-sm font-medium", !detailedMode ? "bg-[#7469bf] text-white" : "text-[#687166]")}>かんたん</button>
+            <button type="button" onClick={() => setDetailedMode(true)} aria-pressed={detailedMode} className={cn("h-8 rounded-md px-3 text-sm font-medium", detailedMode ? "bg-[#7469bf] text-white" : "text-[#687166]")}>詳細</button>
+          </div>
+        </div>
+      </header>
 
-      <div className="flex flex-col gap-2 md:flex-row md:justify-end">
-        <Link href={`/schedules/${schedule.id}`} className="inline-flex h-9 items-center justify-center gap-1 rounded-xl border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
-          <ArrowLeft className="h-3.5 w-3.5" />
-          予定詳細へ戻る
-        </Link>
-        {schedule.lessonPlanId ? (
-          <Link href={`/schedules/${schedule.id}/script`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#e6dff2] bg-[#faf7ff] px-3 text-[12px] font-bold text-[#7469bf]">
-            原稿を見る
-          </Link>
+      {draftSaved ? <p role="status" className="rounded-lg border border-[#b9d3b7] bg-[#edf7ea] px-4 py-3 text-sm font-medium text-[#3f6647]">下書きを保存しました。</p> : null}
+      {state.error ? <p role="alert" className="rounded-lg border border-[#efc9c0] bg-[#fff0ea] px-4 py-3 text-sm font-medium text-[#b84a38]">{state.error}</p> : null}
+
+      <main>
+        {step === 1 ? (
+          <LessonRecordFlowStep
+            blocks={blocks}
+            blockLibrary={data.blockLibrary}
+            categories={data.blockCategories}
+            detailedMode={detailedMode}
+            expandedIds={expandedIds}
+            completionError={completionError}
+            onClearCompletionError={() => setCompletionError(undefined)}
+            onToggleExpanded={toggleExpanded}
+            onUpdate={updateBlock}
+            onReorder={reorderBlocks}
+            onDelete={deleteExtra}
+            onBulkAsPlanned={() => { setBlocks((current) => markUnconfirmedItemsAsPlanned(current) as LessonRecordBlockFormItem[]); setCompletionError(undefined); }}
+            onAddLibrary={addLibrary}
+            onAddImprovised={addImprovised}
+            onCancelReplacement={cancelReplacement}
+            onTemplateCreated={(fieldId, blockTemplateId) => updateBlock(fieldId, { blockTemplateId })}
+          />
         ) : null}
-      </div>
+        {step === 2 ? <LessonRecordStudentsStep students={students} detailedMode={detailedMode} onChange={setStudents} /> : null}
+        {step === 3 ? <LessonRecordReflectionStep recordId={data.record?.id} {...reflection} aiSuggestionState={aiSuggestionState} onChange={(patch) => setReflection((current) => ({ ...current, ...patch }))} /> : null}
+      </main>
 
-      <SoftCard className="p-4">
-        <SectionTitle icon={FilePenLine} title={schedule.lessonName} subtitle={`${schedule.dateLabel} ${schedule.startTimeLabel}-${schedule.endTimeLabel} / ${schedule.place || "場所未設定"} / ${schedule.formatLabel}`} />
-        <div className="mt-3 grid gap-2 md:grid-cols-4">
-          <Info label="使用レッスンプラン" value={schedule.lessonPlanName} />
-          <Info label="参加予定生徒" value={`${schedule.participantCount}名`} />
-          <Info label="予定ステータス" value={schedule.statusLabel} />
-          <label className="block min-w-0 rounded-xl border border-[#eee4d8] bg-white/65 p-3">
-            <span className="mb-1 block text-[11px] font-bold text-[#7c8476]">記録ステータス</span>
-            <select name="status" defaultValue={record?.status ?? "draft"} className="h-9 w-full rounded-lg border border-[#e1d9ce] bg-white px-2 text-[13px] font-bold">
-              {recordStatusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-          </label>
-        </div>
-      </SoftCard>
-
-      <LessonRecordAiSuggestionPanel recordId={record?.id} aiSuggestionState={aiSuggestionState} />
-
-      <SoftCard className="p-4">
-        <SectionTitle icon={MessageSquareText} title="レッスン全体の記録" subtitle="レッスン全体として残したいことを簡潔に記録します" />
-        <div className="mt-4 grid gap-3 lg:grid-cols-3">
-          <Field label="全体メモ">
-            <Textarea name="overall_memo" defaultValue={record?.overallMemo ?? ""} className="min-h-[130px] bg-white/85 text-[14px]" />
-          </Field>
-          <Field label="生徒の反応・観察">
-            <Textarea name="overall_reaction" defaultValue={record?.overallReaction ?? ""} className="min-h-[130px] bg-white/85 text-[14px]" />
-          </Field>
-          <Field label="次回への改善ポイント">
-            <Textarea name="improvement_points" defaultValue={record?.improvementPoints ?? ""} className="min-h-[130px] bg-white/85 text-[14px]" />
-          </Field>
-        </div>
-      </SoftCard>
-
-      <SoftCard className="p-4">
-        <SectionTitle icon={CheckCircle2} title="ブロックごとの記録" subtitle="各ブロックの実施状態・反応・改善メモを残します" />
-        {blocks.length ? (
-          <div className="mt-4 grid gap-3">
-            {blocks.map((block, index) => (
-              <article key={block.fieldId} className="rounded-2xl border border-[#eee4d8] bg-white/74 p-3">
-                <input type="hidden" name="block_item_ids" value={block.fieldId} />
-                <input type="hidden" name={`block_${block.fieldId}_schedule_plan_item_id`} value={block.schedulePlanItemId ?? ""} />
-                <input type="hidden" name={`block_${block.fieldId}_block_template_id`} value={block.blockTemplateId ?? ""} />
-                <input type="hidden" name={`block_${block.fieldId}_plan_block_id`} value={block.planBlockId ?? ""} />
-                <input type="hidden" name={`block_${block.fieldId}_item_source`} value={block.itemSource} />
-                <input type="hidden" name={`block_${block.fieldId}_sort_order`} value={block.sortOrder} />
-                <input type="hidden" name={`block_${block.fieldId}_display_name_snapshot`} value={block.name} />
-                <input type="hidden" name={`block_${block.fieldId}_category_name_snapshot`} value={block.majorCategory} />
-                <input type="hidden" name={`block_${block.fieldId}_subcategory_name_snapshot`} value={block.minorCategory} />
-                <input type="hidden" name={`block_${block.fieldId}_planned_duration_minutes`} value={block.plannedMinutes} />
-                <input type="hidden" name={`block_${block.fieldId}_purpose_snapshot`} value={block.purpose} />
-                <input type="hidden" name={`block_${block.fieldId}_level_snapshot`} value={block.level} />
-                <input type="hidden" name={`block_${block.fieldId}_script_snapshot`} value={block.script} />
-                <input type="hidden" name={`block_${block.fieldId}_cautions_snapshot`} value={block.cautions} />
-                <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-[13px] font-bold text-[#5d956d]">#{index + 1} {block.majorCategory} / {block.minorCategory}</p>
-                    {block.blockTemplateId ? (
-                      <Link href={`/blocks/${block.blockTemplateId}`} className="line-clamp-1 text-[16px] font-extrabold text-[#2f342e] hover:text-[#5d956d]">{block.name}</Link>
-                    ) : (
-                      <p className="line-clamp-1 text-[16px] font-extrabold text-[#2f342e]">{block.name}</p>
-                    )}
-                  </div>
-                  <span className="w-fit rounded-full bg-[#fff7e8] px-3 py-1 text-[12px] font-bold text-[#9b7338]">目安 {block.plannedMinutes}分</span>
-                </div>
-                <div className="grid gap-3 md:grid-cols-[150px_130px_150px_minmax(0,1fr)_minmax(0,1fr)]">
-                  <Field label="実施状態">
-                    <select name={`block_${block.fieldId}_done`} defaultValue={block.done === null ? "" : block.done ? "done" : "skipped"} className="h-10 w-full rounded-md border border-input bg-white/90 px-2 text-[13px]">
-                      <option value="">未確認</option>
-                      <option value="done">実施した</option>
-                      <option value="skipped">スキップした</option>
-                    </select>
-                  </Field>
-                  <Field label="実際の所要時間">
-                    <Input name={`block_${block.fieldId}_actual_minutes`} type="number" min={0} defaultValue={block.actualMinutes ?? ""} className="h-10 bg-white/90 text-[13px]" />
-                  </Field>
-                  <Field label="生徒の反応">
-                    <select name={`block_${block.fieldId}_reaction`} defaultValue={block.reaction ?? ""} className="h-10 w-full rounded-md border border-input bg-white/90 px-2 text-[13px]">
-                      {blockReactionOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                    </select>
-                  </Field>
-                  <Field label="講師メモ">
-                    <Textarea name={`block_${block.fieldId}_teacher_memo`} defaultValue={block.teacherMemo} className="min-h-[88px] bg-white/90 text-[13px]" />
-                  </Field>
-                  <Field label="改善メモ / セリフ直し">
-                    <Textarea name={`block_${block.fieldId}_improvement_memo`} defaultValue={block.improvementMemo} className="min-h-[88px] bg-white/90 text-[13px]" />
-                  </Field>
-                </div>
-                <div className="mt-3 grid gap-3 md:grid-cols-[180px_180px_minmax(0,1fr)]">
-                  <Field label="次回利用">
-                    <select name={`block_${block.fieldId}_use_again`} defaultValue={block.useAgain === null ? "" : String(block.useAgain)} className="h-10 w-full rounded-md border border-input bg-white/90 px-2 text-[13px]">
-                      <option value="">未選択</option>
-                      <option value="true">次回も使いたい</option>
-                      <option value="false">今回は使わない</option>
-                    </select>
-                  </Field>
-                  <label className="flex items-center gap-2 text-[12px] font-bold"><input name={`block_${block.fieldId}_revise_script`} type="checkbox" defaultChecked={block.reviseScript} className="h-4 w-4 accent-[#ef6f5b]" />セリフを見直す</label>
-                  <Input name={`block_${block.fieldId}_script_revision`} defaultValue={block.scriptRevision} placeholder="セリフ見直しメモ" className="h-10 bg-white/90 text-[13px]" />
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <EmptyMessage text="この予定に紐づくレッスンプランのブロックがありません。レッスンプランにブロックを追加すると、ここで評価できます。" />
-        )}
-      </SoftCard>
-
-      <SoftCard className="p-4">
-        <SectionTitle icon={UserRound} title="参加生徒ごとのコメント" subtitle="出席ステータス・今日の様子・個別メモ・次回フォローだけを保存します" />
-        {students.length ? (
-          <div className="mt-4 grid gap-3">
-            {students.map((student) => (
-              <article key={student.id} className="rounded-2xl border border-[#eee4d8] bg-white/74 p-3">
-                <input type="hidden" name="student_ids" value={student.id} />
-                <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-[15px] font-extrabold">{student.name}</p>
-                    <p className="mt-1 line-clamp-2 text-[12px] font-semibold leading-5 text-[#6b7468]">注意点: {student.caution || "未登録"}</p>
-                  </div>
-                  <Field label="出席ステータス">
-                    <select name={`student_${student.id}_attendance_status`} defaultValue={student.attendanceStatus} className="h-10 w-full rounded-md border border-input bg-white/90 px-2 text-[13px] md:w-[150px]">
-                      {attendanceOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                    </select>
-                  </Field>
-                </div>
-                {student.pendingFollowUps.length ? (
-                  <div className="mb-3 grid gap-2 rounded-2xl border border-[#efd3a7] bg-[#fffaf0] p-3">
-                    <p className="text-[12px] font-extrabold text-[#9b7338]">前回からのフォロー</p>
-                    {student.pendingFollowUps.map((follow) => (
-                      <div key={follow.id} className="rounded-xl bg-white/70 p-3">
-                        <input type="hidden" name={`student_${student.id}_pending_follow_up_ids`} value={follow.id} />
-                        <p className="text-[12px] font-bold text-[#6b7468]">{follow.date} / {follow.lessonName}</p>
-                        <p className="mt-1 text-[13px] font-semibold leading-5 text-[#394238]">{follow.text}</p>
-                        <div className="mt-3 grid gap-2 text-[12px] font-bold md:grid-cols-3">
-                          <label className="flex items-center gap-2 rounded-lg border border-[#cfe1ca] bg-white px-2 py-2">
-                            <input type="radio" name={`follow_up_${follow.id}_status`} value="completed" className="h-4 w-4 accent-[#5d956d]" />
-                            今回確認しました
-                          </label>
-                          <label className="flex items-center gap-2 rounded-lg border border-[#d8e3d4] bg-white px-2 py-2">
-                            <input type="radio" name={`follow_up_${follow.id}_status`} value="pending" defaultChecked className="h-4 w-4 accent-[#9b7338]" />
-                            まだ継続する
-                          </label>
-                          <label className="flex items-center gap-2 rounded-lg border border-[#ead7d2] bg-white px-2 py-2">
-                            <input type="radio" name={`follow_up_${follow.id}_status`} value="dismissed" className="h-4 w-4 accent-[#d96c55]" />
-                            見送りにする
-                          </label>
-                        </div>
-                        <Input name={`follow_up_${follow.id}_note`} placeholder="対応メモ（任意）" className="mt-2 h-9 bg-white/90 text-[12px]" />
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-                <div className="grid gap-3 md:grid-cols-3">
-                  <Field label="今日の様子">
-                    <Textarea name={`student_${student.id}_today_note`} defaultValue={student.todayNote} className="min-h-[82px] bg-white/90 text-[13px]" />
-                  </Field>
-                  <Field label="個別メモ">
-                    <Textarea name={`student_${student.id}_personal_memo`} defaultValue={student.personalMemo} className="min-h-[82px] bg-white/90 text-[13px]" />
-                  </Field>
-                  <Field label="次回フォロー">
-                    <Textarea name={`student_${student.id}_next_follow`} defaultValue={student.nextFollow} className="min-h-[82px] bg-white/90 text-[13px]" />
-                  </Field>
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <EmptyMessage text="この予定には参加予定生徒が登録されていません。予定登録で生徒を紐づけると、生徒別コメントを残せます。" />
-        )}
-      </SoftCard>
-
-      <div className="sticky bottom-20 z-20 grid gap-2 rounded-2xl border border-[#e7dfd4] bg-[#fbfaf6]/95 p-3 shadow-[0_-8px_24px_rgba(91,76,53,0.10)] backdrop-blur md:bottom-4 md:flex md:justify-end">
-        <button name="status" value="draft" disabled={pending} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#d8e3d4] bg-white px-5 text-[13px] font-bold text-[#4f7b58] disabled:opacity-60">
-          <Save className="h-4 w-4" />
-          {pending ? "保存中..." : "下書き保存"}
-        </button>
-        <button name="status" value="completed" disabled={pending} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#5d956d] px-5 text-[13px] font-bold text-white disabled:opacity-60">
-          <CheckCircle2 className="h-4 w-4" />
-          {pending ? "保存中..." : "記録を完了する"}
-        </button>
-      </div>
+      <LessonRecordFooter step={step} pending={pending} onPrevious={() => setStep((current) => Math.max(1, current - 1) as 1 | 2 | 3)} onNext={() => setStep((current) => Math.min(3, current + 1) as 1 | 2 | 3)} onComplete={completeRecord} />
     </form>
-  );
-}
-
-function Info({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0 rounded-xl border border-[#eee4d8] bg-white/65 p-3">
-      <p className="text-[11px] font-bold text-[#7c8476]">{label}</p>
-      <p className="mt-1 break-words text-[13px] font-extrabold">{value}</p>
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <label className="block min-w-0">
-      <Label className="mb-2 text-[12px] font-bold text-[#394238]">{label}</Label>
-      {children}
-    </label>
-  );
-}
-
-function EmptyMessage({ text }: { text: string }) {
-  return (
-    <div className="mt-4 rounded-2xl border border-dashed border-[#d8e3d4] bg-[#f8fcf6] p-4 text-[13px] font-semibold leading-6 text-[#657064]">
-      {text}
-    </div>
   );
 }

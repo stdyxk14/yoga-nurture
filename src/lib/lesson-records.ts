@@ -2,7 +2,14 @@ import type { AttendanceStatus, BlockUsageHistory, FollowUpStatus, StudentAttend
 import { formatJapaneseDate } from "@/lib/date-format";
 import { getScheduleById, type DbSchedule } from "@/lib/schedules";
 import { requireUserId } from "@/lib/students";
-import { mapBlock, type DbBlockTemplate } from "@/lib/blocks";
+import {
+  getActiveBlockCategories,
+  getLessonRecordBlockLibrary,
+  mapBlock,
+  type BlockCategory,
+  type DbBlockTemplate,
+} from "@/lib/blocks";
+import type { LessonRecordChangeReasonCode, LessonRecordChangeType } from "@/lib/lesson-record-flow";
 import type { RequestSupabaseClient } from "@/lib/supabase/server";
 
 export type LessonRecordStatus = "draft" | "completed";
@@ -23,7 +30,13 @@ export type LessonRecordBlockFormItem = DbBlockTemplate & {
   itemSource: LessonRecordItemSource;
   recordBlockId?: string;
   sortOrder: number;
+  plannedSortOrder: number | null;
   plannedMinutes: number;
+  changeType: LessonRecordChangeType | null;
+  changeReasonCodes: LessonRecordChangeReasonCode[];
+  changeReasonNote: string;
+  actualContentNote: string;
+  replacesSchedulePlanItemId: string | null;
   done: boolean | null;
   actualMinutes: number | null;
   reaction: BlockReactionCode | null;
@@ -59,6 +72,8 @@ export type LessonRecordFormData = {
   record: DbLessonRecord | null;
   blocks: LessonRecordBlockFormItem[];
   students: LessonRecordStudentFormItem[];
+  blockLibrary: DbBlockTemplate[];
+  blockCategories: BlockCategory[];
 };
 
 export type DbLessonRecord = {
@@ -116,6 +131,13 @@ type RawRecordBlock = {
   level_snapshot: string | null;
   script_snapshot: string | null;
   cautions_snapshot: string | null;
+  memo_snapshot: string | null;
+  tags_snapshot: string[] | null;
+  change_type: LessonRecordChangeType | null;
+  change_reason_codes: LessonRecordChangeReasonCode[] | null;
+  change_reason_note: string | null;
+  actual_content_note: string | null;
+  replaces_schedule_plan_item_id: string | null;
   done: boolean | null;
   actual_duration_minutes: number | null;
   reaction: BlockReactionCode | null;
@@ -288,7 +310,7 @@ async function getRecordBlockRows(supabase: RequestSupabaseClient, recordId: str
   if (!recordId) return [] as RawRecordBlock[];
   const { data, error } = await supabase
     .from("lesson_record_blocks")
-    .select("id,lesson_record_id,schedule_plan_item_id,block_template_id,sort_order,item_source,display_name_snapshot,category_name_snapshot,subcategory_name_snapshot,planned_duration_minutes,purpose_snapshot,level_snapshot,script_snapshot,cautions_snapshot,done,actual_duration_minutes,reaction,teacher_memo,improvement_memo,use_again,script_revision")
+    .select("id,lesson_record_id,schedule_plan_item_id,block_template_id,sort_order,item_source,display_name_snapshot,category_name_snapshot,subcategory_name_snapshot,planned_duration_minutes,purpose_snapshot,level_snapshot,script_snapshot,cautions_snapshot,memo_snapshot,tags_snapshot,change_type,change_reason_codes,change_reason_note,actual_content_note,replaces_schedule_plan_item_id,done,actual_duration_minutes,reaction,teacher_memo,improvement_memo,use_again,script_revision")
     .eq("lesson_record_id", recordId)
     .order("sort_order", { ascending: true });
 
@@ -492,8 +514,8 @@ function mapStoredRecordBlock(item: RawRecordBlock): DbBlockTemplate {
     level: item.level_snapshot ?? "",
     cautions: item.cautions_snapshot ?? "",
     script: item.script_snapshot ?? "",
-    tags: [],
-    memo: "",
+    tags: item.tags_snapshot ?? [],
+    memo: item.memo_snapshot ?? "",
     usageCount: 0,
     averageRating: 0,
     goodRate: null,
@@ -514,14 +536,16 @@ export async function getLessonRecordFormData(scheduleId: string): Promise<Lesso
   try {
     schedule = await getScheduleById(scheduleId, supabase);
   } catch {
-    return { schedule: null, record: null, blocks: [], students: [] };
+    return { schedule: null, record: null, blocks: [], students: [], blockLibrary: [], blockCategories: [] };
   }
 
   const record = await getRecordBySchedule(supabase, scheduleId);
-  const [schedulePlanItems, recordBlocks, recordStudents] = await Promise.all([
+  const [schedulePlanItems, recordBlocks, recordStudents, blockLibrary, blockCategories] = await Promise.all([
     getSchedulePlanItems(supabase, scheduleId),
     getRecordBlockRows(supabase, record?.id),
     getRecordStudentRows(supabase, record?.id),
+    getLessonRecordBlockLibrary(supabase),
+    getActiveBlockCategories(supabase),
   ]);
 
   const fallbackPlanBlocks = schedulePlanItems.length ? [] : await getPlanBlocksForSchedule(supabase, schedule);
@@ -573,8 +597,14 @@ export async function getLessonRecordFormData(scheduleId: string): Promise<Lesso
       blockTemplateId: item.blockTemplateId,
       itemSource: "planned" as const,
       recordBlockId: existing?.id,
-      sortOrder: item.sortOrder,
+      sortOrder: existing?.sort_order ?? item.sortOrder,
+      plannedSortOrder: item.sortOrder,
       plannedMinutes: item.plannedMinutes,
+      changeType: existing?.change_type ?? null,
+      changeReasonCodes: existing?.change_reason_codes ?? [],
+      changeReasonNote: existing?.change_reason_note ?? "",
+      actualContentNote: existing?.actual_content_note ?? "",
+      replacesSchedulePlanItemId: existing?.replaces_schedule_plan_item_id ?? null,
       done: existing?.done ?? null,
       actualMinutes: existing?.actual_duration_minutes ?? null,
       reaction: existing?.reaction ?? null,
@@ -596,7 +626,13 @@ export async function getLessonRecordFormData(scheduleId: string): Promise<Lesso
       itemSource: item.item_source,
       recordBlockId: item.id,
       sortOrder: item.sort_order,
+      plannedSortOrder: null,
       plannedMinutes: item.planned_duration_minutes ?? 0,
+      changeType: item.change_type,
+      changeReasonCodes: item.change_reason_codes ?? [],
+      changeReasonNote: item.change_reason_note ?? "",
+      actualContentNote: item.actual_content_note ?? "",
+      replacesSchedulePlanItemId: item.replaces_schedule_plan_item_id,
       done: item.done,
       actualMinutes: item.actual_duration_minutes,
       reaction: item.reaction,
@@ -630,7 +666,7 @@ export async function getLessonRecordFormData(scheduleId: string): Promise<Lesso
     };
   });
 
-  return { schedule, record, blocks, students };
+  return { schedule, record, blocks, students, blockLibrary, blockCategories };
 }
 
 export async function getLessonRecords() {
@@ -830,74 +866,143 @@ export function parseLessonRecordPayload(formData: FormData) {
   if (!scheduleId) return { error: "予定が見つかりません。" };
   if (!recordStatusOptions.some((option) => option.value === status)) return { error: "記録ステータスを選択してください。" };
 
-  const blockItemIds = formData.getAll("block_item_ids").map(String).filter(Boolean);
-  if (new Set(blockItemIds).size !== blockItemIds.length) return { error: "実施項目の識別情報が重複しています。画面を更新してください。" };
+  try {
+    const rawBlocks = parseJsonArray(formData, "blocks_payload");
+    const rawStudents = parseJsonArray(formData, "students_payload");
+    const rawFollowUps = parseJsonArray(formData, "previous_followups_payload");
+    const fieldIds = rawBlocks.map((item) => readString(item, "field_id"));
+    if (fieldIds.some((id) => !id) || new Set(fieldIds).size !== fieldIds.length) {
+      return { error: "実施項目の識別情報が重複しています。画面を更新してください。" };
+    }
 
-  const blocks = blockItemIds.map((itemId) => {
-    const executionValue = String(formData.get(`block_${itemId}_done`) ?? "");
-    const done = executionValue === "done" ? true : executionValue === "skipped" ? false : null;
-    const actualMinutesValue = String(formData.get(`block_${itemId}_actual_minutes`) ?? "").trim();
-    const actualMinutes = actualMinutesValue ? Number.parseInt(actualMinutesValue, 10) : null;
-    const reactionValue = String(formData.get(`block_${itemId}_reaction`) ?? "") as BlockReactionCode | "";
-    const reaction = blockReactionOptions.some((option) => option.value === reactionValue) ? reactionValue as BlockReactionCode : null;
-    const useAgainValue = String(formData.get(`block_${itemId}_use_again`) ?? "");
-    const useAgain = useAgainValue === "true" ? true : useAgainValue === "false" ? false : null;
-    const reviseScript = formData.get(`block_${itemId}_revise_script`) === "on";
-    const scriptRevision = String(formData.get(`block_${itemId}_script_revision`) ?? "").trim();
-    const itemSourceValue = String(formData.get(`block_${itemId}_item_source`) ?? "planned") as LessonRecordItemSource;
+    const allowedSources = new Set<LessonRecordItemSource>(["planned", "library", "improvised"]);
+    const allowedChangeTypes = new Set<LessonRecordChangeType>(["as_planned", "adjusted", "skipped", "replaced", "added"]);
+    const allowedReasons = new Set<LessonRecordChangeReasonCode>([
+      "student_reaction", "pain_safety", "beginner_level", "advanced_level", "fatigue_focus",
+      "time_shortage", "extra_time", "student_request", "space_equipment", "other",
+    ]);
+
+    const blocks = rawBlocks.map((item, index) => {
+      const itemSource = readString(item, "item_source") as LessonRecordItemSource;
+      if (!allowedSources.has(itemSource)) throw new Error("実施項目の種類が不正です。");
+      const changeTypeValue = readOptionalString(item, "change_type") as LessonRecordChangeType | null;
+      if (changeTypeValue && !allowedChangeTypes.has(changeTypeValue)) throw new Error("実施項目の変更状態が不正です。");
+      const reasons = readStringArray(item, "change_reason_codes");
+      if (reasons.some((reason) => !allowedReasons.has(reason as LessonRecordChangeReasonCode))) throw new Error("変更理由が不正です。");
+      const reactionValue = readOptionalString(item, "reaction") as BlockReactionCode | null;
+      const reaction = reactionValue && blockReactionOptions.some((option) => option.value === reactionValue) ? reactionValue : null;
+      const actualMinutes = readNullableNumber(item, "actual_duration_minutes");
+      if (actualMinutes !== null && actualMinutes < 0) throw new Error("実際の時間は0分以上で入力してください。");
+      const plannedMinutes = readNullableNumber(item, "planned_duration_minutes") ?? 0;
+
+      return {
+        record_block_id: readOptionalString(item, "record_block_id"),
+        schedule_plan_item_id: readOptionalString(item, "schedule_plan_item_id"),
+        block_template_id: readOptionalString(item, "block_template_id"),
+        lesson_plan_block_id: readOptionalString(item, "lesson_plan_block_id"),
+        item_source: itemSource,
+        sort_order: readNullableNumber(item, "sort_order") ?? index,
+        display_name_snapshot: readString(item, "display_name_snapshot").trim(),
+        category_name_snapshot: readString(item, "category_name_snapshot").trim(),
+        subcategory_name_snapshot: readString(item, "subcategory_name_snapshot").trim(),
+        planned_duration_minutes: plannedMinutes,
+        purpose_snapshot: readString(item, "purpose_snapshot").trim(),
+        level_snapshot: readString(item, "level_snapshot").trim(),
+        script_snapshot: readString(item, "script_snapshot"),
+        cautions_snapshot: readString(item, "cautions_snapshot"),
+        memo_snapshot: readString(item, "memo_snapshot"),
+        tags_snapshot: readStringArray(item, "tags_snapshot"),
+        change_type: changeTypeValue,
+        change_reason_codes: reasons,
+        change_reason_note: readString(item, "change_reason_note").trim(),
+        actual_content_note: readString(item, "actual_content_note").trim(),
+        replaces_schedule_plan_item_id: readOptionalString(item, "replaces_schedule_plan_item_id"),
+        done: readNullableBoolean(item, "done"),
+        actual_duration_minutes: actualMinutes,
+        reaction,
+        teacher_memo: readString(item, "teacher_memo").trim(),
+        improvement_memo: readString(item, "improvement_memo").trim(),
+        use_again: readNullableBoolean(item, "use_again"),
+        script_revision: readOptionalString(item, "script_revision"),
+      };
+    });
+
+    const students = rawStudents.map((item) => {
+      const attendanceStatus = readString(item, "attendance_status") as StudentAttendanceCode;
+      if (!attendanceOptions.some((option) => option.value === attendanceStatus)) throw new Error("出席状態が不正です。");
+      return {
+        student_id: readString(item, "student_id"),
+        attendance_status: attendanceStatus,
+        condition: readString(item, "condition").trim(),
+        memo: readString(item, "memo").trim(),
+        next_follow: readString(item, "next_follow").trim(),
+      };
+    });
+
+    const previousFollowUps = rawFollowUps.map((item) => {
+      const followUpStatus = readString(item, "status") as FollowUpStatus;
+      if (!["pending", "completed", "dismissed"].includes(followUpStatus)) throw new Error("フォロー状態が不正です。");
+      return {
+        id: readString(item, "id"),
+        status: followUpStatus,
+        note: readString(item, "note").trim(),
+      };
+    });
 
     return {
-      schedule_plan_item_id: String(formData.get(`block_${itemId}_schedule_plan_item_id`) ?? "").trim() || null,
-      block_template_id: String(formData.get(`block_${itemId}_block_template_id`) ?? "").trim() || null,
-      lesson_plan_block_id: String(formData.get(`block_${itemId}_plan_block_id`) ?? "").trim() || null,
-      item_source: (["planned", "library", "improvised"] as const).includes(itemSourceValue) ? itemSourceValue : "planned",
-      sort_order: Number.parseInt(String(formData.get(`block_${itemId}_sort_order`) ?? "0"), 10),
-      display_name_snapshot: String(formData.get(`block_${itemId}_display_name_snapshot`) ?? "").trim(),
-      category_name_snapshot: String(formData.get(`block_${itemId}_category_name_snapshot`) ?? "").trim(),
-      subcategory_name_snapshot: String(formData.get(`block_${itemId}_subcategory_name_snapshot`) ?? "").trim(),
-      planned_duration_minutes: Number.parseInt(String(formData.get(`block_${itemId}_planned_duration_minutes`) ?? "0"), 10),
-      purpose_snapshot: String(formData.get(`block_${itemId}_purpose_snapshot`) ?? "").trim(),
-      level_snapshot: String(formData.get(`block_${itemId}_level_snapshot`) ?? "").trim(),
-      script_snapshot: String(formData.get(`block_${itemId}_script_snapshot`) ?? ""),
-      cautions_snapshot: String(formData.get(`block_${itemId}_cautions_snapshot`) ?? ""),
-      done,
-      actual_duration_minutes: actualMinutes !== null && Number.isFinite(actualMinutes) && actualMinutes >= 0 ? actualMinutes : null,
-      reaction,
-      teacher_memo: String(formData.get(`block_${itemId}_teacher_memo`) ?? "").trim(),
-      improvement_memo: String(formData.get(`block_${itemId}_improvement_memo`) ?? "").trim(),
-      use_again: useAgain,
-      script_revision: reviseScript ? scriptRevision || "セリフ見直しあり" : null,
+      recordId,
+      scheduleId,
+      status,
+      overallMemo,
+      overallReaction,
+      improvementPoints,
+      blocks,
+      students,
+      previousFollowUps,
     };
-  });
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "入力内容を読み取れませんでした。画面を更新してください。" };
+  }
+}
 
-  const studentIds = formData.getAll("student_ids").map(String);
-  const previousFollowUps = studentIds.flatMap((studentId) =>
-    formData.getAll(`student_${studentId}_pending_follow_up_ids`).map((followUpId) => ({
-      id: String(followUpId),
-      status: String(formData.get(`follow_up_${followUpId}_status`) ?? "pending") as FollowUpStatus,
-      note: String(formData.get(`follow_up_${followUpId}_note`) ?? "").trim(),
-    })),
-  );
-  const students = studentIds.map((studentId) => {
-    const attendanceStatus = String(formData.get(`student_${studentId}_attendance_status`) ?? "present") as StudentAttendanceCode;
-    return {
-      student_id: studentId,
-      attendance_status: attendanceOptions.some((option) => option.value === attendanceStatus) ? attendanceStatus : "present",
-      condition: String(formData.get(`student_${studentId}_today_note`) ?? "").trim(),
-      memo: String(formData.get(`student_${studentId}_personal_memo`) ?? "").trim(),
-      next_follow: String(formData.get(`student_${studentId}_next_follow`) ?? "").trim(),
-    };
-  });
+type JsonObject = Record<string, unknown>;
 
-  return {
-    recordId,
-    scheduleId,
-    status,
-    overallMemo,
-    overallReaction,
-    improvementPoints,
-    blocks,
-    students,
-    previousFollowUps,
-  };
+function parseJsonArray(formData: FormData, name: string): JsonObject[] {
+  const source = String(formData.get(name) ?? "");
+  if (!source) throw new Error("入力内容を読み取れませんでした。画面を更新してください。");
+  const parsed: unknown = JSON.parse(source);
+  if (!Array.isArray(parsed) || parsed.some((item) => !item || typeof item !== "object" || Array.isArray(item))) {
+    throw new Error("入力内容の形式が不正です。画面を更新してください。");
+  }
+  return parsed as JsonObject[];
+}
+
+function readString(item: JsonObject, key: string) {
+  const value = item[key];
+  return typeof value === "string" ? value : value === null || value === undefined ? "" : String(value);
+}
+
+function readOptionalString(item: JsonObject, key: string) {
+  const value = readString(item, key).trim();
+  return value || null;
+}
+
+function readStringArray(item: JsonObject, key: string) {
+  const value = item[key];
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) throw new Error("配列項目の形式が不正です。");
+  return value as string[];
+}
+
+function readNullableNumber(item: JsonObject, key: string) {
+  const value = item[key];
+  if (value === null || value === undefined || value === "") return null;
+  const numberValue = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numberValue) || !Number.isInteger(numberValue)) throw new Error("時間または並び順の形式が不正です。");
+  return numberValue;
+}
+
+function readNullableBoolean(item: JsonObject, key: string) {
+  const value = item[key];
+  return typeof value === "boolean" ? value : null;
 }

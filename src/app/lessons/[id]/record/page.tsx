@@ -6,13 +6,20 @@ import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function LessonRecordPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function LessonRecordPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ saved?: string }>;
+}) {
   const { id } = await params;
+  const { saved } = await searchParams;
   if (!isUuid(id)) notFound();
 
   const data = await getLessonRecordFormData(id);
   const aiSuggestionState = data.record?.id
     ? await getLessonRecordAiSuggestionState(data.record.id)
     : await getLessonRecordAiAvailabilityState();
-  return <LessonRecordForm data={data} aiSuggestionState={aiSuggestionState} />;
+  return <LessonRecordForm data={data} aiSuggestionState={aiSuggestionState} draftSaved={saved === "draft"} />;
 }
