@@ -3,6 +3,7 @@ import { formatJapaneseDate } from "@/lib/date-format";
 import { getScheduleById, type DbSchedule } from "@/lib/schedules";
 import { requireUserId } from "@/lib/students";
 import { mapBlock, type DbBlockTemplate } from "@/lib/blocks";
+import type { RequestSupabaseClient } from "@/lib/supabase/server";
 
 export type LessonRecordStatus = "draft" | "completed";
 export type BlockExecutionStatus = "done" | "skipped";
@@ -222,8 +223,7 @@ function mapRecord(row: RawRecord): DbLessonRecord {
   };
 }
 
-async function getRecordBySchedule(scheduleId: string) {
-  const { supabase } = await requireUserId();
+async function getRecordBySchedule(supabase: RequestSupabaseClient, scheduleId: string) {
   const { data, error } = await supabase
     .from("lesson_records")
     .select(`
@@ -250,9 +250,8 @@ async function getRecordBySchedule(scheduleId: string) {
   return data ? mapRecord(data as unknown as RawRecord) : null;
 }
 
-async function getRecordBlockRows(recordId: string | undefined) {
+async function getRecordBlockRows(supabase: RequestSupabaseClient, recordId: string | undefined) {
   if (!recordId) return [] as RawRecordBlock[];
-  const { supabase } = await requireUserId();
   const { data, error } = await supabase
     .from("lesson_record_blocks")
     .select("id,lesson_record_id,block_template_id,sort_order,done,actual_duration_minutes,reaction,teacher_memo,improvement_memo,use_again,script_revision")
@@ -263,9 +262,8 @@ async function getRecordBlockRows(recordId: string | undefined) {
   return (data ?? []) as RawRecordBlock[];
 }
 
-async function getRecordStudentRows(recordId: string | undefined) {
+async function getRecordStudentRows(supabase: RequestSupabaseClient, recordId: string | undefined) {
   if (!recordId) return [] as RawStudentRecord[];
-  const { supabase } = await requireUserId();
   const { data, error } = await supabase
     .from("lesson_record_students")
     .select("id,lesson_record_id,student_id,attendance_status,condition,memo,next_follow,follow_up_status,follow_up_completed_at,follow_up_completed_note,follow_up_updated_at")
@@ -284,9 +282,12 @@ async function getRecordStudentRows(recordId: string | undefined) {
   return (data ?? []) as RawStudentRecord[];
 }
 
-async function getPendingFollowUpsForStudents(studentIds: string[], currentRecordId?: string) {
+async function getPendingFollowUpsForStudents(
+  supabase: RequestSupabaseClient,
+  studentIds: string[],
+  currentRecordId?: string,
+) {
   if (!studentIds.length) return new Map<string, PendingFollowUp[]>();
-  const { supabase } = await requireUserId();
   const extendedResult = await supabase
     .from("lesson_record_students")
     .select(`
@@ -365,9 +366,8 @@ async function getPendingFollowUpsForStudents(studentIds: string[], currentRecor
   return pending;
 }
 
-async function getPlanBlocksForSchedule(schedule: DbSchedule | null) {
+async function getPlanBlocksForSchedule(supabase: RequestSupabaseClient, schedule: DbSchedule | null) {
   if (!schedule?.lessonPlanId) return [] as RawPlanBlock[];
-  const { supabase } = await requireUserId();
   const { data, error } = await supabase
     .from("lesson_plan_blocks")
     .select(`
@@ -402,18 +402,19 @@ async function getPlanBlocksForSchedule(schedule: DbSchedule | null) {
 }
 
 export async function getLessonRecordFormData(scheduleId: string): Promise<LessonRecordFormData> {
+  const { supabase } = await requireUserId();
   let schedule: DbSchedule | null = null;
   try {
-    schedule = await getScheduleById(scheduleId);
+    schedule = await getScheduleById(scheduleId, supabase);
   } catch {
     return { schedule: null, record: null, blocks: [], students: [] };
   }
 
-  const record = await getRecordBySchedule(scheduleId);
+  const record = await getRecordBySchedule(supabase, scheduleId);
   const [planBlocks, recordBlocks, recordStudents] = await Promise.all([
-    getPlanBlocksForSchedule(schedule),
-    getRecordBlockRows(record?.id),
-    getRecordStudentRows(record?.id),
+    getPlanBlocksForSchedule(supabase, schedule),
+    getRecordBlockRows(supabase, record?.id),
+    getRecordStudentRows(supabase, record?.id),
   ]);
 
   const recordBlockByTemplate = new Map(recordBlocks.map((item) => [item.block_template_id, item]));
@@ -440,7 +441,11 @@ export async function getLessonRecordFormData(scheduleId: string): Promise<Lesso
     });
 
   const recordStudentByStudent = new Map(recordStudents.map((item) => [item.student_id, item]));
-  const pendingFollowUpsByStudent = await getPendingFollowUpsForStudents(schedule.participants.map((student) => student.id), record?.id);
+  const pendingFollowUpsByStudent = await getPendingFollowUpsForStudents(
+    supabase,
+    schedule.participants.map((student) => student.id),
+    record?.id,
+  );
   const students = schedule.participants.map((student) => {
     const existing = recordStudentByStudent.get(student.id);
     return {

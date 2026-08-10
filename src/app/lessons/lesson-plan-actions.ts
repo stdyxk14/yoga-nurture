@@ -3,15 +3,14 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getLessonPlanPayload, type LessonPlanFormState } from "@/lib/lesson-plans";
-import { requireUserId } from "@/lib/students";
+import { createMutationContext, type RequestSupabaseClient } from "@/lib/supabase/server";
 
 type BlockDurationRow = {
   id: string;
   duration_minutes: number;
 };
 
-async function getBlockDurations(blockIds: string[]) {
-  const { supabase } = await requireUserId();
+async function getBlockDurations(supabase: RequestSupabaseClient, blockIds: string[]) {
   const { data, error } = await supabase
     .from("block_templates")
     .select("id,duration_minutes")
@@ -47,8 +46,8 @@ export async function createLessonPlanAction(
   let nextPath = "";
 
   try {
-    const { supabase, userId } = await requireUserId();
-    const durationById = await getBlockDurations(parsed.blockIds);
+    const { supabase, userId } = await createMutationContext();
+    const durationById = await getBlockDurations(supabase, parsed.blockIds);
     const totalMinutes = parsed.blockIds.reduce((sum, blockId) => sum + (durationById.get(blockId) ?? 0), 0);
 
     const { data: plan, error: planError } = await supabase
@@ -92,8 +91,8 @@ export async function updateLessonPlanAction(
   if ("error" in parsed) return { error: parsed.error };
 
   try {
-    const { supabase, userId } = await requireUserId();
-    const durationById = await getBlockDurations(parsed.blockIds);
+    const { supabase, userId } = await createMutationContext();
+    const durationById = await getBlockDurations(supabase, parsed.blockIds);
     const totalMinutes = parsed.blockIds.reduce((sum, blockId) => sum + (durationById.get(blockId) ?? 0), 0);
 
     const { error: planError } = await supabase
@@ -133,7 +132,7 @@ export async function updateLessonPlanAction(
 
 export async function deleteLessonPlanAction(planId: string, formData?: FormData): Promise<void> {
   void formData;
-  const { supabase, userId } = await requireUserId();
+  const { supabase, userId } = await createMutationContext();
   const { error } = await supabase
     .from("lesson_plans")
     .delete()
@@ -168,7 +167,7 @@ type LessonPlanBlockCopyRow = {
 
 export async function duplicateLessonPlanAction(planId: string, formData?: FormData): Promise<void> {
   void formData;
-  const { supabase, userId } = await requireUserId();
+  const { supabase, userId } = await createMutationContext();
 
   const { data: plan, error: planError } = await supabase
     .from("lesson_plans")

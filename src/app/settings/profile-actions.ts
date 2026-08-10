@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getAiSettings } from "@/lib/ai-settings";
-import { requireUserId } from "@/lib/students";
+import { requireFreshUser } from "@/lib/supabase/server";
 
 function settingsRedirect(params: { profileMessage?: string; profileError?: string; aiMessage?: string; aiError?: string }): never {
   const query = new URLSearchParams();
@@ -16,7 +16,7 @@ function settingsRedirect(params: { profileMessage?: string; profileError?: stri
 
 export async function updateProfileAction(formData: FormData) {
   const displayName = String(formData.get("display_name") ?? "").trim();
-  const { supabase, userId, user } = await requireUserId();
+  const { supabase, userId, user } = await requireFreshUser();
   const email = user.email ?? "";
 
   const { error } = await supabase.from("profiles").upsert(
@@ -37,7 +37,7 @@ export async function updateProfileAction(formData: FormData) {
 }
 
 export async function updateAiSettingsAction(formData: FormData) {
-  const { supabase, user } = await requireUserId();
+  const { supabase, user } = await requireFreshUser();
   const current = getAiSettings(user.user_metadata?.ai_settings);
   const settings = {
     enabled: formData.get("ai_enabled") === "on",

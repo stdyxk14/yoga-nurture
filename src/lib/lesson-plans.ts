@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireUserId } from "@/lib/students";
 import { mapBlock, type DbBlockTemplate } from "@/lib/blocks";
+import type { RequestSupabaseClient } from "@/lib/supabase/server";
 
 export type LessonPlanStatus = "draft" | "ready" | "archived";
 
@@ -45,6 +46,10 @@ type RawPlan = {
   status: LessonPlanStatus;
   created_at: string;
   updated_at: string;
+};
+
+type RawPlanSummary = RawPlan & {
+  lesson_plan_blocks?: Array<{ id: string }>;
 };
 
 type RawPlanBlock = {
@@ -183,10 +188,9 @@ function mapPlan(row: RawPlan, planBlocks: RawPlanBlock[]): DbLessonPlan {
   };
 }
 
-async function fetchPlanBlocks(planIds: string[]) {
+async function fetchPlanBlocks(supabase: RequestSupabaseClient, planIds: string[]) {
   if (!planIds.length) return [] as RawPlanBlock[];
 
-  const { supabase } = await requireUserId();
   const { data, error } = await supabase
     .from("lesson_plan_blocks")
     .select(`
@@ -223,8 +227,8 @@ async function fetchPlanBlocks(planIds: string[]) {
   return (data ?? []) as unknown as RawPlanBlock[];
 }
 
-export async function getLessonPlans() {
-  const { supabase } = await requireUserId();
+export async function getLessonPlans(requestClient?: RequestSupabaseClient) {
+  const supabase = requestClient ?? (await requireUserId()).supabase;
   const { data, error } = await supabase
     .from("lesson_plans")
     .select("id,name,theme,duration_minutes,format,memo,status,created_at,updated_at")
@@ -234,8 +238,35 @@ export async function getLessonPlans() {
   if (error) throw new Error(`レッスンプランを取得できませんでした: ${error.message}`);
 
   const plans = (data ?? []) as RawPlan[];
-  const blocks = await fetchPlanBlocks(plans.map((plan) => plan.id));
+  const blocks = await fetchPlanBlocks(supabase, plans.map((plan) => plan.id));
   return plans.map((plan) => mapPlan(plan, blocks.filter((block) => block.lesson_plan_id === plan.id)));
+}
+
+export async function getLessonPlanSummaries() {
+  const { supabase } = await requireUserId();
+  const { data, error } = await supabase
+    .from("lesson_plans")
+    .select(`
+      id,
+      name,
+      theme,
+      duration_minutes,
+      format,
+      memo,
+      status,
+      created_at,
+      updated_at,
+      lesson_plan_blocks(id)
+    `)
+    .neq("status", "archived")
+    .order("updated_at", { ascending: false });
+
+  if (error) throw new Error(`レッスンプランを取得できませんでした: ${error.message}`);
+
+  return ((data ?? []) as unknown as RawPlanSummary[]).map((plan) => ({
+    ...mapPlan(plan, []),
+    blockCount: plan.lesson_plan_blocks?.length ?? 0,
+  }));
 }
 
 export async function getLessonPlanById(id: string) {
@@ -249,6 +280,6 @@ export async function getLessonPlanById(id: string) {
   if (error) throw new Error(`レッスンプランを取得できませんでした: ${error.message}`);
   if (!data) notFound();
 
-  const blocks = await fetchPlanBlocks([id]);
+  const blocks = await fetchPlanBlocks(supabase, [id]);
   return mapPlan(data as RawPlan, blocks);
 }

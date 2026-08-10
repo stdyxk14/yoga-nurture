@@ -1,9 +1,9 @@
-import { unstable_noStore as noStore } from "next/cache";
-import { notFound, redirect } from "next/navigation";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { notFound } from "next/navigation";
+import { requireAuthClaims, type RequestSupabaseClient } from "@/lib/supabase/server";
 import type { GenderCode, StudentRecord } from "@/components/yoga/records";
 import { formatJapaneseDate } from "@/lib/date-format";
 import { toGenderCode, toGenderLabel } from "@/lib/student-fields";
+import { measurePerformance } from "@/lib/performance";
 
 export type StudentRow = {
   id: string;
@@ -50,21 +50,18 @@ export function mapStudentRow(row: StudentRow): StudentRecord {
 }
 
 export async function requireUserId() {
-  noStore();
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error || !user) {
-    redirect("/login");
-  }
-
-  return { supabase, userId: user.id, user };
+  return requireAuthClaims();
 }
 
 export async function getStudents(search = "") {
+  return measurePerformance(
+    { operation: "data.students", route: "/students" },
+    () => fetchStudents(search),
+    (students) => students.length,
+  );
+}
+
+async function fetchStudents(search: string) {
   const { supabase } = await requireUserId();
   const { data, error } = await supabase
     .from("students")
@@ -76,7 +73,7 @@ export async function getStudents(search = "") {
   }
 
   const students = (data ?? []).map((row) => mapStudentRow(row as StudentRow));
-  const statsByStudent = await getStudentListStats(students.map((student) => student.id));
+  const statsByStudent = await getStudentListStats(supabase, students.map((student) => student.id));
   const q = search.trim().toLowerCase();
 
   return students
@@ -108,14 +105,13 @@ export async function getStudents(search = "") {
     });
 }
 
-async function getStudentListStats(studentIds: string[]) {
+async function getStudentListStats(supabase: RequestSupabaseClient, studentIds: string[]) {
   const stats = new Map<string, StudentListStats>();
   for (const studentId of studentIds) {
     stats.set(studentId, { attendedCount: 0, cancelCount: 0, lastLessonDate: "未記録", nextLessonDate: "未定" });
   }
   if (!studentIds.length) return stats;
 
-  const { supabase } = await requireUserId();
   const [{ data: recordRows, error: recordError }, { data: participantRows, error: participantError }] = await Promise.all([
     supabase
       .from("lesson_record_students")

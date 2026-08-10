@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { BlockTemplate } from "@/components/yoga/records";
 import { formatJapaneseDate } from "@/lib/date-format";
 import { requireUserId } from "@/lib/students";
+import type { RequestSupabaseClient } from "@/lib/supabase/server";
 
 export type BlockCategory = {
   id: string;
@@ -191,7 +192,7 @@ export async function getBlocks(filters: BlockListFilters = {}) {
 
   if (error) throw new Error(`ブロックテンプレートを取得できませんでした: ${error.message}`);
 
-  const statsByBlock = await getBlockUsageStats(((data ?? []) as unknown as RawBlock[]).map((row) => row.id));
+  const statsByBlock = await getBlockUsageStats(supabase, ((data ?? []) as unknown as RawBlock[]).map((row) => row.id));
   let blocks = ((data ?? []) as unknown as RawBlock[]).map((row) => mapBlock(row, statsByBlock.get(row.id)));
   const q = filters.q?.trim().toLowerCase();
 
@@ -225,14 +226,40 @@ export async function getBlocks(filters: BlockListFilters = {}) {
   return blocks;
 }
 
-async function getBlockUsageStats(blockIds: string[]) {
+export async function getBlockAnalysis() {
+  const { supabase } = await requireUserId();
+  const { data, error } = await supabase
+    .from("block_templates")
+    .select(`
+      id,
+      category_id,
+      subcategory_id,
+      name,
+      duration_minutes,
+      favorite,
+      archived,
+      created_at,
+      updated_at,
+      category:block_categories(id,name),
+      subcategory:block_subcategories(id,name)
+    `)
+    .eq("archived", false)
+    .order("updated_at", { ascending: false });
+
+  if (error) throw new Error(`ブロック分析データを取得できませんでした: ${error.message}`);
+
+  const rows = (data ?? []) as unknown as RawBlock[];
+  const statsByBlock = await getBlockUsageStats(supabase, rows.map((row) => row.id));
+  return rows.map((row) => mapBlock(row, statsByBlock.get(row.id)));
+}
+
+async function getBlockUsageStats(supabase: RequestSupabaseClient, blockIds: string[]) {
   const stats = new Map<string, BlockUsageStats>();
   for (const blockId of blockIds) {
     stats.set(blockId, { usageCount: 0, skipCount: 0, reactionCount: 0, goodCount: 0, improvementCount: 0, latestDate: "" });
   }
   if (!blockIds.length) return stats;
 
-  const { supabase } = await requireUserId();
   const { data, error } = await supabase
     .from("lesson_record_blocks")
     .select("block_template_id,done,reaction,improvement_memo,record:lesson_records(record_date,schedule:schedules(starts_at))")
@@ -269,10 +296,38 @@ function firstRelation<T>(value: T | T[] | null | undefined): T | null {
   return value ?? null;
 }
 
-export async function getBlockById(id: string) {
-  const block = (await getBlocks()).find((item) => item.id === id);
-  if (!block) notFound();
-  return block;
+export async function getBlockById(id: string, requestClient?: RequestSupabaseClient) {
+  const supabase = requestClient ?? (await requireUserId()).supabase;
+  const { data, error } = await supabase
+    .from("block_templates")
+    .select(`
+      id,
+      category_id,
+      subcategory_id,
+      name,
+      duration_minutes,
+      purpose,
+      level,
+      cautions,
+      script,
+      memo,
+      favorite,
+      archived,
+      created_at,
+      updated_at,
+      category:block_categories(id,name),
+      subcategory:block_subcategories(id,name),
+      block_template_tags(tag:block_tags(id,name))
+    `)
+    .eq("id", id)
+    .eq("archived", false)
+    .maybeSingle();
+
+  if (error) throw new Error(`ブロックテンプレートを取得できませんでした: ${error.message}`);
+  if (!data) notFound();
+
+  const statsByBlock = await getBlockUsageStats(supabase, [id]);
+  return mapBlock(data as unknown as RawBlock, statsByBlock.get(id));
 }
 
 export function normalizeTag(value: string) {
@@ -315,8 +370,12 @@ export function getBlockPayload(formData: FormData) {
   };
 }
 
-export async function replaceBlockTags(blockId: string, tags: string[]) {
-  const { supabase, userId } = await requireUserId();
+export async function replaceBlockTags(
+  context: { supabase: RequestSupabaseClient; userId: string },
+  blockId: string,
+  tags: string[],
+) {
+  const { supabase, userId } = context;
   await supabase.from("block_template_tags").delete().eq("block_template_id", blockId);
 
   for (const tag of tags) {

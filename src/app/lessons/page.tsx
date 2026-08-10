@@ -14,10 +14,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { PageHeader, Pill, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
 import { RichScriptText } from "@/components/yoga/rich-script-text";
-import { getBlockCategories, getBlocks, getBlockTags, type BlockCategory, type BlockListFilters, type DbBlockTemplate } from "@/lib/blocks";
-import { getLessonPlans, type DbLessonPlan } from "@/lib/lesson-plans";
+import { getBlockAnalysis, getBlockCategories, getBlocks, getBlockTags, type BlockCategory, type BlockListFilters, type DbBlockTemplate } from "@/lib/blocks";
+import { getLessonPlanSummaries, type DbLessonPlan } from "@/lib/lesson-plans";
 import { getLessonRecords, type DbLessonRecord } from "@/lib/lesson-records";
-import { getSchedules, type DbSchedule } from "@/lib/schedules";
+import { getScheduleSummaries, type DbSchedule } from "@/lib/schedules";
+import { measurePerformance } from "@/lib/performance";
 
 type LessonTab = "schedule" | "plans" | "blocks" | "records" | "analysis";
 type AnalysisAxis = "usage" | "good" | "unused" | "improvement";
@@ -41,14 +42,45 @@ export default async function LessonsPage({
     tab === "plans" || tab === "blocks" || tab === "records" || tab === "analysis" ? tab : "schedule";
   const activeAnalysis: AnalysisAxis =
     params.analysis === "good" || params.analysis === "unused" || params.analysis === "improvement" ? params.analysis : "usage";
-  const [blocks, categories, tags, plans, schedules, records] = await Promise.all([
-    getBlocks(params),
-    getBlockCategories(),
-    getBlockTags(),
-    getLessonPlans(),
-    getSchedules(),
-    getLessonRecords(),
-  ]);
+  let blocks: DbBlockTemplate[] = [];
+  let categories: BlockCategory[] = [];
+  let tags: Array<{ id: string; name: string }> = [];
+  let plans: DbLessonPlan[] = [];
+  let schedules: DbSchedule[] = [];
+  let records: DbLessonRecord[] = [];
+  const route = activeTab === "schedule" ? "/lessons" : `/lessons?tab=${activeTab}`;
+
+  if (activeTab === "schedule") {
+    schedules = await measurePerformance(
+      { operation: "lessons.schedule", route },
+      () => getScheduleSummaries(),
+      (items) => items.length,
+    );
+  } else if (activeTab === "plans") {
+    plans = await measurePerformance(
+      { operation: "lessons.plans", route },
+      () => getLessonPlanSummaries(),
+      (items) => items.length,
+    );
+  } else if (activeTab === "blocks") {
+    [blocks, categories, tags] = await measurePerformance(
+      { operation: "lessons.blocks", route },
+      () => Promise.all([getBlocks(params), getBlockCategories(), getBlockTags()]),
+      ([items]) => items.length,
+    );
+  } else if (activeTab === "records") {
+    records = await measurePerformance(
+      { operation: "lessons.records", route },
+      () => getLessonRecords(),
+      (items) => items.length,
+    );
+  } else {
+    blocks = await measurePerformance(
+      { operation: "lessons.analysis", route },
+      () => getBlockAnalysis(),
+      (items) => items.length,
+    );
+  }
 
   return (
     <>

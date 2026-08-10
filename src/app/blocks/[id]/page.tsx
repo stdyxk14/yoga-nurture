@@ -4,6 +4,7 @@ import { getBlockById } from "@/lib/blocks";
 import { isUuid } from "@/lib/ids";
 import { getBlockUsageHistory } from "@/lib/lesson-records";
 import { notFound } from "next/navigation";
+import { measurePerformance } from "@/lib/performance";
 
 export const dynamic = "force-dynamic";
 
@@ -11,11 +12,11 @@ export default async function BlockDetailPage({ params }: { params: Promise<{ id
   const { id } = await params;
   if (!isUuid(id)) notFound();
 
-  const [block, histories, aiSuggestionState] = await Promise.all([
-    getBlockById(id),
-    getBlockUsageHistory(id),
-    getBlockAiSuggestionState(id),
-  ]);
+  const [block, histories, aiSuggestionState] = await measurePerformance(
+    { operation: "data.blockDetail", route: "/blocks/[id]" },
+    () => Promise.all([getBlockById(id), getBlockUsageHistory(id), getBlockAiSuggestionState(id)]),
+    ([, items]) => items.length,
+  );
 
   return <BlockDetail block={block} histories={histories} aiSuggestionState={aiSuggestionState} />;
 }

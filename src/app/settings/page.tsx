@@ -19,7 +19,7 @@ import { updateAiSettingsAction, updateProfileAction } from "@/app/settings/prof
 import { getAiSettings } from "@/lib/ai-settings";
 import { getBlockCategories, type BlockCategory } from "@/lib/blocks";
 import { getKnowledgeStats, type KnowledgeStats } from "@/lib/knowledge";
-import { requireUserId } from "@/lib/students";
+import { requireFreshUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +38,7 @@ export default async function SettingsPage({
   searchParams: Promise<SettingsSearchParams>;
 }) {
   const params = await searchParams;
-  const { supabase, userId, user } = await requireUserId();
+  const { supabase, userId, user } = await requireFreshUser();
   const [{ data: profile, error: profileError }, blockCategories, knowledgeStats] = await Promise.all([
     supabase.from("profiles").select("display_name,email").eq("id", userId).maybeSingle(),
     getBlockCategories(),

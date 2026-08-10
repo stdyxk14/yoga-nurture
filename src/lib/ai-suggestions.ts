@@ -7,6 +7,7 @@ import { formatKnowledgeCardsForPrompt, getActiveKnowledgeCardsForAi } from "@/l
 import { getLessonPlanById, type DbLessonPlan } from "@/lib/lesson-plans";
 import { getOpenAIClient, isOpenAIConfigured, studentSuggestionModel } from "@/lib/openai/server";
 import { getStudentById, requireUserId } from "@/lib/students";
+import { createMutationContext, requireFreshUser } from "@/lib/supabase/server";
 
 export type MentorType = "body" | "communication" | "lesson_design" | "general";
 
@@ -63,7 +64,7 @@ export async function getLessonRecordAiSuggestionState(recordId: string): Promis
 }
 
 export async function getLessonRecordAiAvailabilityState(): Promise<StudentAiSuggestionState> {
-  const { user } = await requireUserId();
+  const { user } = await requireFreshUser();
   return {
     isConfigured: isOpenAIConfigured(),
     storageReady: true,
@@ -73,7 +74,7 @@ export async function getLessonRecordAiAvailabilityState(): Promise<StudentAiSug
 }
 
 async function getAiSuggestionState(targetType: "student" | "lesson_plan" | "block" | "lesson_record", targetId: string): Promise<StudentAiSuggestionState> {
-  const { supabase, userId, user } = await requireUserId();
+  const { supabase, userId, user } = await requireFreshUser();
   const featureEnabled = isAiFeatureEnabled(getAiSettings(user.user_metadata?.ai_settings), targetType);
 
   if (!featureEnabled) {
@@ -163,7 +164,7 @@ export async function generateStudentAiSuggestion(studentId: string, requestedMe
   }
 
   try {
-    const { supabase, userId } = await requireUserId();
+    const { supabase, userId } = await createMutationContext();
     const { error } = await supabase.from("ai_suggestions").insert({
       user_id: userId,
       target_type: "student",
@@ -235,7 +236,7 @@ export async function generateLessonPlanAiSuggestion(planId: string, requestedMe
   }
 
   try {
-    const { supabase, userId } = await requireUserId();
+    const { supabase, userId } = await createMutationContext();
     const { error } = await supabase.from("ai_suggestions").insert({
       user_id: userId,
       target_type: "lesson_plan",
@@ -309,7 +310,7 @@ export async function generateBlockAiSuggestion(blockId: string, requestedMentor
   }
 
   try {
-    const { supabase, userId } = await requireUserId();
+    const { supabase, userId } = await createMutationContext();
     const { error } = await supabase.from("ai_suggestions").insert({
       user_id: userId,
       target_type: "block",
@@ -380,7 +381,7 @@ export async function generateLessonRecordAiSuggestion(recordId: string, request
   }
 
   try {
-    const { supabase, userId } = await requireUserId();
+    const { supabase, userId } = await createMutationContext();
     const { error } = await supabase.from("ai_suggestions").insert({
       user_id: userId,
       target_type: "lesson_record",

@@ -2,13 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getStudentPayload, requireUserId, type StudentFormState } from "@/lib/students";
+import { getStudentPayload, type StudentFormState } from "@/lib/students";
+import { createMutationContext } from "@/lib/supabase/server";
 
 export async function createStudentAction(_state: StudentFormState, formData: FormData): Promise<StudentFormState> {
   const parsed = getStudentPayload(formData);
   if ("error" in parsed) return { error: parsed.error };
 
-  const { supabase, userId } = await requireUserId();
+  const { supabase, userId } = await createMutationContext();
   const { data, error } = await supabase
     .from("students")
     .insert({
@@ -34,7 +35,7 @@ export async function updateStudentAction(
   const parsed = getStudentPayload(formData);
   if ("error" in parsed) return { error: parsed.error };
 
-  const { supabase, userId } = await requireUserId();
+  const { supabase, userId } = await createMutationContext();
   const { data, error } = await supabase
     .from("students")
     .update({
@@ -57,7 +58,7 @@ export async function updateStudentAction(
 
 export async function deleteStudentAction(id: string, formData?: FormData): Promise<void> {
   void formData;
-  const { supabase, userId } = await requireUserId();
+  const { supabase, userId } = await createMutationContext();
   const { error } = await supabase.from("students").delete().eq("id", id).eq("user_id", userId);
 
   if (error) {

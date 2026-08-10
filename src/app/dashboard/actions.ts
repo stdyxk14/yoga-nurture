@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { replaceBlockTags } from "@/lib/blocks";
-import { requireUserId } from "@/lib/students";
+import { createMutationContext } from "@/lib/supabase/server";
 
 export async function importStarterBlockAction(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
@@ -18,7 +18,7 @@ export async function importStarterBlockAction(formData: FormData) {
     redirect("/dashboard?starter_error=invalid");
   }
 
-  const { supabase, userId } = await requireUserId();
+  const { supabase, userId } = await createMutationContext();
   const { data, error } = await supabase
     .from("block_templates")
     .insert({
@@ -39,7 +39,7 @@ export async function importStarterBlockAction(formData: FormData) {
   }
 
   try {
-    await replaceBlockTags(data.id, tags);
+    await replaceBlockTags({ supabase, userId }, data.id, tags);
   } catch {
     redirect(`/blocks/${data.id}`);
   }

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getLessonPlans } from "@/lib/lesson-plans";
 import { getSchedulePayload, type ScheduleFormState } from "@/lib/schedules";
-import { requireUserId } from "@/lib/students";
+import { createMutationContext } from "@/lib/supabase/server";
 
 export async function createScheduleAction(
   _prevState: ScheduleFormState,
@@ -13,11 +13,11 @@ export async function createScheduleAction(
   let nextPath = "";
 
   try {
-    const plans = await getLessonPlans();
+    const { supabase, userId } = await createMutationContext();
+    const plans = await getLessonPlans(supabase);
     const parsed = getSchedulePayload(formData, plans);
     if ("error" in parsed) return { error: parsed.error };
 
-    const { supabase, userId } = await requireUserId();
     const { data: schedule, error: scheduleError } = await supabase
       .from("schedules")
       .insert({
@@ -64,11 +64,11 @@ export async function updateScheduleAction(
   let nextPath = "";
 
   try {
-    const plans = await getLessonPlans();
+    const { supabase, userId } = await createMutationContext();
+    const plans = await getLessonPlans(supabase);
     const parsed = getSchedulePayload(formData, plans);
     if ("error" in parsed) return { error: parsed.error };
 
-    const { supabase, userId } = await requireUserId();
     const { data: schedule, error: scheduleError } = await supabase
       .from("schedules")
       .update({
@@ -119,7 +119,7 @@ export async function updateScheduleAction(
 
 export async function deleteScheduleAction(id: string, formData?: FormData): Promise<void> {
   void formData;
-  const { supabase, userId } = await requireUserId();
+  const { supabase, userId } = await createMutationContext();
   const { error } = await supabase
     .from("schedules")
     .delete()

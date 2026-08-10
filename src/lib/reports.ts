@@ -1,5 +1,6 @@
 import { formatJapaneseDate } from "@/lib/date-format";
 import { requireUserId } from "@/lib/students";
+import { measurePerformance } from "@/lib/performance";
 
 export type ReportPeriodKey = "week" | "month" | "3months" | "half" | "year" | "custom";
 
@@ -215,7 +216,11 @@ export function normalizeReportPeriod(value?: string | null): ReportPeriodKey {
 
 export async function getReportData(periodKey: ReportPeriodKey): Promise<ReportData> {
   try {
-    return await fetchReportData(periodKey);
+    return await measurePerformance(
+      { operation: "data.reports", route: "/reports" },
+      () => fetchReportData(periodKey),
+      (data) => data.summary.totalLessons,
+    );
   } catch (error) {
     const period = buildPeriod(periodKey);
     return {

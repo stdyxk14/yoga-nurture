@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireUserId } from "@/lib/students";
+import { createMutationContext } from "@/lib/supabase/server";
 import type { FollowUpStatus } from "@/components/yoga/records";
 
 function isMissingFollowUpColumn(error: { message?: string; code?: string } | null | undefined) {
@@ -24,7 +24,7 @@ export async function updateFollowUpStatusAction(formData: FormData): Promise<vo
   if (!isFollowUpStatus(status)) return;
 
   try {
-    const { supabase } = await requireUserId();
+    const { supabase } = await createMutationContext();
     const now = new Date().toISOString();
     const { error } = await supabase
       .from("lesson_record_students")

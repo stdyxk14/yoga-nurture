@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { parseLessonRecordPayload, type LessonRecordFormState } from "@/lib/lesson-records";
-import { requireUserId } from "@/lib/students";
+import { createMutationContext } from "@/lib/supabase/server";
 
 function isMissingFollowUpColumn(error: { message?: string; code?: string } | null | undefined) {
   const message = error?.message?.toLowerCase() ?? "";
@@ -21,7 +21,7 @@ export async function saveLessonRecordAction(
   let nextPath = "/lessons?tab=records";
 
   try {
-    const { supabase, userId } = await requireUserId();
+    const { supabase, userId } = await createMutationContext();
     const { data: schedule, error: scheduleError } = await supabase
       .from("schedules")
       .select("id,user_id,lesson_plan_id,lesson_name,starts_at")

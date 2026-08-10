@@ -1,5 +1,6 @@
 import { formatJapaneseDate, formatJapaneseMonth } from "@/lib/date-format";
 import { requireUserId } from "@/lib/students";
+import { measurePerformance } from "@/lib/performance";
 
 export type DashboardScheduleStatus = "scheduled" | "preparing" | "prepared" | "record_pending" | "recorded";
 
@@ -144,7 +145,11 @@ const genderLabels: Record<string, string> = {
 
 export async function getDashboardData(): Promise<DashboardData> {
   try {
-    return await fetchDashboardData();
+    return await measurePerformance(
+      { operation: "data.dashboard", route: "/dashboard" },
+      () => fetchDashboardData(),
+      (data) => data.upcomingSchedules.length,
+    );
   } catch (error) {
     const now = new Date();
     const todayKey = dateKeyInTokyo(now);

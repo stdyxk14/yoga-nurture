@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { measurePerformance, sanitizePerformanceRoute } from "@/lib/performance";
 
 const PUBLIC_FILE = /\.(.*)$/;
 
@@ -48,37 +49,51 @@ export async function proxy(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            request.cookies.set(name, value);
-            response = NextResponse.next({ request });
-            response.cookies.set(name, value, options);
-          });
+        setAll(cookiesToSet, headersToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          response = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+          Object.entries(headersToSet).forEach(([name, value]) => response.headers.set(name, value));
         },
       },
     },
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const isAuthenticated = Boolean(user);
+  const { data } = await measurePerformance(
+    { operation: "auth.verifyClaims", route: sanitizePerformanceRoute(pathname) },
+    () => supabase.auth.getClaims(),
+    undefined,
+    (result) => !result.error && Boolean(result.data?.claims.sub),
+  );
+  const isAuthenticated = Boolean(data?.claims.sub);
 
   if (!isAuthenticated && !isLogin) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     loginUrl.searchParams.set("next", pathname);
-    return NextResponse.redirect(loginUrl);
+    return redirectWithAuthCookies(loginUrl, response);
   }
 
   if (isAuthenticated && isLogin) {
     const dashboardUrl = request.nextUrl.clone();
     dashboardUrl.pathname = "/dashboard";
     dashboardUrl.search = "";
-    return NextResponse.redirect(dashboardUrl);
+    return redirectWithAuthCookies(dashboardUrl, response);
   }
 
   return response;
+}
+
+function redirectWithAuthCookies(url: URL, authResponse: NextResponse) {
+  const redirectResponse = NextResponse.redirect(url);
+  authResponse.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
+
+  for (const header of ["cache-control", "expires", "pragma"]) {
+    const value = authResponse.headers.get(header);
+    if (value) redirectResponse.headers.set(header, value);
+  }
+
+  return redirectResponse;
 }
 
 export const config = {

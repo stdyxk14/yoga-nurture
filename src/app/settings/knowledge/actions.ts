@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { buildKnowledgeFilePath, KNOWLEDGE_BUCKET, parseTags } from "@/lib/knowledge";
 import { isUuid } from "@/lib/ids";
 import { getOpenAIClient, studentSuggestionModel } from "@/lib/openai/server";
-import { requireUserId } from "@/lib/students";
+import { createMutationContext } from "@/lib/supabase/server";
 
 const allowedMimeTypes = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
 
@@ -56,7 +56,7 @@ export async function uploadKnowledgeDocumentAction(
   if (uploadFile && uploadFile.size > 20 * 1024 * 1024) return { error: "ファイルサイズは20MB以下にしてください。" };
 
   try {
-    const { supabase, userId } = await requireUserId();
+    const { supabase, userId } = await createMutationContext();
     const documentId = crypto.randomUUID();
     let filePath: string | null = null;
 
@@ -107,7 +107,7 @@ export async function updateKnowledgeReviewAction(id: string, formData: FormData
   const summary = getText(formData, "summary");
 
   try {
-    const { supabase, userId } = await requireUserId();
+    const { supabase, userId } = await createMutationContext();
     const { error } = await supabase
       .from("knowledge_documents")
       .update({
@@ -136,7 +136,7 @@ export async function createKnowledgeCardDraftAction(id: string, formData?: Form
   if (!isUuid(id)) redirectWithError("/settings/knowledge", "学習メモが見つかりません。");
 
   try {
-    const { supabase, userId } = await requireUserId();
+    const { supabase, userId } = await createMutationContext();
     const { data: document, error: documentError } = await supabase
       .from("knowledge_documents")
       .select("id,title,cleaned_text,summary,tags")
@@ -181,7 +181,7 @@ export async function runKnowledgeImageOcrAction(id: string, formData?: FormData
   if (!openai) redirectWithError(`/settings/knowledge/${id}/review`, "AI連携は未設定です。OPENAI_API_KEY を設定してください。");
 
   try {
-    const { supabase, userId } = await requireUserId();
+    const { supabase, userId } = await createMutationContext();
     const { data: document, error: documentError } = await supabase
       .from("knowledge_documents")
       .select("id,title,file_path,file_mime_type")
@@ -262,7 +262,7 @@ export async function generateKnowledgeCardDraftWithAiAction(id: string, formDat
   if (!openai) redirectWithError(`/settings/knowledge/${id}/review`, "AI連携は未設定です。OPENAI_API_KEY を設定してください。");
 
   try {
-    const { supabase, userId } = await requireUserId();
+    const { supabase, userId } = await createMutationContext();
     const { data: document, error: documentError } = await supabase
       .from("knowledge_documents")
       .select("id,title,cleaned_text,summary,tags")
@@ -356,7 +356,7 @@ export async function updateKnowledgeCardAction(id: string, cardId: string, form
   if (!title || !content) redirectWithError(`/settings/knowledge/${id}/review`, "知識カードのタイトルと本文を入力してください。");
 
   try {
-    const { supabase, userId } = await requireUserId();
+    const { supabase, userId } = await createMutationContext();
     const { error } = await supabase
       .from("knowledge_cards")
       .update({
@@ -389,7 +389,7 @@ export async function activateKnowledgeCardAction(id: string, cardId: string, fo
   if (!isUuid(id) || !isUuid(cardId)) redirectWithError("/settings/knowledge", "知識カードが見つかりません。");
 
   try {
-    const { supabase, userId } = await requireUserId();
+    const { supabase, userId } = await createMutationContext();
     const { error } = await supabase
       .from("knowledge_cards")
       .update({ status: "active" })
@@ -413,7 +413,7 @@ export async function archiveKnowledgeDocumentAction(id: string, formData?: Form
   if (!isUuid(id)) redirectWithError("/settings/knowledge", "学習メモが見つかりません。");
 
   try {
-    const { supabase, userId } = await requireUserId();
+    const { supabase, userId } = await createMutationContext();
     const { error } = await supabase.from("knowledge_documents").update({ status: "archived" }).eq("id", id).eq("user_id", userId);
 
     if (error) redirectWithError(`/settings/knowledge/${id}`, `学習メモをアーカイブできませんでした。${error.message}`);
@@ -429,7 +429,7 @@ export async function archiveKnowledgeDocumentAction(id: string, formData?: Form
 
 async function markKnowledgeError(id: string, message: string) {
   try {
-    const { supabase, userId } = await requireUserId();
+    const { supabase, userId } = await createMutationContext();
     await supabase
       .from("knowledge_documents")
       .update({ status: "error", error_message: message })

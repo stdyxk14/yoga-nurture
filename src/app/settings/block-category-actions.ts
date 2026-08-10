@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { defaultBlockCategories, defaultSubcategories } from "@/lib/blocks";
-import { requireUserId } from "@/lib/students";
+import { createMutationContext } from "@/lib/supabase/server";
 
 function parseSortOrder(value: FormDataEntryValue | null) {
   const parsed = Number.parseInt(String(value ?? "0"), 10);
@@ -22,7 +22,7 @@ function showError(message: string): never {
 }
 
 export async function createDefaultBlockCategoriesAction() {
-  const { supabase, userId } = await requireUserId();
+  const { supabase, userId } = await createMutationContext();
 
   for (const [index, name] of defaultBlockCategories.entries()) {
     const { data: category, error } = await supabase
@@ -70,7 +70,7 @@ export async function createBlockCategoryAction(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   if (!name) showError("大カテゴリー名を入力してください。");
 
-  const { supabase, userId } = await requireUserId();
+  const { supabase, userId } = await createMutationContext();
   const { error } = await supabase.from("block_categories").insert({
     user_id: userId,
     name,
@@ -90,7 +90,7 @@ export async function updateBlockCategoryAction(id: string, formData: FormData) 
   const name = String(formData.get("name") ?? "").trim();
   if (!name) showError("大カテゴリー名を入力してください。");
 
-  const { supabase, userId } = await requireUserId();
+  const { supabase, userId } = await createMutationContext();
   const { error } = await supabase
     .from("block_categories")
     .update({
@@ -111,7 +111,7 @@ export async function updateBlockCategoryAction(id: string, formData: FormData) 
 
 export async function archiveBlockCategoryAction(id: string, formData?: FormData) {
   void formData;
-  const { supabase, userId } = await requireUserId();
+  const { supabase, userId } = await createMutationContext();
   const { error } = await supabase
     .from("block_categories")
     .update({ archived: true, updated_at: new Date().toISOString() })
@@ -124,7 +124,7 @@ export async function archiveBlockCategoryAction(id: string, formData?: FormData
 
 export async function deleteBlockCategoryAction(id: string, formData?: FormData) {
   void formData;
-  const { supabase, userId } = await requireUserId();
+  const { supabase, userId } = await createMutationContext();
   const { error } = await supabase.from("block_categories").delete().eq("id", id).eq("user_id", userId);
 
   if (error) showError(`大カテゴリーを削除できませんでした。使用中の場合はアーカイブしてください。${error.message}`);
@@ -137,7 +137,7 @@ export async function createBlockSubcategoryAction(formData: FormData) {
   if (!categoryId) showError("紐づく大カテゴリーを選択してください。");
   if (!name) showError("小カテゴリー名を入力してください。");
 
-  const { supabase, userId } = await requireUserId();
+  const { supabase, userId } = await createMutationContext();
   const { error } = await supabase.from("block_subcategories").insert({
     user_id: userId,
     category_id: categoryId,
@@ -160,7 +160,7 @@ export async function updateBlockSubcategoryAction(id: string, formData: FormDat
   if (!categoryId) showError("紐づく大カテゴリーを選択してください。");
   if (!name) showError("小カテゴリー名を入力してください。");
 
-  const { supabase, userId } = await requireUserId();
+  const { supabase, userId } = await createMutationContext();
   const { error } = await supabase
     .from("block_subcategories")
     .update({
@@ -182,7 +182,7 @@ export async function updateBlockSubcategoryAction(id: string, formData: FormDat
 
 export async function archiveBlockSubcategoryAction(id: string, formData?: FormData) {
   void formData;
-  const { supabase, userId } = await requireUserId();
+  const { supabase, userId } = await createMutationContext();
   const { error } = await supabase
     .from("block_subcategories")
     .update({ archived: true, updated_at: new Date().toISOString() })
@@ -195,7 +195,7 @@ export async function archiveBlockSubcategoryAction(id: string, formData?: FormD
 
 export async function deleteBlockSubcategoryAction(id: string, formData?: FormData) {
   void formData;
-  const { supabase, userId } = await requireUserId();
+  const { supabase, userId } = await createMutationContext();
   const { error } = await supabase.from("block_subcategories").delete().eq("id", id).eq("user_id", userId);
 
   if (error) showError(`小カテゴリーを削除できませんでした。使用中の場合はアーカイブしてください。${error.message}`);

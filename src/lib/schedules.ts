@@ -4,6 +4,7 @@ import { requireUserId } from "@/lib/students";
 import { getFormatLabel, type DbLessonPlan } from "@/lib/lesson-plans";
 import { toGenderCode, toGenderLabel } from "@/lib/student-fields";
 import type { StudentRecord } from "@/components/yoga/records";
+import type { RequestSupabaseClient } from "@/lib/supabase/server";
 
 export type ScheduleStatus = "scheduled" | "preparing" | "prepared" | "record_pending" | "recorded";
 
@@ -76,6 +77,10 @@ type RawParticipant = {
     caution: string | null;
     memo: string | null;
   } | null;
+};
+
+type RawScheduleSummary = Omit<RawSchedule, "schedule_participants"> & {
+  schedule_participants?: Array<{ id: string }>;
 };
 
 export const scheduleStatusOptions: Array<{ value: ScheduleStatus; label: string }> = [
@@ -163,7 +168,7 @@ export async function getSchedules() {
     .select(scheduleSelect(true))
     .order("starts_at", { ascending: true });
 
-  if (!withNotes.error) return enrichScheduleParticipants(((withNotes.data ?? []) as unknown as RawSchedule[]).map(mapSchedule));
+  if (!withNotes.error) return enrichScheduleParticipants(supabase, ((withNotes.data ?? []) as unknown as RawSchedule[]).map(mapSchedule));
 
   if (!isMissingScheduleNotesError(withNotes.error.message)) {
     throw new Error(`予定を取得できませんでした: ${withNotes.error.message}`);
@@ -175,7 +180,57 @@ export async function getSchedules() {
     .order("starts_at", { ascending: true });
 
   if (fallback.error) throw new Error(`予定を取得できませんでした: ${fallback.error.message}`);
-  return enrichScheduleParticipants(((fallback.data ?? []) as unknown as RawSchedule[]).map(mapSchedule));
+  return enrichScheduleParticipants(supabase, ((fallback.data ?? []) as unknown as RawSchedule[]).map(mapSchedule));
+}
+
+export async function getScheduleSummaries() {
+  const { supabase } = await requireUserId();
+  const { data, error } = await supabase
+    .from("schedules")
+    .select(`
+      id,
+      lesson_plan_id,
+      lesson_name,
+      starts_at,
+      ends_at,
+      place,
+      format,
+      status,
+      created_at,
+      updated_at,
+      lesson_plan:lesson_plans(id,name),
+      schedule_participants(id)
+    `)
+    .order("starts_at", { ascending: true });
+
+  if (error) throw new Error(`予定を取得できませんでした: ${error.message}`);
+
+  return ((data ?? []) as unknown as RawScheduleSummary[]).map((row) => {
+    const start = formatDateTime(row.starts_at);
+    const end = formatDateTime(row.ends_at);
+    return {
+      id: row.id,
+      lessonPlanId: row.lesson_plan_id,
+      lessonName: row.lesson_name,
+      startsAt: row.starts_at,
+      endsAt: row.ends_at,
+      dateLabel: start.dateLabel,
+      startTimeLabel: start.timeLabel,
+      endTimeLabel: end.timeLabel,
+      place: row.place ?? "",
+      format: row.format ?? "",
+      formatLabel: getFormatLabel(row.format ?? ""),
+      scheduleCaution: "",
+      scheduleMemo: "",
+      status: row.status,
+      statusLabel: getScheduleStatusLabel(row.status),
+      lessonPlanName: row.lesson_plan?.name ?? "未設定",
+      participantCount: row.schedule_participants?.length ?? 0,
+      participants: [],
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    } satisfies DbSchedule;
+  });
 }
 
 type RawParticipantRecordInsight = {
@@ -191,11 +246,10 @@ type RawParticipantRecordInsight = {
   } | null;
 };
 
-async function enrichScheduleParticipants(schedules: DbSchedule[]) {
+async function enrichScheduleParticipants(supabase: RequestSupabaseClient, schedules: DbSchedule[]) {
   const studentIds = Array.from(new Set(schedules.flatMap((schedule) => schedule.participants.map((student) => student.id))));
   if (!studentIds.length) return schedules;
 
-  const { supabase } = await requireUserId();
   const result = await supabase
     .from("lesson_record_students")
     .select(`
@@ -293,10 +347,31 @@ function isMissingScheduleNotesError(message: string) {
   return message.includes("schedule_caution") || message.includes("schedule_memo");
 }
 
-export async function getScheduleById(id: string) {
-  const schedules = await getSchedules();
-  const schedule = schedules.find((item) => item.id === id);
-  if (!schedule) notFound();
+export async function getScheduleById(id: string, requestClient?: RequestSupabaseClient) {
+  const supabase = requestClient ?? (await requireUserId()).supabase;
+  const withNotes = await supabase
+    .from("schedules")
+    .select(scheduleSelect(true))
+    .eq("id", id)
+    .maybeSingle();
+
+  let row = withNotes.data as unknown as RawSchedule | null;
+  if (withNotes.error) {
+    if (!isMissingScheduleNotesError(withNotes.error.message)) {
+      throw new Error(`スケジュールを取得できませんでした: ${withNotes.error.message}`);
+    }
+
+    const fallback = await supabase
+      .from("schedules")
+      .select(scheduleSelect(false))
+      .eq("id", id)
+      .maybeSingle();
+    if (fallback.error) throw new Error(`スケジュールを取得できませんでした: ${fallback.error.message}`);
+    row = fallback.data as unknown as RawSchedule | null;
+  }
+
+  if (!row) notFound();
+  const [schedule] = await enrichScheduleParticipants(supabase, [mapSchedule(row)]);
   return schedule;
 }
 
