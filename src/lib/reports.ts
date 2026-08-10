@@ -111,8 +111,11 @@ type RawRecordStudent = {
 };
 
 type RawRecordBlock = {
-  block_template_id: string;
-  done: boolean;
+  block_template_id: string | null;
+  display_name_snapshot: string | null;
+  category_name_snapshot: string | null;
+  subcategory_name_snapshot: string | null;
+  done: boolean | null;
   reaction: "good" | "neutral" | "poor" | null;
   improvement_memo: string | null;
   actual_duration_minutes: number | null;
@@ -279,6 +282,9 @@ async function fetchReportData(periodKey: ReportPeriodKey): Promise<ReportData> 
         ),
         lesson_record_blocks(
           block_template_id,
+          display_name_snapshot,
+          category_name_snapshot,
+          subcategory_name_snapshot,
           done,
           reaction,
           improvement_memo,
@@ -563,11 +569,12 @@ function buildBlockRows(records: RawRecord[], allBlocks: RawBlockTemplate[]): Bl
     for (const item of record.lesson_record_blocks ?? []) {
       const block = item.block;
       const id = item.block_template_id;
+      if (!id) continue;
       const aggregate = aggregates.get(id) ?? {
         id,
-        name: block?.name ?? "削除済みブロック",
-        majorCategory: block?.category?.name ?? "未分類",
-        minorCategory: block?.subcategory?.name ?? "未分類",
+        name: item.display_name_snapshot ?? block?.name ?? "削除済みブロック",
+        majorCategory: item.category_name_snapshot ?? block?.category?.name ?? "未分類",
+        minorCategory: item.subcategory_name_snapshot ?? block?.subcategory?.name ?? "未分類",
         doneCount: 0,
         reactionCount: 0,
         goodCount: 0,

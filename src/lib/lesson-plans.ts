@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { requireUserId } from "@/lib/students";
 import { mapBlock, type DbBlockTemplate } from "@/lib/blocks";
 import type { RequestSupabaseClient } from "@/lib/supabase/server";
+import type { DbSchedule } from "@/lib/schedules";
 
 export type LessonPlanStatus = "draft" | "ready" | "archived";
 
@@ -282,4 +283,95 @@ export async function getLessonPlanById(id: string) {
 
   const blocks = await fetchPlanBlocks(supabase, [id]);
   return mapPlan(data as RawPlan, blocks);
+}
+
+type RawSchedulePlanBlock = {
+  id: string;
+  lesson_plan_block_id: string | null;
+  block_template_id: string | null;
+  sort_order: number;
+  planned_duration_minutes: number | null;
+  block_name_snapshot: string;
+  category_name_snapshot: string | null;
+  subcategory_name_snapshot: string | null;
+  purpose_snapshot: string | null;
+  level_snapshot: string | null;
+  script_snapshot: string | null;
+  cautions_snapshot: string | null;
+  memo_snapshot: string | null;
+  tags_snapshot: string[] | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export async function getLessonPlanForSchedule(schedule: DbSchedule): Promise<DbLessonPlan> {
+  const { supabase } = await requireUserId();
+  const { data, error } = await supabase
+    .from("schedule_plan_items")
+    .select("id,lesson_plan_block_id,block_template_id,sort_order,planned_duration_minutes,block_name_snapshot,category_name_snapshot,subcategory_name_snapshot,purpose_snapshot,level_snapshot,script_snapshot,cautions_snapshot,memo_snapshot,tags_snapshot,created_at,updated_at")
+    .eq("schedule_id", schedule.id)
+    .order("sort_order", { ascending: true });
+
+  if (error) throw new Error(`予定スナップショットを取得できませんでした: ${error.message}`);
+  const rows = (data ?? []) as RawSchedulePlanBlock[];
+  if (!rows.length) {
+    if (!schedule.lessonPlanId) notFound();
+    return getLessonPlanById(schedule.lessonPlanId);
+  }
+
+  const blocks: DbLessonPlanBlock[] = rows.map((item) => {
+    const durationMinutes = item.planned_duration_minutes ?? 0;
+    return {
+      id: item.block_template_id ?? item.id,
+      name: item.block_name_snapshot,
+      categoryId: null,
+      subcategoryId: null,
+      majorCategory: item.category_name_snapshot ?? "未分類",
+      minorCategory: item.subcategory_name_snapshot ?? "未分類",
+      duration: `${durationMinutes}分`,
+      durationMinutes,
+      purpose: item.purpose_snapshot ?? "",
+      level: item.level_snapshot ?? "",
+      cautions: item.cautions_snapshot ?? "",
+      script: item.script_snapshot ?? "",
+      tags: item.tags_snapshot ?? [],
+      memo: item.memo_snapshot ?? "",
+      usageCount: 0,
+      averageRating: 0,
+      goodRate: null,
+      improvementCount: 0,
+      skipCount: 0,
+      lastUsed: "未使用",
+      lastUsedAt: "",
+      archived: false,
+      favorite: false,
+      createdAt: item.created_at,
+      updatedAt: item.updated_at,
+      planBlockId: item.lesson_plan_block_id ?? item.id,
+      sortOrder: item.sort_order,
+      plannedDurationMinutes: durationMinutes,
+      scriptOverride: item.script_snapshot ?? "",
+      cautionsOverride: item.cautions_snapshot ?? "",
+    };
+  });
+  const meta = parsePlanMeta(schedule.lessonPlanMemoSnapshot);
+  const format = schedule.lessonPlanFormatSnapshot || schedule.format;
+
+  return {
+    id: schedule.lessonPlanId ?? schedule.id,
+    name: schedule.lessonPlanNameSnapshot || schedule.lessonPlanName || schedule.lessonName,
+    theme: schedule.lessonPlanThemeSnapshot,
+    place: meta.place ?? "",
+    format,
+    formatLabel: getFormatLabel(format),
+    totalMinutes: schedule.lessonPlanDurationMinutesSnapshot ?? blocks.reduce((sum, block) => sum + block.plannedDurationMinutes, 0),
+    status: "ready",
+    statusLabel: getStatusLabel("ready"),
+    tags: meta.tags ?? [],
+    createdAt: schedule.createdAt,
+    updatedAt: schedule.updatedAt,
+    blocks,
+    blockCount: blocks.length,
+    categoryMinutes: buildCategoryMinutes(blocks),
+  };
 }

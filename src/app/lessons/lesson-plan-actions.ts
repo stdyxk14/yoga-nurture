@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getLessonPlanPayload, type LessonPlanFormState } from "@/lib/lesson-plans";
 import { createMutationContext, type RequestSupabaseClient } from "@/lib/supabase/server";
+import { formatRpcError } from "@/lib/supabase/rpc-errors";
 
 type BlockDurationRow = {
   id: string;
@@ -27,9 +28,8 @@ async function getBlockDurations(supabase: RequestSupabaseClient, blockIds: stri
   return durationById;
 }
 
-function buildPlanBlockRows(planId: string, blockIds: string[], durationById: Map<string, number>) {
+function buildPlanBlockPayload(blockIds: string[], durationById: Map<string, number>) {
   return blockIds.map((blockId, index) => ({
-    lesson_plan_id: planId,
     block_template_id: blockId,
     sort_order: index,
     planned_duration_minutes: durationById.get(blockId) ?? 0,
@@ -46,34 +46,20 @@ export async function createLessonPlanAction(
   let nextPath = "";
 
   try {
-    const { supabase, userId } = await createMutationContext();
+    const { supabase } = await createMutationContext();
     const durationById = await getBlockDurations(supabase, parsed.blockIds);
-    const totalMinutes = parsed.blockIds.reduce((sum, blockId) => sum + (durationById.get(blockId) ?? 0), 0);
+    const { data: planId, error } = await supabase.rpc("save_lesson_plan", {
+      p_plan_id: null,
+      p_name: parsed.payload.name,
+      p_theme: parsed.payload.theme,
+      p_format: parsed.payload.format,
+      p_memo: parsed.payload.memo,
+      p_status: parsed.payload.status,
+      p_blocks: buildPlanBlockPayload(parsed.blockIds, durationById),
+    });
 
-    const { data: plan, error: planError } = await supabase
-      .from("lesson_plans")
-      .insert({
-        user_id: userId,
-        ...parsed.payload,
-        duration_minutes: totalMinutes,
-      })
-      .select("id")
-      .single();
-
-    if (planError || !plan) {
-      return { error: `レッスンプランを保存できませんでした: ${planError?.message ?? "保存結果を確認できませんでした。"}` };
-    }
-
-    const { error: blockError } = await supabase
-      .from("lesson_plan_blocks")
-      .insert(buildPlanBlockRows(plan.id, parsed.blockIds, durationById));
-
-    if (blockError) {
-      await supabase.from("lesson_plans").delete().eq("id", plan.id).eq("user_id", userId);
-      return { error: `使用ブロックを保存できませんでした: ${blockError.message}` };
-    }
-
-    nextPath = `/lessons/${plan.id}`;
+    if (error || !planId) return { error: formatRpcError(error, "レッスンプランを保存できませんでした") };
+    nextPath = `/lessons/${planId}`;
   } catch (error) {
     return { error: error instanceof Error ? error.message : "レッスンプランを保存できませんでした。" };
   }
@@ -91,36 +77,19 @@ export async function updateLessonPlanAction(
   if ("error" in parsed) return { error: parsed.error };
 
   try {
-    const { supabase, userId } = await createMutationContext();
+    const { supabase } = await createMutationContext();
     const durationById = await getBlockDurations(supabase, parsed.blockIds);
-    const totalMinutes = parsed.blockIds.reduce((sum, blockId) => sum + (durationById.get(blockId) ?? 0), 0);
+    const { error } = await supabase.rpc("save_lesson_plan", {
+      p_plan_id: planId,
+      p_name: parsed.payload.name,
+      p_theme: parsed.payload.theme,
+      p_format: parsed.payload.format,
+      p_memo: parsed.payload.memo,
+      p_status: parsed.payload.status,
+      p_blocks: buildPlanBlockPayload(parsed.blockIds, durationById),
+    });
 
-    const { error: planError } = await supabase
-      .from("lesson_plans")
-      .update({
-        ...parsed.payload,
-        duration_minutes: totalMinutes,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", planId)
-      .eq("user_id", userId);
-
-    if (planError) {
-      return { error: `レッスンプランを更新できませんでした: ${planError.message}` };
-    }
-
-    const { error: deleteError } = await supabase.from("lesson_plan_blocks").delete().eq("lesson_plan_id", planId);
-    if (deleteError) {
-      return { error: `既存ブロックを更新できませんでした: ${deleteError.message}` };
-    }
-
-    const { error: blockError } = await supabase
-      .from("lesson_plan_blocks")
-      .insert(buildPlanBlockRows(planId, parsed.blockIds, durationById));
-
-    if (blockError) {
-      return { error: `使用ブロックを保存できませんでした: ${blockError.message}` };
-    }
+    if (error) return { error: formatRpcError(error, "レッスンプランを更新できませんでした") };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "レッスンプランを更新できませんでした。" };
   }
@@ -191,26 +160,7 @@ export async function duplicateLessonPlanAction(planId: string, formData?: FormD
     redirect(`/lessons?tab=plans&error=${encodeURIComponent(`使用ブロックを確認できず、複製できませんでした: ${blockFetchError.message}`)}`);
   }
 
-  const { data: copiedPlan, error: insertError } = await supabase
-    .from("lesson_plans")
-    .insert({
-      user_id: userId,
-      name: `${sourcePlan.name}（コピー）`,
-      theme: sourcePlan.theme,
-      duration_minutes: sourcePlan.duration_minutes,
-      format: sourcePlan.format,
-      memo: sourcePlan.memo,
-      status: "draft",
-    })
-    .select("id")
-    .single();
-
-  if (insertError || !copiedPlan) {
-    redirect(`/lessons?tab=plans&error=${encodeURIComponent(`レッスンプランを複製できませんでした: ${insertError?.message ?? "保存結果を確認できませんでした。"}`)}`);
-  }
-
-  const rows = ((planBlocks ?? []) as LessonPlanBlockCopyRow[]).map((block) => ({
-    lesson_plan_id: copiedPlan.id,
+  const blocks = ((planBlocks ?? []) as LessonPlanBlockCopyRow[]).map((block) => ({
     block_template_id: block.block_template_id,
     sort_order: block.sort_order,
     planned_duration_minutes: block.planned_duration_minutes,
@@ -218,15 +168,21 @@ export async function duplicateLessonPlanAction(planId: string, formData?: FormD
     cautions_override: block.cautions_override,
   }));
 
-  if (rows.length) {
-    const { error: blockInsertError } = await supabase.from("lesson_plan_blocks").insert(rows);
-    if (blockInsertError) {
-      await supabase.from("lesson_plans").delete().eq("id", copiedPlan.id).eq("user_id", userId);
-      redirect(`/lessons?tab=plans&error=${encodeURIComponent(`複製したプランにブロックを保存できませんでした: ${blockInsertError.message}`)}`);
-    }
+  const { data: copiedPlanId, error: copyError } = await supabase.rpc("save_lesson_plan", {
+    p_plan_id: null,
+    p_name: `${sourcePlan.name}（コピー）`,
+    p_theme: sourcePlan.theme,
+    p_format: sourcePlan.format,
+    p_memo: sourcePlan.memo,
+    p_status: "draft",
+    p_blocks: blocks,
+  });
+
+  if (copyError || !copiedPlanId) {
+    redirect(`/lessons?tab=plans&error=${encodeURIComponent(formatRpcError(copyError, "レッスンプランを複製できませんでした"))}`);
   }
 
   revalidatePath("/dashboard");
   revalidatePath("/lessons");
-  redirect(`/lessons/${copiedPlan.id}/edit`);
+  redirect(`/lessons/${copiedPlanId}/edit`);
 }

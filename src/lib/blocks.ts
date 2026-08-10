@@ -276,9 +276,9 @@ async function getBlockUsageStats(supabase: RequestSupabaseClient, blockIds: str
   }>) {
     const current = stats.get(row.block_template_id);
     if (!current) continue;
-    const wasDone = row.done !== false;
+    const wasDone = row.done === true;
     if (wasDone) current.usageCount += 1;
-    if (!wasDone) current.skipCount += 1;
+    if (row.done === false) current.skipCount += 1;
     if (wasDone && row.reaction) current.reactionCount += 1;
     if (wasDone && row.reaction === "good") current.goodCount += 1;
     if (row.improvement_memo?.trim()) current.improvementCount += 1;

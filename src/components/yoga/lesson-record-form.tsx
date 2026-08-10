@@ -39,18 +39,26 @@ type LessonRecordFormData = {
   } | null;
   blocks: Array<{
     id: string;
-    planBlockId: string;
+    fieldId: string;
+    planBlockId: string | null;
+    schedulePlanItemId: string | null;
+    blockTemplateId: string | null;
+    itemSource: "planned" | "library" | "improvised";
     sortOrder: number;
     name: string;
     majorCategory: string;
     minorCategory: string;
+    purpose: string;
+    level: string;
+    script: string;
+    cautions: string;
     plannedMinutes: number;
-    done: boolean;
-    actualMinutes: number;
-    reaction: "good" | "neutral" | "poor";
+    done: boolean | null;
+    actualMinutes: number | null;
+    reaction: "good" | "neutral" | "poor" | null;
     teacherMemo: string;
     improvementMemo: string;
-    useAgain: boolean;
+    useAgain: boolean | null;
     reviseScript: boolean;
     scriptRevision: string;
   }>;
@@ -77,6 +85,7 @@ const recordStatusOptions = [
 ] as const;
 
 const blockReactionOptions = [
+  { value: "", label: "未評価" },
   { value: "good", label: "良かった" },
   { value: "neutral", label: "普通" },
   { value: "poor", label: "いまいち" },
@@ -175,43 +184,65 @@ export function LessonRecordForm({
         {blocks.length ? (
           <div className="mt-4 grid gap-3">
             {blocks.map((block, index) => (
-              <article key={`${block.planBlockId}-${block.id}`} className="rounded-2xl border border-[#eee4d8] bg-white/74 p-3">
-                <input type="hidden" name="block_template_ids" value={block.id} />
-                <input type="hidden" name={`block_${block.id}_plan_block_id`} value={block.planBlockId} />
-                <input type="hidden" name={`block_${block.id}_sort_order`} value={block.sortOrder} />
+              <article key={block.fieldId} className="rounded-2xl border border-[#eee4d8] bg-white/74 p-3">
+                <input type="hidden" name="block_item_ids" value={block.fieldId} />
+                <input type="hidden" name={`block_${block.fieldId}_schedule_plan_item_id`} value={block.schedulePlanItemId ?? ""} />
+                <input type="hidden" name={`block_${block.fieldId}_block_template_id`} value={block.blockTemplateId ?? ""} />
+                <input type="hidden" name={`block_${block.fieldId}_plan_block_id`} value={block.planBlockId ?? ""} />
+                <input type="hidden" name={`block_${block.fieldId}_item_source`} value={block.itemSource} />
+                <input type="hidden" name={`block_${block.fieldId}_sort_order`} value={block.sortOrder} />
+                <input type="hidden" name={`block_${block.fieldId}_display_name_snapshot`} value={block.name} />
+                <input type="hidden" name={`block_${block.fieldId}_category_name_snapshot`} value={block.majorCategory} />
+                <input type="hidden" name={`block_${block.fieldId}_subcategory_name_snapshot`} value={block.minorCategory} />
+                <input type="hidden" name={`block_${block.fieldId}_planned_duration_minutes`} value={block.plannedMinutes} />
+                <input type="hidden" name={`block_${block.fieldId}_purpose_snapshot`} value={block.purpose} />
+                <input type="hidden" name={`block_${block.fieldId}_level_snapshot`} value={block.level} />
+                <input type="hidden" name={`block_${block.fieldId}_script_snapshot`} value={block.script} />
+                <input type="hidden" name={`block_${block.fieldId}_cautions_snapshot`} value={block.cautions} />
                 <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                   <div className="min-w-0">
                     <p className="text-[13px] font-bold text-[#5d956d]">#{index + 1} {block.majorCategory} / {block.minorCategory}</p>
-                    <Link href={`/blocks/${block.id}`} className="line-clamp-1 text-[16px] font-extrabold text-[#2f342e] hover:text-[#5d956d]">{block.name}</Link>
+                    {block.blockTemplateId ? (
+                      <Link href={`/blocks/${block.blockTemplateId}`} className="line-clamp-1 text-[16px] font-extrabold text-[#2f342e] hover:text-[#5d956d]">{block.name}</Link>
+                    ) : (
+                      <p className="line-clamp-1 text-[16px] font-extrabold text-[#2f342e]">{block.name}</p>
+                    )}
                   </div>
                   <span className="w-fit rounded-full bg-[#fff7e8] px-3 py-1 text-[12px] font-bold text-[#9b7338]">目安 {block.plannedMinutes}分</span>
                 </div>
                 <div className="grid gap-3 md:grid-cols-[150px_130px_150px_minmax(0,1fr)_minmax(0,1fr)]">
                   <Field label="実施状態">
-                    <select name={`block_${block.id}_done`} defaultValue={block.done ? "done" : "skipped"} className="h-10 w-full rounded-md border border-input bg-white/90 px-2 text-[13px]">
+                    <select name={`block_${block.fieldId}_done`} defaultValue={block.done === null ? "" : block.done ? "done" : "skipped"} className="h-10 w-full rounded-md border border-input bg-white/90 px-2 text-[13px]">
+                      <option value="">未確認</option>
                       <option value="done">実施した</option>
                       <option value="skipped">スキップした</option>
                     </select>
                   </Field>
                   <Field label="実際の所要時間">
-                    <Input name={`block_${block.id}_actual_minutes`} type="number" min={0} defaultValue={block.actualMinutes} className="h-10 bg-white/90 text-[13px]" />
+                    <Input name={`block_${block.fieldId}_actual_minutes`} type="number" min={0} defaultValue={block.actualMinutes ?? ""} className="h-10 bg-white/90 text-[13px]" />
                   </Field>
                   <Field label="生徒の反応">
-                    <select name={`block_${block.id}_reaction`} defaultValue={block.reaction} className="h-10 w-full rounded-md border border-input bg-white/90 px-2 text-[13px]">
+                    <select name={`block_${block.fieldId}_reaction`} defaultValue={block.reaction ?? ""} className="h-10 w-full rounded-md border border-input bg-white/90 px-2 text-[13px]">
                       {blockReactionOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                     </select>
                   </Field>
                   <Field label="講師メモ">
-                    <Textarea name={`block_${block.id}_teacher_memo`} defaultValue={block.teacherMemo} className="min-h-[88px] bg-white/90 text-[13px]" />
+                    <Textarea name={`block_${block.fieldId}_teacher_memo`} defaultValue={block.teacherMemo} className="min-h-[88px] bg-white/90 text-[13px]" />
                   </Field>
                   <Field label="改善メモ / セリフ直し">
-                    <Textarea name={`block_${block.id}_improvement_memo`} defaultValue={block.improvementMemo} className="min-h-[88px] bg-white/90 text-[13px]" />
+                    <Textarea name={`block_${block.fieldId}_improvement_memo`} defaultValue={block.improvementMemo} className="min-h-[88px] bg-white/90 text-[13px]" />
                   </Field>
                 </div>
                 <div className="mt-3 grid gap-3 md:grid-cols-[180px_180px_minmax(0,1fr)]">
-                  <label className="flex items-center gap-2 text-[12px] font-bold"><input name={`block_${block.id}_use_again`} type="checkbox" defaultChecked={block.useAgain} className="h-4 w-4 accent-[#5d956d]" />次回も使いたい</label>
-                  <label className="flex items-center gap-2 text-[12px] font-bold"><input name={`block_${block.id}_revise_script`} type="checkbox" defaultChecked={block.reviseScript} className="h-4 w-4 accent-[#ef6f5b]" />セリフを見直す</label>
-                  <Input name={`block_${block.id}_script_revision`} defaultValue={block.scriptRevision} placeholder="セリフ見直しメモ" className="h-10 bg-white/90 text-[13px]" />
+                  <Field label="次回利用">
+                    <select name={`block_${block.fieldId}_use_again`} defaultValue={block.useAgain === null ? "" : String(block.useAgain)} className="h-10 w-full rounded-md border border-input bg-white/90 px-2 text-[13px]">
+                      <option value="">未選択</option>
+                      <option value="true">次回も使いたい</option>
+                      <option value="false">今回は使わない</option>
+                    </select>
+                  </Field>
+                  <label className="flex items-center gap-2 text-[12px] font-bold"><input name={`block_${block.fieldId}_revise_script`} type="checkbox" defaultChecked={block.reviseScript} className="h-4 w-4 accent-[#ef6f5b]" />セリフを見直す</label>
+                  <Input name={`block_${block.fieldId}_script_revision`} defaultValue={block.scriptRevision} placeholder="セリフ見直しメモ" className="h-10 bg-white/90 text-[13px]" />
                 </div>
               </article>
             ))}

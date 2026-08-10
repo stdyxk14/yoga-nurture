@@ -99,16 +99,17 @@ export type LessonSchedule = {
 
 export type BlockResult = {
   blockId: string;
-  done: boolean;
+  done: boolean | null;
   actualDuration: string;
   reaction: BlockReaction;
   teacherMemo: string;
   improvementMemo: string;
-  useAgain: boolean;
+  useAgain: boolean | null;
   scriptRevision: string;
 };
 
 export type BlockUsageHistory = BlockResult & {
+  recordBlockId?: string;
   lessonId: string;
   lessonDate: string;
   planName: string;

@@ -496,7 +496,7 @@ type LessonPlanAiContext = {
     reaction: string;
     teacherMemo: string;
     improvementMemo: string;
-    useAgain: boolean;
+    useAgain: boolean | null;
     scriptRevision: string;
   }>;
 };
@@ -536,6 +536,7 @@ async function getLessonPlanAiContext(planId: string): Promise<LessonPlanAiConte
           improvement_memo,
           use_again,
           script_revision,
+          display_name_snapshot,
           block:block_templates(name)
         )
       `)
@@ -571,7 +572,7 @@ async function getLessonPlanAiContext(planId: string): Promise<LessonPlanAiConte
         (record.lesson_record_blocks ?? []).slice(0, 4).map((block) => ({
           lessonDate: formatDateForAi(record.schedule?.starts_at ?? record.record_date),
           lessonName: record.lesson_name,
-          blockName: block.block?.name ?? "未設定ブロック",
+          blockName: block.display_name_snapshot || block.block?.name || "未設定ブロック",
           reaction: block.reaction ?? "未評価",
           teacherMemo: block.teacher_memo ?? "",
           improvementMemo: block.improvement_memo ?? "",
@@ -613,8 +614,9 @@ type RawAiLessonRecord = {
     reaction: string | null;
     teacher_memo: string | null;
     improvement_memo: string | null;
-    use_again: boolean;
+    use_again: boolean | null;
     script_revision: string | null;
+    display_name_snapshot: string | null;
     block?: { name: string | null } | null;
   }>;
 };
@@ -688,12 +690,12 @@ function buildBlockSuggestionPrompt(
   const recentHistories = histories.slice(0, 5).map((history) => ({
     lessonDate: history.lessonDate,
     lessonName: history.lessonName,
-    executionStatus: history.done ? "実施した" : "スキップした",
+    executionStatus: history.done === null ? "未確認" : history.done ? "実施した" : "スキップした",
     actualMinutes: history.actualDuration,
     studentReaction: history.reaction || "未評価",
     teacherMemo: history.teacherMemo || "",
     improvementMemo: history.improvementMemo || "",
-    useNextTime: history.useAgain,
+    useNextTime: history.useAgain === null ? "未選択" : history.useAgain,
     reviseScript: history.scriptReviewRequired,
     scriptRevisionMemo: history.scriptRevision || "",
   }));
@@ -758,11 +760,11 @@ type LessonRecordAiContext = {
     majorCategory: string;
     minorCategory: string;
     executionStatus: string;
-    actualMinutes: number;
+    actualMinutes: number | "未入力";
     studentReaction: string;
     teacherMemo: string;
     improvementMemo: string;
-    useNextTime: boolean;
+    useNextTime: boolean | "未選択";
     reviseScript: boolean;
     scriptRevision: string;
   }>;
@@ -803,6 +805,9 @@ type RawAiLessonRecordDetail = {
     improvement_memo: string | null;
     use_again: boolean | null;
     script_revision: string | null;
+    display_name_snapshot: string | null;
+    category_name_snapshot: string | null;
+    subcategory_name_snapshot: string | null;
     block?: {
       name: string | null;
       category?: { name: string | null } | null;
@@ -846,6 +851,9 @@ async function getLessonRecordAiContext(recordId: string): Promise<LessonRecordA
         improvement_memo,
         use_again,
         script_revision,
+        display_name_snapshot,
+        category_name_snapshot,
+        subcategory_name_snapshot,
         block:block_templates(
           name,
           category:block_categories(name),
@@ -871,15 +879,15 @@ async function getLessonRecordAiContext(recordId: string): Promise<LessonRecordA
   const blocks = (record.lesson_record_blocks ?? [])
     .map((block, index) => ({
       order: block.sort_order ?? index + 1,
-      name: block.block?.name ?? "未設定ブロック",
-      majorCategory: block.block?.category?.name ?? "未設定",
-      minorCategory: block.block?.subcategory?.name ?? "未設定",
-      executionStatus: block.done === false ? "スキップした" : "実施した",
-      actualMinutes: block.actual_duration_minutes ?? 0,
+      name: block.display_name_snapshot || block.block?.name || "未設定ブロック",
+      majorCategory: block.category_name_snapshot || block.block?.category?.name || "未設定",
+      minorCategory: block.subcategory_name_snapshot || block.block?.subcategory?.name || "未設定",
+      executionStatus: block.done === null ? "未確認" : block.done ? "実施した" : "スキップした",
+      actualMinutes: block.actual_duration_minutes === null ? ("未入力" as const) : block.actual_duration_minutes,
       studentReaction: formatRecordBlockReaction(block.reaction),
       teacherMemo: block.teacher_memo ?? "",
       improvementMemo: block.improvement_memo ?? "",
-      useNextTime: Boolean(block.use_again),
+      useNextTime: block.use_again === null ? ("未選択" as const) : block.use_again,
       reviseScript: Boolean(block.script_revision?.trim()),
       scriptRevision: block.script_revision ?? "",
     }))

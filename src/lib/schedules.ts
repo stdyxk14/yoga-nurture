@@ -23,6 +23,11 @@ export type ScheduleParticipant = StudentRecord & {
 export type DbSchedule = {
   id: string;
   lessonPlanId: string | null;
+  lessonPlanNameSnapshot: string;
+  lessonPlanThemeSnapshot: string;
+  lessonPlanFormatSnapshot: "personal" | "group" | "online" | "";
+  lessonPlanMemoSnapshot: string;
+  lessonPlanDurationMinutesSnapshot: number | null;
   lessonName: string;
   startsAt: string;
   endsAt: string;
@@ -50,6 +55,11 @@ export type ScheduleFormState = {
 type RawSchedule = {
   id: string;
   lesson_plan_id: string | null;
+  lesson_plan_name_snapshot?: string | null;
+  lesson_plan_theme_snapshot?: string | null;
+  lesson_plan_format_snapshot?: "personal" | "group" | "online" | null;
+  lesson_plan_memo_snapshot?: string | null;
+  lesson_plan_duration_minutes_snapshot?: number | null;
   lesson_name: string;
   starts_at: string;
   ends_at: string;
@@ -140,6 +150,11 @@ function mapSchedule(row: RawSchedule): DbSchedule {
   return {
     id: row.id,
     lessonPlanId: row.lesson_plan_id,
+    lessonPlanNameSnapshot: row.lesson_plan_name_snapshot ?? "",
+    lessonPlanThemeSnapshot: row.lesson_plan_theme_snapshot ?? "",
+    lessonPlanFormatSnapshot: row.lesson_plan_format_snapshot ?? "",
+    lessonPlanMemoSnapshot: row.lesson_plan_memo_snapshot ?? "",
+    lessonPlanDurationMinutesSnapshot: row.lesson_plan_duration_minutes_snapshot ?? null,
     lessonName: row.lesson_name,
     startsAt: row.starts_at,
     endsAt: row.ends_at,
@@ -153,7 +168,7 @@ function mapSchedule(row: RawSchedule): DbSchedule {
     scheduleMemo: row.schedule_memo ?? "",
     status: row.status,
     statusLabel: getScheduleStatusLabel(row.status),
-    lessonPlanName: row.lesson_plan?.name ?? "未設定",
+    lessonPlanName: row.lesson_plan_name_snapshot || row.lesson_plan?.name || "未設定",
     participantCount: participants.length,
     participants,
     createdAt: row.created_at,
@@ -211,6 +226,11 @@ export async function getScheduleSummaries() {
     return {
       id: row.id,
       lessonPlanId: row.lesson_plan_id,
+      lessonPlanNameSnapshot: "",
+      lessonPlanThemeSnapshot: "",
+      lessonPlanFormatSnapshot: "",
+      lessonPlanMemoSnapshot: "",
+      lessonPlanDurationMinutesSnapshot: null,
       lessonName: row.lesson_name,
       startsAt: row.starts_at,
       endsAt: row.ends_at,
@@ -324,6 +344,11 @@ function scheduleSelect(includeNotes: boolean) {
   return `
       id,
       lesson_plan_id,
+      lesson_plan_name_snapshot,
+      lesson_plan_theme_snapshot,
+      lesson_plan_format_snapshot,
+      lesson_plan_memo_snapshot,
+      lesson_plan_duration_minutes_snapshot,
       lesson_name,
       starts_at,
       ends_at,

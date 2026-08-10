@@ -16,7 +16,7 @@ export function BlockDetail({
   histories: BlockUsageHistory[];
   aiSuggestionState?: StudentAiSuggestionState;
 }) {
-  const executedHistories = histories.filter((history) => history.done);
+  const executedHistories = histories.filter((history) => history.done === true);
   const usageCount = executedHistories.length;
   const lastUsed = executedHistories[0]?.lessonDate ?? "未使用";
   const reviewCount = histories.filter((history) => history.scriptReviewRequired).length;
@@ -117,7 +117,7 @@ export function BlockDetail({
         <SectionTitle icon={History} title="レッスン後記録からの蓄積データ" subtitle="ブロック単位で入力された講師メモ・改善メモを表示" />
         <div className="grid gap-3">
           {histories.length ? histories.map((history) => (
-            <div key={`${history.lessonId}-${history.blockId}`} className="rounded-xl border border-[#eee4d8] bg-white/72 p-3">
+            <div key={history.recordBlockId ?? `${history.lessonId}-${history.blockId}`} className="rounded-xl border border-[#eee4d8] bg-white/72 p-3">
               <div className="mb-3 grid grid-cols-[110px_minmax(0,1fr)_110px_110px_130px] items-center gap-3">
                 <p className="text-[12px] font-bold">{history.lessonDate}</p>
                 <div className="min-w-0">
@@ -158,7 +158,7 @@ function MobileBlockDetail({
   histories: BlockUsageHistory[];
   aiSuggestionState?: StudentAiSuggestionState;
 }) {
-  const executedHistories = histories.filter((history) => history.done);
+  const executedHistories = histories.filter((history) => history.done === true);
   const usageCount = executedHistories.length;
   const lastUsed = executedHistories[0]?.lessonDate ?? "未使用";
   const reviewCount = histories.filter((history) => history.scriptReviewRequired).length;
@@ -224,20 +224,20 @@ function MobileBlockDetail({
         <h2 className="text-[16px] font-extrabold">改善履歴</h2>
         <div className="mt-3 grid gap-3">
           {histories.length ? histories.map((history) => (
-            <div key={`${history.lessonId}-${history.blockId}`} className="relative rounded-2xl border border-[#eee4d8] bg-white/78 p-3">
+            <div key={history.recordBlockId ?? `${history.lessonId}-${history.blockId}`} className="relative rounded-2xl border border-[#eee4d8] bg-white/78 p-3">
               <div className="mb-2 flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="truncate text-[13px] font-extrabold">{history.lessonName}</p>
                   <p className="text-[11px] font-bold text-[#8f867a]">{history.lessonDate}</p>
                 </div>
-                <span className={history.done ? "rounded-full bg-[#edf5ef] px-2 py-1 text-[10px] font-bold text-[#4f875a]" : "rounded-full bg-[#fff0ea] px-2 py-1 text-[10px] font-bold text-[#e46b50]"}>
-                  {history.done ? "実施" : "スキップ"}
+                <span className={history.done === null ? "rounded-full bg-[#f4f1ea] px-2 py-1 text-[10px] font-bold text-[#7c8476]" : history.done ? "rounded-full bg-[#edf5ef] px-2 py-1 text-[10px] font-bold text-[#4f875a]" : "rounded-full bg-[#fff0ea] px-2 py-1 text-[10px] font-bold text-[#e46b50]"}>
+                  {history.done === null ? "未確認" : history.done ? "実施" : "スキップ"}
                 </span>
               </div>
               <div className="mb-2 grid grid-cols-3 gap-2 text-center">
                 <MiniHistory label="時間" value={history.actualDuration} />
                 <MiniHistory label="反応" value={history.reaction} />
-                <MiniHistory label="次回" value={history.useAgain ? "使う" : "見送り"} />
+                <MiniHistory label="次回" value={history.useAgain === null ? "未選択" : history.useAgain ? "使う" : "見送り"} />
               </div>
               <p className="text-[12px] font-bold text-[#4f7b58]">講師メモ</p>
               <p className="mt-1 text-[12px] font-medium leading-5 text-[#50584e]">{history.teacherMemo}</p>
@@ -292,10 +292,10 @@ function SummaryNote({ title, body }: { title: string; body: string }) {
   );
 }
 
-function StatusPill({ active }: { active: boolean }) {
+function StatusPill({ active }: { active: boolean | null }) {
   return (
-    <span className={active ? "rounded-full bg-[#edf5ef] px-2 py-1 text-center text-[11px] font-bold text-[#4f875a]" : "rounded-full bg-[#fff0ea] px-2 py-1 text-center text-[11px] font-bold text-[#e46b50]"}>
-      {active ? "実施した" : "スキップした"}
+    <span className={active === null ? "rounded-full bg-[#f4f1ea] px-2 py-1 text-center text-[11px] font-bold text-[#7c8476]" : active ? "rounded-full bg-[#edf5ef] px-2 py-1 text-center text-[11px] font-bold text-[#4f875a]" : "rounded-full bg-[#fff0ea] px-2 py-1 text-center text-[11px] font-bold text-[#e46b50]"}>
+      {active === null ? "未確認" : active ? "実施した" : "スキップした"}
     </span>
   );
 }
@@ -312,13 +312,13 @@ function HistoryText({ icon: Icon, title, body }: { icon: typeof MessageSquareTe
   );
 }
 
-function BooleanBox({ label, active, tone = "green" }: { label: string; active: boolean; tone?: "green" | "coral" }) {
+function BooleanBox({ label, active, tone = "green" }: { label: string; active: boolean | null; tone?: "green" | "coral" }) {
   const activeClass = tone === "coral" ? "bg-[#fff0ea] text-[#e46b50] border-[#f0c7b4]" : "bg-[#edf5ef] text-[#4f875a] border-[#cfe1ca]";
   return (
     <div className={`flex items-center justify-center rounded-xl border px-2 text-center text-[12px] font-bold ${active ? activeClass : "border-[#e3dbcf] bg-white/70 text-[#7c8476]"}`}>
       {label}
       <br />
-      {active ? "はい" : "いいえ"}
+      {active === null ? "未選択" : active ? "はい" : "いいえ"}
     </div>
   );
 }
