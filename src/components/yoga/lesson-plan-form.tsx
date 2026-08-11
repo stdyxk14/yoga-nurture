@@ -18,6 +18,7 @@ type Props = {
   categories: BlockCategory[];
   tags: string[];
   initialPlan?: DbLessonPlan;
+  initialBlocks?: DbBlockTemplate[];
   aiSuggestionState?: StudentAiSuggestionState;
   deleteAction?: DeleteAction;
   deleteError?: string;
@@ -40,8 +41,8 @@ const lessonPlanStatusOptions = [
   { value: "archived", label: "アーカイブ" },
 ] as const;
 
-export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, deleteAction, deleteError }: Props) {
-  const [selectedBlocks, setSelectedBlocks] = useState<DbBlockTemplate[]>(initialPlan?.blocks ?? []);
+export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, initialBlocks, deleteAction, deleteError }: Props) {
+  const [selectedBlocks, setSelectedBlocks] = useState<DbBlockTemplate[]>(initialPlan?.blocks ?? initialBlocks ?? []);
   const [query, setQuery] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [subcategoryId, setSubcategoryId] = useState("");

@@ -74,8 +74,13 @@ type BlockUsageStats = {
   reactionCount: number;
   goodCount: number;
   improvementCount: number;
+  changeCount: number;
   latestDate: string;
 };
+
+export function calculateGoodRate(goodCount: number, evaluatedCount: number) {
+  return evaluatedCount > 0 ? Math.round((goodCount / evaluatedCount) * 100) : null;
+}
 
 export const defaultBlockCategories = [
   "事前準備",
@@ -121,9 +126,11 @@ export function mapBlock(row: RawBlock, stats?: BlockUsageStats): DbBlockTemplat
     memo: row.memo ?? "",
     usageCount: stats?.usageCount ?? 0,
     averageRating: stats?.reactionCount ? Math.round(((stats.goodCount / stats.reactionCount) * 5) * 10) / 10 : 0,
-    goodRate: stats?.reactionCount ? Math.round((stats.goodCount / stats.reactionCount) * 100) : null,
+    goodRate: stats ? calculateGoodRate(stats.goodCount, stats.reactionCount) : null,
+    reactionCount: stats?.reactionCount ?? 0,
     improvementCount: stats?.improvementCount ?? 0,
     skipCount: stats?.skipCount ?? 0,
+    changeCount: stats?.changeCount ?? 0,
     lastUsed: stats?.latestDate ? formatJapaneseDate(new Date(stats.latestDate)) : "未使用",
     lastUsedAt: stats?.latestDate ?? "",
     archived: row.archived,
@@ -312,19 +319,21 @@ export async function getBlockAnalysis() {
 async function getBlockUsageStats(supabase: RequestSupabaseClient, blockIds: string[]) {
   const stats = new Map<string, BlockUsageStats>();
   for (const blockId of blockIds) {
-    stats.set(blockId, { usageCount: 0, skipCount: 0, reactionCount: 0, goodCount: 0, improvementCount: 0, latestDate: "" });
+    stats.set(blockId, { usageCount: 0, skipCount: 0, reactionCount: 0, goodCount: 0, improvementCount: 0, changeCount: 0, latestDate: "" });
   }
   if (!blockIds.length) return stats;
 
   const { data, error } = await supabase
     .from("lesson_record_blocks")
-    .select("block_template_id,done,reaction,improvement_memo,record:lesson_records(record_date,schedule:schedules(starts_at))")
+    .select("block_template_id,item_source,change_type,done,reaction,improvement_memo,record:lesson_records(record_date,schedule:schedules(starts_at))")
     .in("block_template_id", blockIds);
 
   if (error) throw new Error(`ブロック使用実績を取得できませんでした: ${error.message}`);
 
   for (const row of (data ?? []) as Array<{
     block_template_id: string;
+    item_source: "planned" | "library" | "improvised";
+    change_type: "as_planned" | "adjusted" | "skipped" | "replaced" | "added" | null;
     done: boolean | null;
     reaction: "good" | "neutral" | "poor" | null;
     improvement_memo: string | null;
@@ -332,12 +341,13 @@ async function getBlockUsageStats(supabase: RequestSupabaseClient, blockIds: str
   }>) {
     const current = stats.get(row.block_template_id);
     if (!current) continue;
-    const wasDone = row.done === true;
+    const wasDone = row.done === true && !(row.item_source === "planned" && row.change_type === "replaced");
     if (wasDone) current.usageCount += 1;
-    if (row.done === false) current.skipCount += 1;
+    if (row.item_source === "planned" && row.done === false && row.change_type === "skipped") current.skipCount += 1;
     if (wasDone && row.reaction) current.reactionCount += 1;
     if (wasDone && row.reaction === "good") current.goodCount += 1;
     if (row.improvement_memo?.trim()) current.improvementCount += 1;
+    if (row.item_source === "planned" && row.done !== null && (row.change_type === "adjusted" || row.change_type === "skipped" || row.change_type === "replaced")) current.changeCount += 1;
     const record = firstRelation(row.record);
     const schedule = firstRelation(record?.schedule);
     const dateValue = schedule?.starts_at ?? record?.record_date ?? "";

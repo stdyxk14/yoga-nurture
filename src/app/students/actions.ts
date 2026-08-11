@@ -56,15 +56,42 @@ export async function updateStudentAction(
   redirect(`/students/${id}`);
 }
 
-export async function deleteStudentAction(id: string, formData?: FormData): Promise<void> {
+export async function archiveStudentAction(id: string, formData?: FormData): Promise<void> {
   void formData;
   const { supabase, userId } = await createMutationContext();
-  const { error } = await supabase.from("students").delete().eq("id", id).eq("user_id", userId);
+  const { data, error } = await supabase
+    .from("students")
+    .update({ archived: true, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("user_id", userId)
+    .select("id")
+    .maybeSingle();
 
-  if (error) {
-    redirect(`/students/${id}/edit?error=${encodeURIComponent(`生徒を削除できませんでした。${error.message}`)}`);
+  if (error || !data) {
+    redirect(`/students/${id}/edit?error=${encodeURIComponent(`生徒をアーカイブできませんでした。${error?.message ?? "対象が見つかりません。"}`)}`);
   }
 
   revalidatePath("/students");
-  redirect("/students");
+  revalidatePath(`/students/${id}`);
+  redirect("/students?filter=archived");
+}
+
+export async function restoreStudentAction(id: string, formData?: FormData): Promise<void> {
+  void formData;
+  const { supabase, userId } = await createMutationContext();
+  const { data, error } = await supabase
+    .from("students")
+    .update({ archived: false, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("user_id", userId)
+    .select("id")
+    .maybeSingle();
+
+  if (error || !data) {
+    redirect(`/students?filter=archived&error=${encodeURIComponent(`生徒を復元できませんでした。${error?.message ?? "対象が見つかりません。"}`)}`);
+  }
+
+  revalidatePath("/students");
+  revalidatePath(`/students/${id}`);
+  redirect(`/students?selected=${id}`);
 }

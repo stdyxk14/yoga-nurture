@@ -25,10 +25,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[var(--yoga-bg)] text-[#20231e] md:min-w-[1040px] md:overflow-visible">
+    <div className="min-h-screen max-w-full overflow-x-hidden bg-[var(--yoga-bg)] text-[#20231e]">
       <MobileTopBar title={current?.label ?? "YOGA NURTURE"} onMenuClick={() => setMobileMenuOpen(true)} />
       <MobileMenu open={mobileMenuOpen} pathname={pathname} onClose={() => setMobileMenuOpen(false)} />
-      <div className="min-h-screen md:grid md:grid-cols-[190px_minmax(0,1fr)] xl:grid-cols-[196px_minmax(0,1fr)]">
+      <div className="min-h-screen min-w-0 md:grid md:grid-cols-[176px_minmax(0,1fr)] xl:grid-cols-[196px_minmax(0,1fr)]">
         <aside className="app-sidebar sticky top-0 hidden h-screen flex-col overflow-hidden border-r border-[#e7dfd4] bg-[#fbfaf6] px-3 py-4 shadow-[8px_0_30px_rgba(111,92,71,0.06)] print:hidden md:flex">
           <div className="mx-auto mb-5 flex flex-col items-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-[#4f8b62] bg-[#f5faf3] text-[#3f8156] shadow-inner">
@@ -70,8 +70,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </aside>
 
-        <main className="min-w-0 overflow-x-hidden px-3 pb-28 pt-3 md:overflow-visible md:px-3 md:py-3 xl:px-4 print:px-0 print:py-0">
-          <div className="w-full min-w-0 max-w-full overflow-x-hidden md:overflow-visible">{children}</div>
+        <main className="min-w-0 max-w-full overflow-x-hidden px-3 pb-28 pt-3 md:px-3 md:py-3 xl:px-4 print:px-0 print:py-0">
+          <div className="w-full min-w-0 max-w-full">{children}</div>
         </main>
       </div>
       <MobileBottomNav pathname={pathname} />

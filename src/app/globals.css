@@ -152,6 +152,10 @@
 }
 
 @layer utilities {
+  .secondary-row-action {
+    @apply inline-flex h-8 items-center justify-center whitespace-nowrap rounded-lg border border-[#ddd6cc] bg-white px-2.5 text-[12px] font-semibold text-[#5f675d] transition hover:border-[#bdcfb9] hover:bg-[#f5f9f3] hover:text-[#416f49] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6f9a76];
+  }
+
   .soft-table-row > * {
     @apply border-[#ebe4da] py-1.5 text-[12px] font-medium;
   }

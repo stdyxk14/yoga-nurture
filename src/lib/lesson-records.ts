@@ -82,6 +82,7 @@ export type DbLessonRecord = {
   lessonPlanId: string | null;
   lessonName: string;
   recordDate: string;
+  recordDateIso: string;
   overallMemo: string;
   overallReaction: string;
   improvementPoints: string;
@@ -93,6 +94,21 @@ export type DbLessonRecord = {
   lessonPlanName: string;
   createdAt: string;
   updatedAt: string;
+  diffSummary: LessonRecordDiffSummary;
+  hasDifference: boolean;
+  hasUnconfirmed: boolean;
+};
+
+export type LessonRecordDiffSummary = {
+  asPlanned: number;
+  adjusted: number;
+  skipped: number;
+  replaced: number;
+  added: number;
+  libraryAdded: number;
+  improvisedAdded: number;
+  unconfirmed: number;
+  legacy: number;
 };
 
 type RawRecord = {
@@ -112,8 +128,13 @@ type RawRecord = {
     starts_at: string | null;
     lesson_plan?: { id: string; name: string | null } | null;
   } | null;
-  lesson_record_blocks?: Array<{ id: string }>;
-  lesson_record_students?: Array<{ id: string }>;
+  lesson_record_blocks?: Array<{
+    id: string;
+    item_source?: LessonRecordItemSource;
+    change_type?: LessonRecordChangeType | null;
+    done?: boolean | null;
+  }>;
+  lesson_record_students?: Array<{ id: string; attendance_status?: StudentAttendanceCode }>;
 };
 
 type RawRecordBlock = {
@@ -259,24 +280,69 @@ function statusFromSchedule(status?: string | null): LessonRecordStatus {
 
 function mapRecord(row: RawRecord): DbLessonRecord {
   const status = statusFromSchedule(row.schedule?.status);
+  const diffSummary = summarizeLessonRecordDiff(row.lesson_record_blocks ?? []);
+  const recordDateIso = row.schedule?.starts_at ?? `${row.record_date}T00:00:00+09:00`;
   return {
     id: row.id,
     scheduleId: row.schedule_id,
     lessonPlanId: row.lesson_plan_id,
     lessonName: row.lesson_name,
     recordDate: formatDate(row.schedule?.starts_at ?? row.record_date),
+    recordDateIso,
     overallMemo: row.overall_memo ?? "",
     overallReaction: row.student_reaction ?? "",
     improvementPoints: row.improvement ?? "",
     status,
     statusLabel: recordStatusOptions.find((option) => option.value === status)?.label ?? "下書き",
-    participantCount: row.lesson_record_students?.length ?? 0,
+    participantCount: row.lesson_record_students?.filter((student) => student.attendance_status === undefined || student.attendance_status === "present").length ?? 0,
     blockCount: row.lesson_record_blocks?.length ?? 0,
     studentCommentCount: row.lesson_record_students?.length ?? 0,
     lessonPlanName: row.schedule?.lesson_plan?.name ?? "未設定",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    diffSummary,
+    hasDifference: diffSummary.adjusted + diffSummary.skipped + diffSummary.replaced + diffSummary.added > 0,
+    hasUnconfirmed: diffSummary.unconfirmed > 0,
   };
+}
+
+export function summarizeLessonRecordDiff(
+  items: Array<{ item_source?: LessonRecordItemSource; change_type?: LessonRecordChangeType | null; done?: boolean | null }>,
+): LessonRecordDiffSummary {
+  const summary: LessonRecordDiffSummary = {
+    asPlanned: 0,
+    adjusted: 0,
+    skipped: 0,
+    replaced: 0,
+    added: 0,
+    libraryAdded: 0,
+    improvisedAdded: 0,
+    unconfirmed: 0,
+    legacy: 0,
+  };
+
+  for (const item of items) {
+    if (item.item_source === "planned" && item.done == null) {
+      summary.unconfirmed += 1;
+      if (item.change_type == null) summary.legacy += 1;
+      continue;
+    }
+    if (item.change_type == null) {
+      summary.legacy += 1;
+      continue;
+    }
+    if (item.item_source === "planned" && item.change_type === "as_planned") summary.asPlanned += 1;
+    if (item.item_source === "planned" && item.change_type === "adjusted") summary.adjusted += 1;
+    if (item.item_source === "planned" && item.change_type === "skipped") summary.skipped += 1;
+    if (item.item_source === "planned" && item.change_type === "replaced") summary.replaced += 1;
+    if (item.change_type === "added" && item.done === true) {
+      summary.added += 1;
+      if (item.item_source === "library") summary.libraryAdded += 1;
+      if (item.item_source === "improvised") summary.improvisedAdded += 1;
+    }
+  }
+
+  return summary;
 }
 
 async function getRecordBySchedule(supabase: RequestSupabaseClient, scheduleId: string) {
@@ -294,8 +360,8 @@ async function getRecordBySchedule(supabase: RequestSupabaseClient, scheduleId: 
       created_at,
       updated_at,
       schedule:schedules(id,status,starts_at,lesson_plan:lesson_plans(id,name)),
-      lesson_record_blocks(id),
-      lesson_record_students(id)
+      lesson_record_blocks(id,item_source,change_type,done),
+      lesson_record_students(id,attendance_status)
     `)
     .eq("schedule_id", scheduleId)
     .order("updated_at", { ascending: false })
@@ -685,8 +751,8 @@ export async function getLessonRecords() {
       created_at,
       updated_at,
       schedule:schedules(id,status,starts_at,lesson_plan:lesson_plans(id,name)),
-      lesson_record_blocks(id),
-      lesson_record_students(id)
+      lesson_record_blocks(id,item_source,change_type,done),
+      lesson_record_students(id,attendance_status)
     `)
     .order("updated_at", { ascending: false });
 
@@ -696,31 +762,37 @@ export async function getLessonRecords() {
 
 export async function getStudentRecordInsights(studentId: string) {
   const { supabase } = await requireUserId();
-  const extendedResult = await supabase
-    .from("lesson_record_students")
-    .select(`
-      id,
-      lesson_record_id,
-      student_id,
-      attendance_status,
-      condition,
-      memo,
-      next_follow,
-      follow_up_status,
-      follow_up_completed_at,
-      follow_up_completed_note,
-      follow_up_updated_at,
-      record:lesson_records(
+  const [extendedResult, futureScheduleResult] = await Promise.all([
+    supabase
+      .from("lesson_record_students")
+      .select(`
         id,
-        schedule_id,
-        lesson_name,
-        record_date,
-        lesson_plan_id,
-        schedule:schedules(starts_at,lesson_plan:lesson_plans(id,name))
-      )
-    `)
-    .eq("student_id", studentId)
-    .order("created_at", { ascending: false });
+        lesson_record_id,
+        student_id,
+        attendance_status,
+        condition,
+        memo,
+        next_follow,
+        follow_up_status,
+        follow_up_completed_at,
+        follow_up_completed_note,
+        follow_up_updated_at,
+        record:lesson_records(
+          id,
+          schedule_id,
+          lesson_name,
+          record_date,
+          lesson_plan_id,
+          schedule:schedules(starts_at,lesson_plan:lesson_plans(id,name))
+        )
+      `)
+      .eq("student_id", studentId)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("schedule_participants")
+      .select("attendance_status,schedule:schedules(starts_at,status)")
+      .eq("student_id", studentId),
+  ]);
 
   let rows: RawStudentRecord[] = [];
   let queryError = extendedResult.error;
@@ -794,13 +866,24 @@ export async function getStudentRecordInsights(studentId: string) {
   const cancelCount = rows.filter((row) => row.attendance_status === "cancelled").length;
   const noShowCount = rows.filter((row) => row.attendance_status === "no_show").length;
   const attended = rows.filter((row) => row.attendance_status === "present");
+  if (futureScheduleResult.error) throw new Error(`生徒の次回予定を取得できませんでした: ${futureScheduleResult.error.message}`);
+  const now = Date.now();
+  const nextScheduledAt = ((futureScheduleResult.data ?? []) as unknown as Array<{
+    attendance_status: StudentAttendanceCode;
+    schedule?: { starts_at: string | null; status: string | null } | Array<{ starts_at: string | null; status: string | null }> | null;
+  }>)
+    .filter((row) => row.attendance_status === "present")
+    .map((row) => Array.isArray(row.schedule) ? row.schedule[0] ?? null : row.schedule ?? null)
+    .filter((schedule) => Boolean(schedule?.starts_at) && schedule?.status !== "recorded" && Date.parse(schedule!.starts_at!) >= now)
+    .map((schedule) => schedule!.starts_at!)
+    .sort()[0];
   const stats: StudentAttendanceStats = {
     attendedCount: attended.length,
     cancelCount,
     noShowCount,
     cancelRate: total ? Math.round((cancelCount / total) * 100) : 0,
     lastAttendedDate: attended[0]?.record ? formatDate(attended[0].record.schedule?.starts_at ?? attended[0].record.record_date) : "未記録",
-    nextScheduledDate: "未定",
+    nextScheduledDate: nextScheduledAt ? formatDate(nextScheduledAt) : "未定",
   };
 
   return { observations, lessonHistory, stats };

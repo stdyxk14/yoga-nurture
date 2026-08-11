@@ -5,7 +5,7 @@ import {
   moveLessonExecutionItem,
   summarizeLessonExecution,
   type LessonRecordFlowItem,
-} from "../src/lib/lesson-record-flow.ts";
+} from "../src/lib/lesson-record-flow";
 
 function planned(fieldId: string, order: number): LessonRecordFlowItem {
   return {

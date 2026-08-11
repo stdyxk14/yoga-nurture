@@ -1,920 +1,529 @@
 import Link from "next/link";
-import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
   CalendarDays,
+  ChevronDown,
+  ClipboardCheck,
   ClipboardList,
   FileText,
   Layers3,
   MapPin,
   Plus,
   Search,
-  SlidersHorizontal,
 } from "lucide-react";
+import { duplicateLessonPlanAction } from "@/app/lessons/lesson-plan-actions";
 import { Input } from "@/components/ui/input";
-import { PageHeader, Pill, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
-import { RichScriptText } from "@/components/yoga/rich-script-text";
-import { getBlockAnalysis, getBlockCategories, getBlocks, getBlockTags, type BlockCategory, type BlockListFilters, type DbBlockTemplate } from "@/lib/blocks";
+import {
+  WorkspaceAction,
+  WorkspaceEmptyState,
+  WorkspacePageHeader,
+  WorkspaceSection,
+  WorkspaceStatus,
+  WorkspaceSummaryCard,
+  WorkspaceTableContainer,
+  WorkspaceTabs,
+  WorkspaceToolbar,
+  type WorkspaceTabGroup,
+} from "@/components/yoga/workspace-kit";
+import { getBlockAnalysis, getBlockCategories, getBlocks, getBlockTags, type BlockCategory, type DbBlockTemplate } from "@/lib/blocks";
 import { getLessonPlanSummaries, type DbLessonPlan } from "@/lib/lesson-plans";
-import { getLessonRecords, type DbLessonRecord } from "@/lib/lesson-records";
+import { getLessonRecords, type DbLessonRecord, type LessonRecordDiffSummary } from "@/lib/lesson-records";
 import { getScheduleSummaries, type DbSchedule } from "@/lib/schedules";
-import { measurePerformance } from "@/lib/performance";
 
 type LessonTab = "schedule" | "plans" | "blocks" | "records" | "analysis";
-type AnalysisAxis = "usage" | "good" | "unused" | "improvement";
+type SearchParams = {
+  tab?: string;
+  q?: string;
+  status?: string;
+  period?: string;
+  format?: string;
+  place?: string;
+  plan?: string;
+  tag?: string;
+  sort?: string;
+  category?: string;
+  subcategory?: string;
+  view?: string;
+  diff?: string;
+  unconfirmed?: string;
+};
 
-const tabs: Array<{ id: LessonTab; label: string; href: string; icon: LucideIcon }> = [
-  { id: "schedule", label: "スケジュール", href: "/lessons", icon: CalendarDays },
-  { id: "plans", label: "レッスンプラン", href: "/lessons?tab=plans", icon: ClipboardList },
-  { id: "blocks", label: "ブロックテンプレート", href: "/lessons?tab=blocks", icon: Layers3 },
-  { id: "records", label: "実施後記録", href: "/lessons?tab=records", icon: FileText },
-  { id: "analysis", label: "ブロック分析", href: "/lessons?tab=analysis", icon: BarChart3 },
+const tabGroups: WorkspaceTabGroup<LessonTab>[] = [
+  {
+    label: "日常運用",
+    items: [
+      { id: "schedule", label: "予定", href: "/lessons", icon: CalendarDays },
+      { id: "records", label: "実施後記録", href: "/lessons?tab=records", icon: FileText },
+    ],
+  },
+  {
+    label: "教材",
+    items: [
+      { id: "plans", label: "レッスンプラン", href: "/lessons?tab=plans", icon: ClipboardList },
+      { id: "blocks", label: "ブロック", href: "/lessons?tab=blocks", icon: Layers3 },
+    ],
+  },
+  { label: "振り返り", items: [{ id: "analysis", label: "分析", href: "/lessons?tab=analysis", icon: BarChart3 }] },
 ];
 
-export default async function LessonsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ tab?: string; q?: string; category?: string; subcategory?: string; tag?: string; sort?: string; view?: string; analysis?: string }>;
-}) {
-  const params = await searchParams;
-  const { tab } = params;
-  const activeTab: LessonTab =
-    tab === "plans" || tab === "blocks" || tab === "records" || tab === "analysis" ? tab : "schedule";
-  const activeAnalysis: AnalysisAxis =
-    params.analysis === "good" || params.analysis === "unused" || params.analysis === "improvement" ? params.analysis : "usage";
-  let blocks: DbBlockTemplate[] = [];
-  let categories: BlockCategory[] = [];
-  let tags: Array<{ id: string; name: string }> = [];
-  let plans: DbLessonPlan[] = [];
-  let schedules: DbSchedule[] = [];
-  let records: DbLessonRecord[] = [];
-  const route = activeTab === "schedule" ? "/lessons" : `/lessons?tab=${activeTab}`;
-
-  if (activeTab === "schedule") {
-    schedules = await measurePerformance(
-      { operation: "lessons.schedule", route },
-      () => getScheduleSummaries(),
-      (items) => items.length,
-    );
-  } else if (activeTab === "plans") {
-    plans = await measurePerformance(
-      { operation: "lessons.plans", route },
-      () => getLessonPlanSummaries(),
-      (items) => items.length,
-    );
-  } else if (activeTab === "blocks") {
-    [blocks, categories, tags] = await measurePerformance(
-      { operation: "lessons.blocks", route },
-      () => Promise.all([getBlocks(params), getBlockCategories(), getBlockTags()]),
-      ([items]) => items.length,
-    );
-  } else if (activeTab === "records") {
-    records = await measurePerformance(
-      { operation: "lessons.records", route },
-      () => getLessonRecords(),
-      (items) => items.length,
-    );
-  } else {
-    blocks = await measurePerformance(
-      { operation: "lessons.analysis", route },
-      () => getBlockAnalysis(),
-      (items) => items.length,
-    );
-  }
-
-  return (
-    <>
-      <div className="md:hidden">
-        <MobileLessonsPage activeTab={activeTab} activeAnalysis={activeAnalysis} blocks={blocks} categories={categories} tags={tags.map((tag) => tag.name)} plans={plans} schedules={schedules} records={records} />
-      </div>
-      <div className="hidden md:block">
-      <PageHeader
-        title="レッスンカルテ"
-        subtitle="ブロック原稿を組み合わせて、準備・出力・振り返りまで管理"
-      />
-
-      <SoftCard className="mb-3 p-2.5">
-        <div className="grid grid-cols-5 gap-2">
-          {tabs.map((item) => {
-            const Icon = item.icon;
-            const active = activeTab === item.id;
-
-            return (
-              <Link
-                key={item.id}
-                href={item.href}
-                className={
-                  active
-                    ? "flex h-10 items-center justify-center gap-2 rounded-xl bg-[#5d956d] text-[12px] font-bold text-white shadow-[0_8px_18px_rgba(64,113,77,0.18)]"
-                    : "flex h-10 items-center justify-center gap-2 rounded-xl border border-[#dbe4d6] bg-white/72 text-[12px] font-bold text-[#4f7b58]"
-                }
-              >
-                <Icon className="h-4 w-4" />
-                {item.label}
-              </Link>
-            );
-          })}
-        </div>
-      </SoftCard>
-
-      {activeTab === "schedule" ? <ScheduleTab schedules={schedules} /> : null}
-      {activeTab === "plans" ? <PlansTab plans={plans} /> : null}
-      {activeTab === "blocks" ? <BlocksTab blocks={blocks} categories={categories} tags={tags.map((tag) => tag.name)} filters={params} /> : null}
-      {activeTab === "records" ? <RecordsTab records={records} /> : null}
-      {activeTab === "analysis" ? <AnalysisTab blocks={blocks} activeAxis={activeAnalysis} /> : null}
-      </div>
-    </>
-  );
-}
+const periodOptions = [
+  ["all", "すべて"],
+  ["week", "今週"],
+  ["month", "今月"],
+  ["past", "過去"],
+  ["future", "今後"],
+] as const;
 
 export const dynamic = "force-dynamic";
 
-function MobileLessonsPage({
-  activeTab,
-  activeAnalysis,
-  blocks,
-  categories,
-  tags,
-  plans,
-  schedules,
-  records,
-}: {
-  activeTab: LessonTab;
-  activeAnalysis: AnalysisAxis;
-  blocks: DbBlockTemplate[];
-  categories: BlockCategory[];
-  tags: string[];
-  plans: DbLessonPlan[];
-  schedules: DbSchedule[];
-  records: DbLessonRecord[];
-}) {
-  return (
-    <div className="mx-auto max-w-[430px] space-y-4">
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {tabs.map((tab) => (
-          <Link
-            key={tab.id}
-            href={tab.href}
-            className={activeTab === tab.id ? "shrink-0 rounded-full bg-[#7ea06f] px-4 py-2 text-[12px] font-bold text-white" : "shrink-0 rounded-full border border-[#e1d9ce] bg-white/80 px-4 py-2 text-[12px] font-bold text-[#5d6b58]"}
-          >
-            {tab.id === "schedule" ? "予定" : tab.id === "plans" ? "プラン" : tab.id === "blocks" ? "ブロック" : tab.id === "records" ? "記録" : "分析"}
-          </Link>
-        ))}
-      </div>
+export default async function LessonsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const params = await searchParams;
+  const activeTab = normalizeTab(params.tab);
+  const schedulesPromise = getScheduleSummaries();
 
-      {activeTab === "schedule" ? <MobileScheduleTab schedules={schedules} /> : null}
-      {activeTab === "plans" ? <MobilePlansTab plans={plans} /> : null}
-      {activeTab === "blocks" ? <MobileBlocksList blocks={blocks} categories={categories} tags={tags} /> : null}
-      {activeTab === "records" ? <MobileRecordsTab records={records} /> : null}
-      {activeTab === "analysis" ? <MobileAnalysisTab blocks={blocks} activeAxis={activeAnalysis} /> : null}
-    </div>
-  );
-}
+  let schedules: DbSchedule[] = [];
+  let plans: DbLessonPlan[] = [];
+  let blocks: DbBlockTemplate[] = [];
+  let categories: BlockCategory[] = [];
+  let tags: string[] = [];
+  let records: DbLessonRecord[] = [];
 
-function MobileTabIntro({ title, body, primaryHref, primaryLabel }: { title: string; body: string; primaryHref: string; primaryLabel: string }) {
-  return (
-    <section className="rounded-3xl border border-[#eee4d8] bg-white/78 p-4 shadow-[0_10px_24px_rgba(91,76,53,0.06)]">
-      <h1 className="text-[20px] font-extrabold">{title}</h1>
-      <p className="mt-1 text-[12px] font-medium leading-5 text-[#6b7468]">{body}</p>
-      <Link href={primaryHref} className="mt-3 inline-flex h-10 w-full items-center justify-center rounded-xl bg-[#7ea06f] text-[12px] font-bold text-white">{primaryLabel}</Link>
-    </section>
-  );
-}
+  if (activeTab === "schedule") {
+    schedules = await schedulesPromise;
+  } else if (activeTab === "plans") {
+    [schedules, plans] = await Promise.all([schedulesPromise, getLessonPlanSummaries()]);
+  } else if (activeTab === "blocks") {
+    const result = await Promise.all([schedulesPromise, getBlocks(params), getBlockCategories(), getBlockTags()]);
+    schedules = result[0];
+    blocks = result[1];
+    categories = result[2];
+    tags = result[3].map((tag) => tag.name);
+  } else if (activeTab === "records") {
+    [schedules, records] = await Promise.all([schedulesPromise, getLessonRecords()]);
+  } else {
+    [schedules, blocks] = await Promise.all([schedulesPromise, getBlockAnalysis()]);
+  }
 
-function MobileScheduleTab({ schedules }: { schedules: DbSchedule[] }) {
-  return (
-    <div className="space-y-3">
-      <MobileTabIntro title="レッスン予定" body="登録済みの予定を確認します。" primaryHref="/schedules/new" primaryLabel="予定を登録" />
-      {schedules.length ? schedules.map((schedule) => (
-        <article key={schedule.id} className="rounded-3xl border border-[#eee4d8] bg-white/78 p-4 shadow-[0_8px_18px_rgba(91,76,53,0.05)]">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h2 className="truncate text-[15px] font-extrabold">{schedule.lessonName}</h2>
-              <p className="mt-1 text-[12px] font-bold text-[#5d956d]">{schedule.dateLabel} {schedule.startTimeLabel}-{schedule.endTimeLabel}</p>
-              <p className="mt-1 truncate text-[11px] font-medium text-[#6b7468]">{schedule.lessonPlanName} / {schedule.place || "場所未設定"} / {schedule.participantCount}名</p>
-            </div>
-            <ScheduleStatusBadge label={schedule.statusLabel} />
-          </div>
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            <Link href={`/schedules/${schedule.id}`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#cfe1ca] bg-[#f8fcf6] text-[12px] font-bold text-[#5d956d]">詳細</Link>
-            {schedule.lessonPlanId ? (
-              <Link href={`/schedules/${schedule.id}/script`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#e6dff2] bg-[#faf7ff] text-[12px] font-bold text-[#7469bf]">原稿</Link>
-            ) : (
-              <span className="inline-flex h-9 items-center justify-center rounded-xl border border-[#e7dfd4] bg-[#f4f1ea] text-[12px] font-bold text-[#9b8c7b]">原稿なし</span>
-            )}
-            <Link href={`/lessons/${schedule.id}/record`} className="inline-flex h-9 items-center justify-center rounded-xl bg-[#ef6f5b] text-[12px] font-bold text-white">記録</Link>
-          </div>
-        </article>
-      )) : <SchedulesEmptyState />}
-    </div>
-  );
-}
+  const now = Date.now();
+  const pendingSchedules = schedules.filter((schedule) => isRecordPending(schedule, now));
+  const futureSchedules = schedules.filter((schedule) => Date.parse(schedule.startsAt) >= now && !isRecordPending(schedule, now));
 
-function MobilePlansTab({ plans }: { plans: DbLessonPlan[] }) {
   return (
-    <div className="space-y-3">
-      <MobileTabIntro title="レッスンプラン" body="保存済みのレッスンプランを確認します。" primaryHref="/lessons/new" primaryLabel="レッスンプランを作成" />
-      {plans.length ? plans.map((plan) => (
-        <article key={plan.id} className="rounded-3xl border border-[#eee4d8] bg-white/78 p-4 shadow-[0_8px_18px_rgba(91,76,53,0.05)]">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h2 className="truncate text-[15px] font-extrabold">{plan.name}</h2>
-              <p className="mt-1 text-[12px] font-bold text-[#5d956d]">{plan.theme || "テーマ未設定"}</p>
-              <p className="mt-1 truncate text-[11px] font-medium text-[#6b7468]">{plan.blockCount}ブロック / {plan.totalMinutes}分 / 更新 {formatShortDate(plan.updatedAt)}</p>
-            </div>
-            <span className="shrink-0 rounded-full bg-[#edf5ef] px-2 py-1 text-[11px] font-bold text-[#4f875a]">{plan.statusLabel}</span>
+    <div className="mx-auto w-full max-w-[1560px] space-y-5">
+      <WorkspacePageHeader
+        eyebrow="CORE WORKSPACE"
+        title="レッスンカルテ"
+        description="今日の予定、教材、実施後の差分を一つの流れで管理します。詳細は必要なときだけ開けます。"
+        actions={
+          <>
+            <WorkspaceAction href="/schedules/new" icon={CalendarDays} primary={activeTab === "schedule"}>予定を登録</WorkspaceAction>
+            <WorkspaceAction href="/lessons/new" icon={ClipboardList} primary={activeTab === "plans"}>プランを作成</WorkspaceAction>
+            <WorkspaceAction href="/blocks/new" icon={Layers3} primary={activeTab === "blocks"}>ブロックを登録</WorkspaceAction>
+            {pendingSchedules.length ? (
+              <WorkspaceAction href="/lessons?status=record_pending" icon={ClipboardCheck} primary={activeTab === "records"}>未記録を見る</WorkspaceAction>
+            ) : null}
+            {activeTab === "analysis" ? <WorkspaceAction href="/reports?view=blocks" icon={BarChart3} primary>レポートへ</WorkspaceAction> : null}
+          </>
+        }
+      >
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-end">
+          <WorkspaceTabs groups={tabGroups} active={activeTab} />
+          <div className="grid grid-cols-3 gap-2">
+            <HeaderStat label="記録待ち" value={`${pendingSchedules.length}件`} tone="coral" />
+            <HeaderStat label="今後" value={`${futureSchedules.length}件`} />
+            <HeaderStat label="全予定" value={`${schedules.length}件`} tone="purple" />
           </div>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {plan.tags.length ? plan.tags.slice(0, 3).map((tag) => <Pill key={tag}>{tag}</Pill>) : <Pill>タグ未設定</Pill>}
-          </div>
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            <Link href={`/lessons/${plan.id}`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#cfe1ca] bg-[#f8fcf6] text-[12px] font-bold text-[#5d956d]">詳細</Link>
-            <Link href={`/lessons/${plan.id}/script`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#e6dff2] bg-[#faf7ff] text-[12px] font-bold text-[#7469bf]">原稿</Link>
-            <Link href={`/lessons/${plan.id}/edit`} className="inline-flex h-9 items-center justify-center rounded-xl bg-[#7ea06f] text-[12px] font-bold text-white">編集</Link>
-          </div>
-        </article>
-      )) : <PlansEmptyState />}
-    </div>
-  );
-}
-
-function MobileBlocksList({ blocks, categories, tags }: { blocks: DbBlockTemplate[]; categories: BlockCategory[]; tags: string[] }) {
-  return (
-    <div className="space-y-3">
-      <MobileTabIntro title="ブロックテンプレート" body="原稿ブロックを検索し、プラン作成に再利用します。" primaryHref="/blocks/new" primaryLabel="＋ ブロックを登録" />
-      <form action="/lessons" className="space-y-3">
-        <input type="hidden" name="tab" value="blocks" />
-        <div className="flex items-center gap-2 rounded-2xl border border-[#e7dfd4] bg-white/80 px-3 py-2">
-        <Search className="h-4 w-4 shrink-0 text-[#6b7468]" />
-        <Input name="q" placeholder="ブロック名・タグ・原稿を検索" className="h-9 border-0 bg-transparent px-0 text-[13px] shadow-none focus-visible:ring-0" />
         </div>
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        <Link href="/lessons?tab=blocks" className="shrink-0 rounded-full bg-[#7ea06f] px-4 py-2 text-[12px] font-bold text-white">すべて</Link>
-        {categories.filter((category) => !category.archived).map((category) => (
-          <Link key={category.id} href={`/lessons?tab=blocks&category=${category.id}`} className="shrink-0 rounded-full border border-[#e1d9ce] bg-white/80 px-4 py-2 text-[12px] font-bold text-[#5d6b58]">{category.name}</Link>
-        ))}
-      </div>
-      <div className="grid grid-cols-[1fr_96px] gap-2">
-        <select name="tag" className="h-10 rounded-xl border border-[#e1d9ce] bg-white/80 px-3 text-[12px] font-bold text-[#5d6b58]">
-          <option value="">すべてのタグ</option>
-          {tags.map((tag) => <option key={tag} value={tag}>{tag}</option>)}
-        </select>
-        <button className="inline-flex h-10 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white text-[12px] font-bold text-[#4f7b58]">検索</button>
-      </div>
-      </form>
-      {blocks.length ? blocks.map((block, index) => (
-        <MobileBlockListCard key={block.id} block={block} index={index} />
-      )) : <BlocksEmptyState />}
+      </WorkspacePageHeader>
+
+      {activeTab === "schedule" ? <ScheduleWorkspace schedules={schedules} params={params} now={now} /> : null}
+      {activeTab === "records" ? <RecordsWorkspace records={records} params={params} /> : null}
+      {activeTab === "plans" ? <PlansWorkspace plans={plans} params={params} /> : null}
+      {activeTab === "blocks" ? <BlocksWorkspace blocks={blocks} categories={categories} tags={tags} params={params} /> : null}
+      {activeTab === "analysis" ? <AnalysisWorkspace blocks={blocks} /> : null}
     </div>
   );
 }
 
-function MobileBlockListCard({ block, index }: { block: DbBlockTemplate; index: number }) {
-  const colors = ["bg-[#e5efdf] text-[#5d956d]", "bg-[#f6ead9] text-[#9b7338]", "bg-[#eee9fb] text-[#8b68bd]", "bg-[#fff0ea] text-[#d96c55]"];
+function ScheduleWorkspace({ schedules, params, now }: { schedules: DbSchedule[]; params: SearchParams; now: number }) {
+  const filtered = schedules.filter((schedule) => {
+    const q = params.q?.trim().toLowerCase();
+    if (q && ![schedule.lessonName, schedule.lessonPlanName, schedule.place, schedule.formatLabel].join(" ").toLowerCase().includes(q)) return false;
+    if (params.status && params.status !== "all") {
+      if (params.status === "record_pending") {
+        if (!isRecordPending(schedule, now)) return false;
+      } else if (schedule.status !== params.status) return false;
+    }
+    if (params.format && params.format !== "all" && schedule.format !== params.format) return false;
+    if (params.place && params.place !== "all" && schedule.place !== params.place) return false;
+    if (params.plan && params.plan !== "all" && schedule.lessonPlanId !== params.plan) return false;
+    return matchesPeriod(schedule.startsAt, params.period, now);
+  });
+
+  const waiting = filtered.filter((schedule) => isRecordPending(schedule, now)).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+  const future = filtered.filter((schedule) => !isRecordPending(schedule, now) && Date.parse(schedule.startsAt) >= now).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+  const past = filtered.filter((schedule) => !isRecordPending(schedule, now) && Date.parse(schedule.startsAt) < now).sort((a, b) => b.startsAt.localeCompare(a.startsAt));
+  const places = unique(schedules.map((schedule) => schedule.place).filter(Boolean));
+  const plans = uniqueBy(schedules.filter((schedule) => schedule.lessonPlanId), (schedule) => schedule.lessonPlanId!);
+
   return (
-    <article className="rounded-3xl border border-[#eee4d8] bg-white/80 p-3 shadow-[0_8px_18px_rgba(91,76,53,0.05)]">
-      <div className="grid grid-cols-[42px_1fr_auto] gap-3">
-        <span className={`flex h-10 w-10 items-center justify-center rounded-2xl ${colors[index % colors.length]}`}>
-          <Layers3 className="h-5 w-5" />
-        </span>
-        <div className="min-w-0">
-          <h2 className="truncate text-[15px] font-extrabold">{block.name}</h2>
-          <p className="truncate text-[11px] font-bold text-[#5d956d]">{block.majorCategory} / {block.minorCategory}</p>
-        </div>
-        <span className="rounded-full bg-[#fff7e8] px-2 py-1 text-[11px] font-bold text-[#9b7338]">{block.duration}</span>
+    <div className="space-y-5">
+      <WorkspaceToolbar>
+        <form action="/lessons" className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(190px,1.6fr)_repeat(5,minmax(118px,0.75fr))_auto_auto] xl:items-end">
+          <FilterField label="キーワード">
+            <div className="flex h-10 items-center gap-2 rounded-lg border border-[#dcd6cc] bg-white px-3">
+              <Search className="h-4 w-4 text-[#777e74]" />
+              <Input name="q" defaultValue={params.q ?? ""} placeholder="レッスン・プラン・場所" className="h-8 border-0 px-0 text-[14px] shadow-none focus-visible:ring-0" />
+            </div>
+          </FilterField>
+          <FilterSelect label="状態" name="status" value={params.status} options={[["all", "すべて"], ["record_pending", "記録待ち"], ["scheduled", "予定"], ["preparing", "準備中"], ["prepared", "準備済み"], ["recorded", "記録済み"]]} />
+          <FilterSelect label="期間" name="period" value={params.period} options={periodOptions} />
+          <FilterSelect label="形式" name="format" value={params.format} options={[["all", "すべて"], ["group", "グループ"], ["personal", "パーソナル"], ["online", "オンライン"]]} />
+          <FilterSelect label="場所" name="place" value={params.place} options={[["all", "すべて"], ...places.map((place) => [place, place] as const)]} />
+          <FilterSelect label="プラン" name="plan" value={params.plan} options={[["all", "すべて"], ...plans.map((plan) => [plan.lessonPlanId!, plan.lessonPlanName] as const)]} />
+          <button className="h-10 rounded-lg bg-[#5d8f68] px-4 text-[13px] font-semibold text-white">適用</button>
+          <Link href="/lessons" className="inline-flex h-10 items-center justify-center rounded-lg border border-[#ddd6cc] bg-white px-4 text-[13px] font-semibold text-[#626a60] hover:bg-[#f7f4ef]">クリア</Link>
+        </form>
+      </WorkspaceToolbar>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <WorkspaceSummaryCard label="表示中" value={`${filtered.length}件`} detail="現在の検索・フィルター結果" />
+        <WorkspaceSummaryCard label="記録待ち" value={`${waiting.length}件`} detail="古い予定から表示" tone="coral" href="/lessons?status=record_pending" />
+        <WorkspaceSummaryCard label="今後の予定" value={`${future.length}件`} detail="近い予定から表示" tone="purple" href="/lessons?period=future" />
       </div>
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        {block.tags.slice(0, 3).map((tag) => <Pill key={tag}>{tag}</Pill>)}
-      </div>
-      <div className="mt-2 grid grid-cols-2 gap-2 text-center">
-        <MiniStat label="使用" value={`${block.usageCount}回`} />
-        <MiniStat label="良かった率" value={formatGoodRate(block)} />
-        <MiniStat label="改善メモ" value={`${block.improvementCount ?? 0}件`} />
-        <MiniStat label="最近" value={block.lastUsed} />
-      </div>
-      <RichScriptText text={block.script} emptyText="原稿は未入力です。" className="mt-2 line-clamp-2 text-[12px] font-medium leading-5 text-[#50584e]" />
-      <div className="mt-3 grid grid-cols-3 gap-2">
-        <Link href={`/blocks/${block.id}`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white text-[12px] font-bold text-[#4f7b58]">詳細</Link>
-        <Link href={`/blocks/${block.id}/edit`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white text-[12px] font-bold text-[#4f7b58]">編集</Link>
-        <Link href="/lessons/new" className="inline-flex h-9 items-center justify-center rounded-xl bg-[#7ea06f] text-[12px] font-bold text-white">使う</Link>
-      </div>
+
+      <ScheduleGroup title="記録待ち" description="実施後記録が未完了のレッスン。古い順です。" schedules={waiting} kind="waiting" />
+      <ScheduleGroup title="今後の予定" description="これから実施するレッスン。近い順です。" schedules={future} kind="future" />
+      <ScheduleGroup title="過去の予定" description="記録済みの過去レッスン。新しい順です。" schedules={past} kind="past" />
+    </div>
+  );
+}
+
+function ScheduleGroup({ title, description, schedules, kind }: { title: string; description: string; schedules: DbSchedule[]; kind: "waiting" | "future" | "past" }) {
+  return (
+    <WorkspaceSection title={title} description={description}>
+      {schedules.length ? (
+        <>
+          <div className="hidden md:block">
+            <WorkspaceTableContainer>
+              <table className="w-full min-w-[930px] border-collapse text-left text-[14px]">
+                <thead className="bg-[#f5f3ee] text-[12px] font-semibold text-[#666d63]">
+                  <tr>
+                    <TableHead>日付</TableHead><TableHead>時間</TableHead><TableHead>レッスン名</TableHead><TableHead>使用プラン</TableHead><TableHead>場所／形式</TableHead><TableHead>参加予定</TableHead><TableHead>状態</TableHead><TableHead className="text-right">操作</TableHead>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#ece5db]">
+                  {schedules.map((schedule) => <ScheduleRow key={schedule.id} schedule={schedule} kind={kind} />)}
+                </tbody>
+              </table>
+            </WorkspaceTableContainer>
+          </div>
+          <div className="grid gap-3 md:hidden">
+            {schedules.map((schedule) => <ScheduleCard key={schedule.id} schedule={schedule} kind={kind} />)}
+          </div>
+        </>
+      ) : <WorkspaceEmptyState title={`${title}はありません`} description="現在の検索・フィルター条件に該当する予定はありません。" />}
+    </WorkspaceSection>
+  );
+}
+
+function ScheduleRow({ schedule, kind }: { schedule: DbSchedule; kind: "waiting" | "future" | "past" }) {
+  return (
+    <tr className="transition hover:bg-[#fafcf8] focus-within:bg-[#fafcf8]">
+      <TableCell className="whitespace-nowrap font-medium">{schedule.dateLabel}</TableCell>
+      <TableCell className="whitespace-nowrap">{schedule.startTimeLabel}–{schedule.endTimeLabel}</TableCell>
+      <TableCell><Link href={`/schedules/${schedule.id}`} className="font-semibold text-[#34453a] hover:text-[#4f8058] hover:underline">{schedule.lessonName}</Link></TableCell>
+      <TableCell>{schedule.lessonPlanName}</TableCell>
+      <TableCell><span className="block">{schedule.place || "場所未設定"}</span><span className="text-[12px] text-[#747b71]">{schedule.formatLabel}</span></TableCell>
+      <TableCell>{schedule.participantCount}名</TableCell>
+      <TableCell><ScheduleStatus schedule={schedule} kind={kind} /></TableCell>
+      <TableCell className="text-right"><ScheduleActions schedule={schedule} kind={kind} /></TableCell>
+    </tr>
+  );
+}
+
+function ScheduleCard({ schedule, kind }: { schedule: DbSchedule; kind: "waiting" | "future" | "past" }) {
+  return (
+    <article className="rounded-xl border border-[#e6ded3] bg-white/82 p-4">
+      <div className="flex items-start justify-between gap-3"><div className="min-w-0"><h3 className="text-[15px] font-semibold">{schedule.lessonName}</h3><p className="mt-1 text-[13px] text-[#5d765f]">{schedule.dateLabel} {schedule.startTimeLabel}–{schedule.endTimeLabel}</p></div><ScheduleStatus schedule={schedule} kind={kind} /></div>
+      <dl className="mt-3 grid grid-cols-2 gap-2 text-[13px]"><div><dt className="text-[#7b8178]">プラン</dt><dd>{schedule.lessonPlanName}</dd></div><div><dt className="text-[#7b8178]">場所／形式</dt><dd>{schedule.place || "場所未設定"}／{schedule.formatLabel}</dd></div></dl>
+      <div className="mt-4"><ScheduleActions schedule={schedule} kind={kind} /></div>
     </article>
   );
 }
 
-function MobileRecordsTab({ records }: { records: DbLessonRecord[] }) {
+function ScheduleStatus({ schedule, kind }: { schedule: DbSchedule; kind: "waiting" | "future" | "past" }) {
+  if (kind === "waiting") return <WorkspaceStatus tone="coral">記録待ち</WorkspaceStatus>;
+  if (schedule.status === "recorded") return <WorkspaceStatus tone="green">記録済み</WorkspaceStatus>;
+  if (schedule.status === "prepared") return <WorkspaceStatus tone="purple">準備済み</WorkspaceStatus>;
+  if (schedule.status === "preparing") return <WorkspaceStatus tone="sand">準備中</WorkspaceStatus>;
+  return <WorkspaceStatus>{schedule.statusLabel}</WorkspaceStatus>;
+}
+
+function ScheduleActions({ schedule, kind }: { schedule: DbSchedule; kind: "waiting" | "future" | "past" }) {
+  const primaryHref = kind === "waiting" ? `/lessons/${schedule.id}/record` : `/schedules/${schedule.id}`;
+  const primaryLabel = kind === "waiting" ? "記録を書く" : "詳細";
   return (
-    <div className="space-y-3">
-      <MobileTabIntro title="実施後記録" body="保存済みのレッスン後記録を確認します。" primaryHref="/lessons" primaryLabel="予定から記録を書く" />
-      {records.length ? records.map((record) => (
-        <article key={record.id} className="rounded-3xl border border-[#eee4d8] bg-white/78 p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h2 className="truncate text-[15px] font-extrabold">{record.lessonName}</h2>
-              <p className="mt-1 text-[12px] font-bold text-[#5d956d]">{record.recordDate} / {record.participantCount}名</p>
-            </div>
-            <span className="shrink-0 rounded-full bg-[#edf5ef] px-2 py-1 text-[11px] font-bold text-[#4f875a]">{record.statusLabel}</span>
-          </div>
-          <p className="mt-2 line-clamp-2 text-[12px] font-medium leading-5 text-[#50584e]">{record.overallMemo || record.overallReaction || "記録メモは未入力です。"}</p>
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            {record.scheduleId ? <Link href={`/lessons/${record.scheduleId}/record#ai-reflection`} className="inline-flex h-9 items-center justify-center rounded-xl bg-[#5d956d] text-[12px] font-bold text-white">AI振り返り</Link> : null}
-            {record.scheduleId ? <Link href={`/lessons/${record.scheduleId}/record`} className="inline-flex h-9 items-center justify-center rounded-xl bg-[#ef6f5b] text-[12px] font-bold text-white">記録を見る</Link> : null}
-            {record.lessonPlanId ? <Link href={`/lessons/${record.lessonPlanId}`} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#cfe1ca] bg-[#f8fcf6] text-[12px] font-bold text-[#5d956d]">プラン</Link> : null}
-          </div>
-        </article>
-      )) : <RecordsEmptyState />}
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      <Link href={primaryHref} className="inline-flex h-9 items-center rounded-lg bg-[#5d8f68] px-3 text-[12px] font-semibold text-white hover:bg-[#4e805a]">{primaryLabel}</Link>
+      <details className="group text-left">
+        <summary className="inline-flex h-9 cursor-pointer list-none items-center gap-1 rounded-lg border border-[#dcd6cc] bg-white px-3 text-[12px] font-semibold text-[#626a60] hover:bg-[#f7f4ef]">その他 <ChevronDown className="h-3.5 w-3.5 transition group-open:rotate-180" /></summary>
+        <div className="mt-2 flex flex-wrap justify-end gap-1.5 rounded-lg border border-[#e2dbd1] bg-[#fbfaf7] p-2">
+          <Link href={`/schedules/${schedule.id}`} className="secondary-row-action">詳細</Link>
+          {schedule.lessonPlanId ? <Link href={`/schedules/${schedule.id}/script`} className="secondary-row-action">原稿</Link> : <span className="secondary-row-action opacity-50">原稿なし</span>}
+          <Link href={`/lessons/${schedule.id}/record`} className="secondary-row-action">実施後記録</Link>
+          <Link href={`/schedules/${schedule.id}/edit`} className="secondary-row-action">編集</Link>
+        </div>
+      </details>
     </div>
   );
 }
 
-function MobileAnalysisTab({ blocks, activeAxis }: { blocks: DbBlockTemplate[]; activeAxis: AnalysisAxis }) {
-  const config = analysisConfig[activeAxis];
-  const rows = buildAnalysisRows(blocks, activeAxis);
-  return (
-    <div className="space-y-3">
-      <MobileTabIntro title="ブロック分析" body="よく使うブロック、反応が良いブロック、改善が必要なブロックを確認します。" primaryHref="/reports" primaryLabel="レポートを見る" />
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {analysisAxes.map((axis) => (
-          <Link key={axis.id} href={`/lessons?tab=analysis&analysis=${axis.id}`} className={axis.id === activeAxis ? "shrink-0 rounded-full bg-[#7ea06f] px-4 py-2 text-[12px] font-bold text-white" : "shrink-0 rounded-full border border-[#e1d9ce] bg-white/80 px-4 py-2 text-[12px] font-bold text-[#5d6b58]"}>
-            {axis.shortLabel}
-          </Link>
-        ))}
-      </div>
-      <SoftCard className="p-4">
-        <SectionTitle icon={BarChart3} title={config.title} subtitle={config.subtitle} />
-        <div className="mt-3 grid gap-3">
-          {rows.length ? rows.map((block, index) => <AnalysisBlockCard key={block.id} block={block} index={index} activeAxis={activeAxis} compact />) : <AnalysisEmpty axis={activeAxis} />}
-        </div>
-      </SoftCard>
-    </div>
-  );
-}
-
-function ScheduleTab({ schedules }: { schedules: DbSchedule[] }) {
-  return (
-    <>
-      <section className="mb-3 flex justify-end">
-        <Link
-          href="/schedules/new"
-          className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#5d956d] px-4 text-[13px] font-bold text-white shadow-[0_8px_18px_rgba(64,113,77,0.2)]"
-        >
-          <Plus className="h-4 w-4" />
-          予定を登録
-        </Link>
-      </section>
-
-      <SoftCard className="p-3.5">
-        <SectionTitle icon={CalendarDays} title="スケジュール" subtitle="Supabaseに保存された予定だけを表示します。" />
-        {schedules.length ? (
-          <div className="mt-3 grid gap-2">
-            {schedules.map((schedule) => (
-              <div
-                key={schedule.id}
-                className="grid grid-cols-[100px_95px_minmax(150px,1fr)_minmax(120px,0.8fr)_80px_90px_210px] items-center gap-2 rounded-xl border border-[#eee4d8] bg-white/72 px-3 py-2.5"
-              >
-                <p className="text-[12px] font-bold">{schedule.dateLabel}</p>
-                <p className="text-[12px] font-bold">{schedule.startTimeLabel}-{schedule.endTimeLabel}</p>
-                <div className="min-w-0">
-                  <p className="truncate text-[14px] font-extrabold">{schedule.lessonName}</p>
-                  <p className="mt-0.5 flex items-center gap-1 text-[11px] font-semibold text-[#6b7468]">
-                    <MapPin className="h-3 w-3" />
-                    {schedule.place || "場所未設定"} / {schedule.formatLabel}
-                  </p>
-                </div>
-                <p className="truncate text-[12px] font-bold text-[#4f875a]">{schedule.lessonPlanName}</p>
-                <p className="text-[12px] font-bold text-[#4f875a]">{schedule.participantCount}名</p>
-                <ScheduleStatusBadge label={schedule.statusLabel} />
-                <div className="grid grid-cols-3 gap-1">
-                  <Link href={`/schedules/${schedule.id}`} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] px-2 text-[11px] font-bold text-[#5d956d]">
-                    詳細
-                  </Link>
-                  {schedule.lessonPlanId ? (
-                    <Link href={`/schedules/${schedule.id}/script`} className="inline-flex h-8 items-center justify-center rounded-lg bg-[#5d956d] px-2 text-[11px] font-bold text-white">
-                      原稿
-                    </Link>
-                  ) : (
-                    <span className="inline-flex h-8 items-center justify-center rounded-lg border border-[#e7dfd4] bg-[#f4f1ea] px-2 text-[11px] font-bold text-[#9b8c7b]">
-                      原稿なし
-                  </span>
-                  )}
-                  <Link href={`/lessons/${schedule.id}/record`} className="inline-flex h-8 items-center justify-center rounded-lg bg-[#ef6f5b] px-2 text-[11px] font-bold text-white">
-                    記録
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : <SchedulesEmptyState />}
-      </SoftCard>
-    </>
-  );
-}
-
-function PlansTab({ plans }: { plans: DbLessonPlan[] }) {
-  return (
-    <>
-      <div className="mb-3 flex justify-end gap-2">
-        <Link href="/lessons/new" className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#5d956d] px-4 text-[13px] font-bold text-white">
-          <Plus className="h-4 w-4" />
-          レッスンプランを作成
-        </Link>
-      </div>
-      {plans.length ? (
-        <div className="grid gap-3">
-          {plans.map((plan) => (
-            <SoftCard key={plan.id} className="p-3.5">
-              <div className="grid grid-cols-[minmax(0,1fr)_130px_190px] items-center gap-3">
-                <div className="min-w-0">
-                  <div className="mb-1 flex items-center gap-2">
-                    <h2 className="truncate text-[17px] font-extrabold">{plan.name}</h2>
-                    <span className="shrink-0 rounded-full bg-[#edf5ef] px-2 py-1 text-[11px] font-bold text-[#4f875a]">{plan.statusLabel}</span>
-                  </div>
-                  <p className="text-[12px] font-semibold text-[#5f665c]">
-                    {plan.theme || "テーマ未設定"} / {plan.place || "場所未設定"} / {plan.formatLabel} / 更新 {formatShortDate(plan.updatedAt)}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {plan.tags.length ? plan.tags.map((tag) => <Pill key={tag}>{tag}</Pill>) : <Pill>タグ未設定</Pill>}
-                  </div>
-                </div>
-                <div className="rounded-xl border border-[#eee4d8] bg-white/65 p-2 text-center">
-                  <p className="text-[11px] font-bold text-[#7c8476]">使用ブロック</p>
-                  <p className="text-[28px] font-extrabold text-[#4f875a]">{plan.blockCount}</p>
-                  <p className="text-[11px] font-bold text-[#7c8476]">{plan.totalMinutes}分</p>
-                </div>
-                <div className="grid grid-cols-2 gap-1.5">
-                  <Link href={`/lessons/${plan.id}`} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] px-2 text-center text-[12px] font-bold text-[#5d956d]">詳細</Link>
-                  <Link href={`/lessons/${plan.id}/edit`} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#cfe1ca] bg-white text-[12px] font-bold text-[#5d956d]">編集</Link>
-                  <Link href={`/lessons/${plan.id}/script`} className="col-span-2 inline-flex h-8 items-center justify-center rounded-lg bg-[#5d956d] text-[12px] font-bold text-white">原稿を見る</Link>
-                </div>
-              </div>
-            </SoftCard>
-          ))}
-        </div>
-      ) : <PlansEmptyState />}
-    </>
-  );
-}
-
-function BlocksTab({
-  blocks,
-  categories,
-  tags,
-  filters,
-}: {
-  blocks: DbBlockTemplate[];
-  categories: BlockCategory[];
-  tags: string[];
-  filters: BlockListFilters & { view?: string };
-}) {
-  const activeCategories = categories.filter((category) => !category.archived);
-  const activeSubcategories = categories
-    .flatMap((category) => category.subcategories)
-    .filter((subcategory) => !subcategory.archived);
-  const view = filters.view === "compact" || filters.view === "card" || filters.view === "category" ? filters.view : "category";
-  const currentFilters = [
-    filters.q ? `検索: ${filters.q}` : "",
-    filters.category ? `大カテゴリー: ${activeCategories.find((item) => item.id === filters.category)?.name ?? "選択中"}` : "",
-    filters.subcategory ? `小カテゴリー: ${activeSubcategories.find((item) => item.id === filters.subcategory)?.name ?? "選択中"}` : "",
-    filters.tag ? `タグ: ${filters.tag}` : "",
-  ].filter(Boolean);
+function RecordsWorkspace({ records, params }: { records: DbLessonRecord[]; params: SearchParams }) {
+  const now = Date.now();
+  const filtered = records.filter((record) => {
+    const q = params.q?.trim().toLowerCase();
+    if (q && ![record.lessonName, record.lessonPlanName].join(" ").toLowerCase().includes(q)) return false;
+    if (params.status && params.status !== "all" && record.status !== params.status) return false;
+    if (params.plan && params.plan !== "all" && record.lessonPlanId !== params.plan) return false;
+    if (params.diff === "1" && !record.hasDifference) return false;
+    if (params.unconfirmed === "1" && !record.hasUnconfirmed) return false;
+    return matchesPeriod(record.recordDateIso, params.period, now);
+  });
+  const plans = uniqueBy(records.filter((record) => record.lessonPlanId), (record) => record.lessonPlanId!);
 
   return (
-    <div className="space-y-3">
-      <SoftCard className="p-3">
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0">
-              <SectionTitle
-                icon={Layers3}
-                title="ブロックテンプレート"
-                subtitle="誘導セリフやレッスンパートを検索して、使いやすく管理"
-              />
-              <p className="mt-1 text-[12px] font-bold text-[#6b7468]">{blocks.length}件を表示</p>
-            </div>
-            <Link href="/blocks/new" className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-[#5d956d] px-4 text-[13px] font-bold text-white">
-              <Plus className="h-4 w-4" />
-              ブロックを登録
-            </Link>
-          </div>
+    <div className="space-y-5">
+      <WorkspaceToolbar>
+        <form action="/lessons" className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(190px,1.5fr)_repeat(5,minmax(120px,0.8fr))_auto_auto] xl:items-end">
+          <input type="hidden" name="tab" value="records" />
+          <FilterField label="キーワード"><Input name="q" defaultValue={params.q ?? ""} placeholder="レッスン・プラン" className="h-10 bg-white text-[14px]" /></FilterField>
+          <FilterSelect label="記録状態" name="status" value={params.status} options={[["all", "すべて"], ["completed", "記録済み"], ["draft", "下書き"]]} />
+          <FilterSelect label="期間" name="period" value={params.period} options={periodOptions} />
+          <FilterSelect label="差分" name="diff" value={params.diff} options={[["", "すべて"], ["1", "差分あり"]]} />
+          <FilterSelect label="未確認" name="unconfirmed" value={params.unconfirmed} options={[["", "すべて"], ["1", "未確認あり"]]} />
+          <FilterSelect label="使用プラン" name="plan" value={params.plan} options={[["all", "すべて"], ...plans.map((record) => [record.lessonPlanId!, record.lessonPlanName] as const)]} />
+          <button className="h-10 rounded-lg bg-[#5d8f68] px-4 text-[13px] font-semibold text-white">適用</button>
+          <Link href="/lessons?tab=records" className="inline-flex h-10 items-center justify-center rounded-lg border border-[#ddd6cc] bg-white px-4 text-[13px] font-semibold text-[#626a60]">クリア</Link>
+        </form>
+      </WorkspaceToolbar>
 
-          <form action="/lessons" className="grid gap-2">
-        <input type="hidden" name="tab" value="blocks" />
-            <div className="flex min-w-0 items-center gap-2 rounded-xl border border-[#e7dfd4] bg-white/80 px-3 py-2">
-              <Search className="h-4 w-4 shrink-0 text-[#6b7468]" />
-              <Input name="q" defaultValue={filters.q ?? ""} placeholder="ブロック名・原稿・タグで検索" className="h-9 min-w-0 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0" />
-              {filters.q ? (
-                <Link href={buildBlockHref(filters, { q: "" })} className="shrink-0 rounded-full border border-[#e1d9ce] px-2 py-1 text-[11px] font-bold text-[#6b7468]">
-                  クリア
-                </Link>
-              ) : null}
-            </div>
-
-            <div className="overflow-x-auto pb-1">
-              <div className="flex min-w-max gap-2">
-                <Link href={buildBlockHref(filters, { category: "", subcategory: "" })} className={categoryChipClass(!filters.category)}>
-                  すべて
-                </Link>
-                {activeCategories.map((category) => (
-                  <Link key={category.id} href={buildBlockHref(filters, { category: category.id, subcategory: "" })} className={categoryChipClass(filters.category === category.id)}>
-                    {category.name}
-                  </Link>
+      <WorkspaceSection title="実施後記録" description={`${filtered.length}件を表示。旧形式の項目は予定どおりへ推測せず、差分未分類として表示します。`}>
+        {filtered.length ? (
+          <WorkspaceTableContainer>
+            <table className="w-full min-w-[980px] border-collapse text-left text-[14px]">
+              <thead className="bg-[#f5f3ee] text-[12px] font-semibold text-[#666d63]"><tr><TableHead>実施日</TableHead><TableHead>レッスン名</TableHead><TableHead>使用プラン</TableHead><TableHead>参加</TableHead><TableHead>記録状態</TableHead><TableHead>差分サマリー</TableHead><TableHead className="text-right">操作</TableHead></tr></thead>
+              <tbody className="divide-y divide-[#ece5db]">
+                {filtered.map((record) => (
+                  <tr key={record.id} className="hover:bg-[#fafcf8]">
+                    <TableCell className="whitespace-nowrap">{record.recordDate}</TableCell>
+                    <TableCell className="font-semibold">{record.lessonName}</TableCell>
+                    <TableCell>{record.lessonPlanName}</TableCell>
+                    <TableCell>{record.participantCount}名</TableCell>
+                    <TableCell><WorkspaceStatus tone={record.status === "completed" ? "green" : "sand"}>{record.statusLabel}</WorkspaceStatus></TableCell>
+                    <TableCell><DiffSummary summary={record.diffSummary} /></TableCell>
+                    <TableCell className="text-right"><RecordActions record={record} /></TableCell>
+                  </tr>
                 ))}
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <select name="subcategory" defaultValue={filters.subcategory ?? ""} className="h-10 min-w-[150px] shrink-0 rounded-xl border border-[#e1d9ce] bg-white/80 px-3 text-[12px] font-bold text-[#5d6b58]">
-                <option value="">小カテゴリー</option>
-                {activeSubcategories.map((subcategory) => <option key={subcategory.id} value={subcategory.id}>{subcategory.name}</option>)}
-              </select>
-              <select name="tag" defaultValue={filters.tag ?? ""} className="h-10 min-w-[120px] shrink-0 rounded-xl border border-[#e1d9ce] bg-white/80 px-3 text-[12px] font-bold text-[#5d6b58]">
-                <option value="">タグ</option>
-                {tags.map((tag) => <option key={tag} value={tag}>{tag}</option>)}
-              </select>
-              <select name="sort" defaultValue={filters.sort ?? "updated"} className="h-10 min-w-[145px] shrink-0 rounded-xl border border-[#e1d9ce] bg-white/80 px-3 text-[12px] font-bold text-[#5d6b58]">
-                <option value="updated">更新日順</option>
-                <option value="usage">使用回数順</option>
-                <option value="good">良かった率順</option>
-                <option value="recent">最近使用順</option>
-                <option value="duration">目安時間順</option>
-                <option value="name">ブロック名順</option>
-              </select>
-              <div className="flex shrink-0 rounded-xl border border-[#dbe4d6] bg-white/80 p-1">
-                <Link href={buildBlockHref(filters, { view: "compact" })} className={viewModeClass(view === "compact")}>一覧</Link>
-                <Link href={buildBlockHref(filters, { view: "card" })} className={viewModeClass(view === "card")}>カード</Link>
-                <Link href={buildBlockHref(filters, { view: "category" })} className={viewModeClass(view === "category")}>カテゴリ別</Link>
-              </div>
-              <button className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white px-4 text-[12px] font-bold text-[#4f7b58]">
-                検索
-              </button>
-            </div>
-          </form>
-
-          <div className="flex flex-wrap gap-2">
-            <Pill active>実データ表示</Pill>
-            <Pill>良かった率：レッスン後記録で「良かった」と記録された割合</Pill>
-            <Pill>改善メモ数：ブロック改善候補の件数</Pill>
-            {currentFilters.map((filter) => <Pill key={filter}>{filter}</Pill>)}
-          </div>
-        </div>
-      </SoftCard>
-
-      {blocks.length ? <BlocksResultView blocks={blocks} view={view} /> : <BlocksEmptyState />}
+              </tbody>
+            </table>
+          </WorkspaceTableContainer>
+        ) : <WorkspaceEmptyState title="該当する実施後記録はありません" description="検索条件を変更するか、記録待ちの予定から実施後記録を作成してください。" />}
+      </WorkspaceSection>
     </div>
   );
 }
 
-function BlocksResultView({ blocks, view }: { blocks: DbBlockTemplate[]; view: string }) {
-  if (view === "card") {
-    return (
-      <div className="grid gap-3 xl:grid-cols-2 2xl:grid-cols-3">
-        {blocks.map((block) => <BlockCardResult key={block.id} block={block} />)}
-      </div>
-    );
-  }
+function DiffSummary({ summary }: { summary: LessonRecordDiffSummary }) {
+  const items = [
+    ["予定どおり", summary.asPlanned, "green"],
+    ["調整", summary.adjusted, "purple"],
+    ["スキップ", summary.skipped, "coral"],
+    ["置き換え", summary.replaced, "sand"],
+    ["追加", summary.added, "purple"],
+    ["未確認", summary.unconfirmed, "coral"],
+    ["旧形式／未分類", summary.legacy, "neutral"],
+  ] as const;
+  return <div className="flex max-w-[430px] flex-wrap gap-1.5">{items.filter(([, count]) => count > 0).map(([label, count, tone]) => <WorkspaceStatus key={label} tone={tone}>{label} {count}</WorkspaceStatus>)}{items.every(([, count]) => count === 0) ? <span className="text-[13px] text-[#777e74]">差分なし</span> : null}</div>;
+}
 
-  if (view === "category") {
-    const grouped = blocks.reduce<Record<string, DbBlockTemplate[]>>((acc, block) => {
-      const key = block.majorCategory || "未分類";
-      acc[key] = acc[key] ?? [];
-      acc[key].push(block);
-      return acc;
-    }, {});
-
-    return (
-      <div className="space-y-4">
-        {Object.entries(grouped).map(([category, rows]) => (
-          <SoftCard key={category} className="p-3">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-[15px] font-extrabold text-[#273027]">{category}</h2>
-              <span className="rounded-full bg-[#edf5ef] px-2.5 py-1 text-[11px] font-bold text-[#4f875a]">{rows.length}件</span>
-            </div>
-            <div className="grid gap-2">
-              {rows.map((block) => <BlockCompactRow key={block.id} block={block} />)}
-            </div>
-          </SoftCard>
-        ))}
-      </div>
-    );
-  }
-
+function RecordActions({ record }: { record: DbLessonRecord }) {
   return (
-    <div className="grid gap-2">
-      {blocks.map((block) => <BlockCompactRow key={block.id} block={block} />)}
+    <div className="flex flex-wrap justify-end gap-2">
+      {record.scheduleId ? <Link href={`/lessons/${record.scheduleId}/record`} className="inline-flex h-9 items-center rounded-lg bg-[#5d8f68] px-3 text-[12px] font-semibold text-white">記録を見る／編集</Link> : <span className="text-[12px] text-[#7b8178]">予定未連携</span>}
+      {record.lessonPlanId ? <Link href={`/lessons/${record.lessonPlanId}`} className="secondary-row-action">使用プラン</Link> : null}
+      {record.scheduleId ? <Link href={`/schedules/${record.scheduleId}`} className="secondary-row-action">予定詳細</Link> : null}
     </div>
   );
 }
 
-function BlockCompactRow({ block }: { block: DbBlockTemplate }) {
+function PlansWorkspace({ plans, params }: { plans: DbLessonPlan[]; params: SearchParams }) {
+  let filtered = plans.filter((plan) => {
+    const q = params.q?.trim().toLowerCase();
+    if (q && ![plan.name, plan.theme, plan.tags.join(" ")].join(" ").toLowerCase().includes(q)) return false;
+    if (params.status && params.status !== "all" && plan.status !== params.status) return false;
+    if (params.format && params.format !== "all" && plan.format !== params.format) return false;
+    if (params.tag && params.tag !== "all" && !plan.tags.includes(params.tag)) return false;
+    return true;
+  });
+  if (params.sort === "name") filtered = filtered.sort((a, b) => a.name.localeCompare(b.name, "ja"));
+  else if (params.sort === "usage") filtered = filtered.sort((a, b) => b.usageCount - a.usageCount || a.name.localeCompare(b.name, "ja"));
+  else if (params.sort === "duration") filtered = filtered.sort((a, b) => b.totalMinutes - a.totalMinutes || a.name.localeCompare(b.name, "ja"));
+  else filtered = filtered.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const tags = unique(plans.flatMap((plan) => plan.tags));
+
   return (
-    <SoftCard className="grid gap-3 p-3 lg:grid-cols-[minmax(220px,1.15fr)_minmax(240px,1.4fr)_250px_190px] lg:items-center">
-      <div className="min-w-0">
-        <div className="flex min-w-0 items-start justify-between gap-2">
-          <div className="min-w-0">
-            <h2 className="truncate text-[15px] font-extrabold text-[#273027]" title={block.name}>{block.name}</h2>
-            <p className="mt-1 truncate text-[12px] font-bold text-[#5d956d]" title={`${block.majorCategory} / ${block.minorCategory}`}>
-              {block.majorCategory} / {block.minorCategory}
-            </p>
-          </div>
-          <span className="shrink-0 rounded-full bg-[#edf5ef] px-2 py-1 text-[11px] font-bold text-[#4f875a]">{block.duration}</span>
-        </div>
-        <div className="mt-2 flex flex-wrap gap-1 overflow-hidden">
-          {block.tags.slice(0, 4).map((tag) => <Pill key={tag}>{tag}</Pill>)}
-          {block.tags.length > 4 ? <Pill>+{block.tags.length - 4}</Pill> : null}
-        </div>
-      </div>
-
-      <div className="min-w-0">
-        <p className="line-clamp-2 text-[12px] font-semibold leading-5 text-[#50584e]">{block.purpose || "目的は未入力です。"}</p>
-        <RichScriptText text={block.script} emptyText="原稿は未入力です。" className="mt-1 line-clamp-2 text-[12px] font-medium leading-5 text-[#6b7468]" />
-        {block.cautions ? <p className="mt-1 line-clamp-1 text-[11px] font-bold text-[#d96c55]" title={block.cautions}>注意：{block.cautions}</p> : null}
-      </div>
-
-      <div className="grid grid-cols-2 gap-1.5 text-center">
-        <MiniStat label="使用" value={`${block.usageCount}回`} />
-        <MiniStat label="良かった率" value={formatGoodRate(block)} />
-        <MiniStat label="最近使用" value={block.lastUsed} />
-        <MiniStat label="改善メモ" value={`${block.improvementCount ?? 0}件`} />
-      </div>
-
-      <div className="grid grid-cols-3 gap-1.5">
-        <Link href={`/blocks/${block.id}`} className="inline-flex h-9 items-center justify-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] text-[12px] font-bold text-[#5d956d]">詳細</Link>
-        <Link href={`/blocks/${block.id}/edit`} className="inline-flex h-9 items-center justify-center rounded-lg border border-[#e7dfd4] bg-white text-[12px] font-bold text-[#6b7468]">編集</Link>
-        <Link href="/lessons/new" className="inline-flex h-9 items-center justify-center rounded-lg bg-[#5d956d] text-[12px] font-bold text-white">使う</Link>
-      </div>
-    </SoftCard>
-  );
-}
-
-function BlockCardResult({ block }: { block: DbBlockTemplate }) {
-  return (
-    <SoftCard className="flex min-h-[235px] flex-col p-3">
-      <div className="mb-2 flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h2 className="truncate text-[16px] font-extrabold">{block.name}</h2>
-          <p className="mt-1 truncate text-[12px] font-bold text-[#5d956d]" title={`${block.majorCategory} / ${block.minorCategory}`}>{block.majorCategory} / {block.minorCategory}</p>
-        </div>
-        <span className="shrink-0 rounded-full bg-[#edf5ef] px-2 py-1 text-[11px] font-bold text-[#4f875a]">{block.duration}</span>
-      </div>
-      <RichScriptText text={block.script} emptyText="原稿は未入力です。" className="line-clamp-3 min-h-[60px] text-[12px] font-medium leading-5 text-[#50584e]" />
-      {block.cautions ? <p className="mt-1 line-clamp-1 min-h-5 text-[11px] font-bold text-[#d96c55]" title={block.cautions}>注意：{block.cautions}</p> : null}
-      <div className="mt-2 flex min-h-[30px] flex-wrap gap-1 overflow-hidden">
-        {block.tags.slice(0, 3).map((tag) => <Pill key={tag}>{tag}</Pill>)}
-      </div>
-      <div className="mt-3 grid grid-cols-2 gap-2 text-center">
-        <MiniStat label="使用" value={`${block.usageCount}回`} />
-        <MiniStat label="良かった率" value={formatGoodRate(block)} />
-        <MiniStat label="改善メモ" value={`${block.improvementCount ?? 0}件`} />
-        <MiniStat label="最近" value={block.lastUsed} />
-      </div>
-      <div className="mt-auto grid grid-cols-3 gap-1.5 pt-3">
-        <Link href={`/blocks/${block.id}`} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] text-[12px] font-bold text-[#5d956d]">詳細</Link>
-        <Link href={`/blocks/${block.id}/edit`} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#e7dfd4] bg-white text-[12px] font-bold text-[#6b7468]">編集</Link>
-        <Link href="/lessons/new" className="inline-flex h-8 items-center justify-center rounded-lg bg-[#5d956d] text-[12px] font-bold text-white">使う</Link>
-      </div>
-    </SoftCard>
-  );
-}
-
-function buildBlockHref(filters: BlockListFilters & { view?: string }, patch: Partial<BlockListFilters & { view?: string }>) {
-  const params = new URLSearchParams();
-  params.set("tab", "blocks");
-  const next = { ...filters, ...patch };
-  for (const key of ["q", "category", "subcategory", "tag", "sort", "view"] as const) {
-    const value = next[key];
-    if (value) params.set(key, value);
-  }
-  return `/lessons?${params.toString()}`;
-}
-
-function categoryChipClass(active: boolean) {
-  return active
-    ? "inline-flex h-9 shrink-0 items-center rounded-full bg-[#5d956d] px-4 text-[12px] font-extrabold text-white"
-    : "inline-flex h-9 shrink-0 items-center rounded-full border border-[#e1d9ce] bg-white px-4 text-[12px] font-bold text-[#5d6b58]";
-}
-
-function viewModeClass(active: boolean) {
-  return active
-    ? "inline-flex h-8 shrink-0 items-center rounded-lg bg-[#5d956d] px-3 text-[12px] font-bold text-white"
-    : "inline-flex h-8 shrink-0 items-center rounded-lg px-3 text-[12px] font-bold text-[#5d6b58]";
-}
-
-function BlocksEmptyState() {
-  return (
-    <SoftCard className="p-6 text-center">
-      <Layers3 className="mx-auto h-10 w-10 text-[#5d956d]" />
-      <p className="mt-3 text-[15px] font-extrabold">まだブロックテンプレートが登録されていません。</p>
-      <p className="mt-1 text-[13px] font-semibold text-[#6b7468]">よく使う誘導セリフやレッスンパートを登録しましょう。</p>
-      <div className="mt-4 flex justify-center gap-2">
-        <Link href="/blocks/new" className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#5d956d] px-4 text-[13px] font-bold text-white">
-          <Plus className="h-4 w-4" />ブロックを登録
-        </Link>
-        <Link href="/settings#block-categories" className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#d8e3d4] bg-white px-4 text-[13px] font-bold text-[#4f7b58]">
-          カテゴリーを設定する
-        </Link>
-      </div>
-    </SoftCard>
-  );
-}
-
-function formatGoodRate(block: DbBlockTemplate) {
-  return typeof block.goodRate === "number" ? `${block.goodRate}%` : "評価データなし";
-}
-
-function PlansEmptyState() {
-  return (
-    <SoftCard className="p-6 text-center">
-      <ClipboardList className="mx-auto h-10 w-10 text-[#5d956d]" />
-      <p className="mt-3 text-[15px] font-extrabold">まだレッスンプランがありません。</p>
-      <p className="mx-auto mt-1 max-w-xl text-[13px] font-semibold leading-6 text-[#6b7468]">
-        ブロックを組み合わせて、印刷できるレッスン原稿を作成しましょう。
-      </p>
-      <Link href="/lessons/new" className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-[#5d956d] px-4 text-[13px] font-bold text-white">
-        <Plus className="h-4 w-4" />
-        レッスンプランを作成
-      </Link>
-    </SoftCard>
-  );
-}
-
-function SchedulesEmptyState() {
-  return (
-    <SoftCard className="mt-3 p-6 text-center">
-      <CalendarDays className="mx-auto h-10 w-10 text-[#5d956d]" />
-      <p className="mt-3 text-[15px] font-extrabold">まだ予定が登録されていません。</p>
-      <p className="mx-auto mt-1 max-w-xl text-[13px] font-semibold leading-6 text-[#6b7468]">
-        作成済みのレッスンプランを選んで予定を登録しましょう。
-      </p>
-      <Link href="/schedules/new" className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-[#5d956d] px-4 text-[13px] font-bold text-white">
-        <Plus className="h-4 w-4" />
-        予定を登録
-      </Link>
-    </SoftCard>
-  );
-}
-
-function RecordsEmptyState() {
-  return (
-    <SoftCard className="mt-3 p-6 text-center">
-      <FileText className="mx-auto h-10 w-10 text-[#5d956d]" />
-      <p className="mt-3 text-[15px] font-extrabold">まだ実施後記録はありません。</p>
-      <p className="mx-auto mt-1 max-w-xl text-[13px] font-semibold leading-6 text-[#6b7468]">
-        レッスン後に記録を書くと、ブロック評価や生徒コメントがここに蓄積されます。
-      </p>
-      <Link href="/lessons" className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-[#5d956d] px-4 text-[13px] font-bold text-white">
-        <CalendarDays className="h-4 w-4" />
-        スケジュールを見る
-      </Link>
-    </SoftCard>
-  );
-}
-
-function RecordsTab({ records }: { records: DbLessonRecord[] }) {
-  return (
-    <SoftCard className="p-3.5">
-      <SectionTitle icon={FileText} title="実施後記録" subtitle="レッスン後にブロック評価と生徒コメントを入力" />
-      {records.length ? (
-        <div className="grid gap-2">
-        {records.map((record) => (
-          <div key={record.id} className="grid grid-cols-[110px_minmax(150px,0.9fr)_95px_90px_90px_minmax(140px,1fr)_250px] items-center gap-2 rounded-xl border border-[#eee4d8] bg-white/72 p-3">
-            <p className="text-[12px] font-bold">{record.recordDate}</p>
-            <div className="min-w-0">
-              <p className="truncate text-[14px] font-extrabold">{record.lessonName}</p>
-              <p className="truncate text-[11px] font-medium text-[#6b7468]">{record.lessonPlanName}</p>
-            </div>
-            <p className="text-[12px] font-bold text-[#4f875a]">{record.participantCount}名</p>
-            <span className="inline-flex h-7 items-center justify-center rounded-full border border-[#cfe1ca] bg-[#edf5ef] px-2 text-[11px] font-bold text-[#4f875a]">{record.statusLabel}</span>
-            <p className="text-[12px] font-bold text-[#7469bf]">{record.blockCount}件</p>
-            <p className="line-clamp-2 text-[12px] font-medium leading-5">{record.overallMemo || record.overallReaction || "記録メモは未入力です。"}</p>
-            <div className="grid grid-cols-3 gap-1.5">
-              {record.scheduleId ? <Link href={`/lessons/${record.scheduleId}/record#ai-reflection`} className="inline-flex h-8 items-center justify-center rounded-lg bg-[#5d956d] text-[12px] font-bold text-white">AI振り返り</Link> : <span />}
-              {record.scheduleId ? <Link href={`/lessons/${record.scheduleId}/record`} className="inline-flex h-8 items-center justify-center rounded-lg bg-[#ef6f5b] text-[12px] font-bold text-white">編集</Link> : <span />}
-              {record.lessonPlanId ? <Link href={`/lessons/${record.lessonPlanId}`} className="inline-flex h-8 items-center justify-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] text-[12px] font-bold text-[#5d956d]">プラン</Link> : <span />}
-            </div>
-          </div>
-        ))}
-        </div>
-      ) : <RecordsEmptyState />}
-    </SoftCard>
-  );
-}
-
-function AnalysisTab({ blocks, activeAxis }: { blocks: DbBlockTemplate[]; activeAxis: AnalysisAxis }) {
-  const config = analysisConfig[activeAxis];
-  const rows = buildAnalysisRows(blocks, activeAxis);
-  return (
-    <div className="grid grid-cols-[minmax(0,1fr)_280px] gap-3">
-      <SoftCard className="p-3.5">
-        <SectionTitle icon={BarChart3} title={config.title} subtitle={config.subtitle} />
-        <div className="mt-3 grid grid-cols-2 gap-3 2xl:grid-cols-3">
-          {rows.length ? rows.map((block, index) => <AnalysisBlockCard key={block.id} block={block} index={index} activeAxis={activeAxis} />) : <AnalysisEmpty axis={activeAxis} />}
-        </div>
-      </SoftCard>
-      <SoftCard className="p-3.5">
-        <SectionTitle icon={SlidersHorizontal} title="分析軸" />
-        <div className="grid gap-2">
-          {analysisAxes.map((item) => (
-            <Link
-              key={item.id}
-              href={`/lessons?tab=analysis&analysis=${item.id}`}
-              className={item.id === activeAxis ? "rounded-lg bg-[#5d956d] p-2 text-[12px] font-bold text-white" : "rounded-lg border border-[#eee4d8] bg-white/70 p-2 text-[12px] font-bold text-[#4f7b58]"}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </div>
-      </SoftCard>
+    <div className="space-y-5">
+      <WorkspaceToolbar>
+        <form action="/lessons" className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(210px,1.5fr)_repeat(4,minmax(130px,0.8fr))_auto_auto] xl:items-end">
+          <input type="hidden" name="tab" value="plans" />
+          <FilterField label="キーワード"><Input name="q" defaultValue={params.q ?? ""} placeholder="プラン名・テーマ・タグ" className="h-10 bg-white text-[14px]" /></FilterField>
+          <FilterSelect label="状態" name="status" value={params.status} options={[["all", "すべて"], ["ready", "準備済み"], ["draft", "下書き"]]} />
+          <FilterSelect label="形式" name="format" value={params.format} options={[["all", "すべて"], ["group", "グループ"], ["personal", "パーソナル"], ["online", "オンライン"]]} />
+          <FilterSelect label="タグ" name="tag" value={params.tag} options={[["all", "すべて"], ...tags.map((tag) => [tag, tag] as const)]} />
+          <FilterSelect label="並び順" name="sort" value={params.sort} options={[["updated", "更新日"], ["name", "名前"], ["usage", "使用回数"], ["duration", "合計時間"]]} />
+          <button className="h-10 rounded-lg bg-[#5d8f68] px-4 text-[13px] font-semibold text-white">適用</button>
+          <Link href="/lessons?tab=plans" className="inline-flex h-10 items-center justify-center rounded-lg border border-[#ddd6cc] bg-white px-4 text-[13px] font-semibold text-[#626a60]">クリア</Link>
+        </form>
+      </WorkspaceToolbar>
+      <WorkspaceSection title="レッスンプラン" description={`${filtered.length}件。準備済みプランは予定登録に使える状態です。`}>
+        {filtered.length ? (
+          <WorkspaceTableContainer>
+            <table className="w-full min-w-[960px] border-collapse text-left text-[14px]">
+              <thead className="bg-[#f5f3ee] text-[12px] font-semibold text-[#666d63]"><tr><TableHead>プラン名</TableHead><TableHead>テーマ</TableHead><TableHead>状態</TableHead><TableHead>形式</TableHead><TableHead>合計時間</TableHead><TableHead>ブロック</TableHead><TableHead>利用予定</TableHead><TableHead>最終更新</TableHead><TableHead className="text-right">操作</TableHead></tr></thead>
+              <tbody className="divide-y divide-[#ece5db]">{filtered.map((plan) => <PlanRow key={plan.id} plan={plan} />)}</tbody>
+            </table>
+          </WorkspaceTableContainer>
+        ) : <WorkspaceEmptyState title="該当するプランはありません" description="条件をクリアするか、新しいレッスンプランを作成してください。" action={<WorkspaceAction href="/lessons/new" icon={Plus} primary>プランを作成</WorkspaceAction>} />}
+      </WorkspaceSection>
     </div>
   );
 }
 
-const analysisAxes: Array<{ id: AnalysisAxis; label: string; shortLabel: string }> = [
-  { id: "usage", label: "ブロック使用回数ランキング", shortLabel: "使用回数" },
-  { id: "good", label: "反応が良かったブロック", shortLabel: "良かった率" },
-  { id: "unused", label: "最近使っていないブロック", shortLabel: "未使用" },
-  { id: "improvement", label: "改善メモが多いブロック", shortLabel: "改善メモ" },
-];
-
-const analysisConfig: Record<AnalysisAxis, { title: string; subtitle: string }> = {
-  usage: { title: "ブロック使用回数ランキング", subtitle: "実施後記録で「実施した」ブロックを使用回数順に表示します。" },
-  good: { title: "反応が良かったブロック", subtitle: "生徒の反応が「良かった」と記録された割合が高い順です。" },
-  unused: { title: "最近使っていないブロック", subtitle: "未使用ブロックと最近使用日が古いブロックを優先して表示します。" },
-  improvement: { title: "改善メモが多いブロック", subtitle: "改善メモが多い順に、見直し候補を確認します。" },
-};
-
-function buildAnalysisRows(blocks: DbBlockTemplate[], axis: AnalysisAxis) {
-  const rows = [...blocks];
-  if (axis === "usage") return rows.filter((block) => block.usageCount > 0).sort((a, b) => b.usageCount - a.usageCount || (b.lastUsedAt ?? "").localeCompare(a.lastUsedAt ?? "")).slice(0, 12);
-  if (axis === "good") return rows.filter((block) => block.goodRate !== null && block.goodRate !== undefined).sort((a, b) => (b.goodRate ?? -1) - (a.goodRate ?? -1) || b.usageCount - a.usageCount).slice(0, 12);
-  if (axis === "improvement") return rows.filter((block) => (block.improvementCount ?? 0) > 0).sort((a, b) => (b.improvementCount ?? 0) - (a.improvementCount ?? 0) || b.usageCount - a.usageCount).slice(0, 12);
-  return rows.sort((a, b) => {
-    const aDate = a.lastUsedAt || "";
-    const bDate = b.lastUsedAt || "";
-    if (!aDate && bDate) return -1;
-    if (aDate && !bDate) return 1;
-    return aDate.localeCompare(bDate);
-  }).slice(0, 12);
-}
-
-function AnalysisBlockCard({ block, index, activeAxis, compact = false }: { block: DbBlockTemplate; index: number; activeAxis: AnalysisAxis; compact?: boolean }) {
-  const axisNote =
-    activeAxis === "good" && (block.usageCount < 3 ? "評価データ少なめ" : "反応傾向あり");
+function PlanRow({ plan }: { plan: DbLessonPlan }) {
   return (
-    <article className="flex min-w-0 flex-col rounded-xl border border-[#eee4d8] bg-white/70 p-3">
-      <div className="flex items-start gap-2">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#edf5ef] text-[13px] font-extrabold text-[#5d956d]">{index + 1}</span>
-        <div className="min-w-0 flex-1">
-          <Link href={`/blocks/${block.id}`} className="line-clamp-1 text-[14px] font-extrabold text-[#30362f] hover:text-[#5d956d]">{block.name}</Link>
-          <p className="mt-1 truncate text-[11px] font-bold text-[#5d956d]">{block.majorCategory} / {block.minorCategory}</p>
-        </div>
-      </div>
-      <div className={`mt-3 grid ${compact ? "grid-cols-2" : "grid-cols-3"} gap-2 text-center`}>
-        <MiniStat label="使用" value={`${block.usageCount}回`} />
-        <MiniStat label="良かった率" value={formatGoodRate(block)} />
-        <MiniStat label="改善" value={`${block.improvementCount ?? 0}件`} />
-        <MiniStat label="スキップ" value={`${block.skipCount ?? 0}回`} />
-        <MiniStat label="最近" value={block.lastUsed} />
-      </div>
-      {axisNote ? <p className="mt-2 rounded-lg bg-[#fff7e8] px-2 py-1 text-[11px] font-bold text-[#9b7338]">{axisNote}</p> : null}
-      <Link href={`/blocks/${block.id}`} className="mt-3 inline-flex h-8 items-center justify-center rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] text-[12px] font-bold text-[#5d956d]">詳細を見る</Link>
-    </article>
+    <tr className="hover:bg-[#fafcf8]">
+      <TableCell><Link href={`/lessons/${plan.id}`} className="font-semibold text-[#34453a] hover:text-[#4f8058] hover:underline">{plan.name}</Link>{plan.tags.length ? <p className="mt-1 line-clamp-1 text-[12px] text-[#777e74]">{plan.tags.join(" ")}</p> : null}</TableCell>
+      <TableCell>{plan.theme || "未設定"}</TableCell>
+      <TableCell><WorkspaceStatus tone={plan.status === "ready" ? "green" : "sand"}>{plan.statusLabel}</WorkspaceStatus></TableCell>
+      <TableCell>{plan.formatLabel}</TableCell><TableCell>{plan.totalMinutes}分</TableCell><TableCell>{plan.blockCount}個</TableCell><TableCell>{plan.usageCount}件</TableCell><TableCell className="whitespace-nowrap">{formatShortDate(plan.updatedAt)}</TableCell>
+      <TableCell className="text-right"><div className="flex flex-wrap justify-end gap-1.5"><Link href={`/lessons/${plan.id}`} className="secondary-row-action">詳細</Link><Link href={`/lessons/${plan.id}/script`} className="secondary-row-action">原稿</Link><Link href={`/lessons/${plan.id}/edit`} className="secondary-row-action">編集</Link><form action={duplicateLessonPlanAction.bind(null, plan.id)}><button className="secondary-row-action">複製</button></form></div></TableCell>
+    </tr>
   );
 }
 
-function AnalysisEmpty({ axis }: { axis: AnalysisAxis }) {
-  const text =
-    axis === "usage"
-      ? "まだ実施済みブロックの記録がありません。"
-      : axis === "good"
-        ? "まだ反応を評価できる記録がありません。"
-        : axis === "improvement"
-          ? "改善メモがあるブロックはまだありません。"
-          : "表示できるブロックがありません。";
-  return <div className="rounded-xl border border-dashed border-[#d8e3d4] bg-[#f8fcf6] p-4 text-[13px] font-semibold text-[#657064]">{text}</div>;
-}
-
-function ScheduleStatusBadge({ label }: { label: string }) {
-  const className =
-    label === "記録済み"
-      ? "border-[#cfe1ca] bg-[#edf5ef] text-[#4f875a]"
-      : label === "記録待ち"
-        ? "border-[#f2c9bd] bg-[#fff0ea] text-[#ec6f5d]"
-        : label === "事前準備済み"
-          ? "border-[#cfe1ca] bg-[#f4f8f1] text-[#4f875a]"
-          : "border-[#d8d1ef] bg-[#f2efff] text-[#6b61b8]";
-
-  return <span className={`inline-flex h-7 items-center justify-center rounded-full border px-2 text-[11px] font-bold ${className}`}>{label}</span>;
-}
-
-function MiniStat({ label, value }: { label: string; value: string }) {
+function BlocksWorkspace({ blocks, categories, tags, params }: { blocks: DbBlockTemplate[]; categories: BlockCategory[]; tags: string[]; params: SearchParams }) {
+  const view = params.view === "cards" || params.view === "categories" ? params.view : "list";
+  const activeCategories = categories.filter((category) => !category.archived);
+  const subcategories = activeCategories.flatMap((category) => category.subcategories).filter((item) => !item.archived && (!params.category || item.category_id === params.category));
   return (
-    <div className="rounded-lg border border-[#eee4d8] bg-white/66 p-1.5">
-      <p className="text-[10px] font-bold text-[#7c8476]">{label}</p>
-      <p className="truncate text-[12px] font-extrabold">{value}</p>
+    <div className="space-y-5">
+      <WorkspaceToolbar>
+        <form action="/lessons" className="grid gap-3 lg:grid-cols-2 xl:grid-cols-[minmax(210px,1.5fr)_repeat(4,minmax(135px,0.8fr))_auto_auto] xl:items-end">
+          <input type="hidden" name="tab" value="blocks" /><input type="hidden" name="view" value={view} />
+          <FilterField label="検索"><Input name="q" defaultValue={params.q ?? ""} placeholder="名前・タグ・原稿" className="h-10 bg-white text-[14px]" /></FilterField>
+          <FilterSelect label="カテゴリー" name="category" value={params.category} options={[["", "すべて"], ...activeCategories.map((category) => [category.id, category.name] as const)]} />
+          <FilterSelect label="小カテゴリー" name="subcategory" value={params.subcategory} options={[["", "すべて"], ...subcategories.map((subcategory) => [subcategory.id, subcategory.name] as const)]} />
+          <FilterSelect label="タグ" name="tag" value={params.tag} options={[["", "すべて"], ...tags.map((tag) => [tag, tag] as const)]} />
+          <FilterSelect label="並び順" name="sort" value={params.sort} options={[["updated", "更新日"], ["name", "名前"], ["duration", "時間"], ["usage", "使用回数"], ["good", "良かった率"], ["recent", "最終使用"]]} />
+          <button className="h-10 rounded-lg bg-[#5d8f68] px-4 text-[13px] font-semibold text-white">適用</button>
+          <Link href="/lessons?tab=blocks" className="inline-flex h-10 items-center justify-center rounded-lg border border-[#ddd6cc] bg-white px-4 text-[13px] font-semibold text-[#626a60]">クリア</Link>
+        </form>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[#ece5db] pt-3"><p className="text-[13px] text-[#6f766c]">{blocks.length}件を表示</p><div className="flex gap-1.5"><ViewLink label="一覧" view="list" active={view === "list"} params={params} /><ViewLink label="カード" view="cards" active={view === "cards"} params={params} /><ViewLink label="カテゴリー" view="categories" active={view === "categories"} params={params} /></div></div>
+      </WorkspaceToolbar>
+
+      {blocks.length ? view === "list" ? <BlockTable blocks={blocks} /> : view === "cards" ? <BlockCards blocks={blocks} /> : <BlockCategoryGroups blocks={blocks} /> : <WorkspaceEmptyState title="該当するブロックはありません" description="検索条件をクリアするか、新しいブロックを登録してください。" />}
     </div>
   );
 }
 
-function formatShortDate(value: string) {
-  return new Intl.DateTimeFormat("ja-JP", { month: "numeric", day: "numeric", timeZone: "Asia/Tokyo" }).format(new Date(value));
+function BlockTable({ blocks }: { blocks: DbBlockTemplate[] }) {
+  return (
+    <WorkspaceTableContainer>
+      <table className="w-full min-w-[920px] border-collapse text-left text-[14px]">
+        <thead className="bg-[#f5f3ee] text-[12px] font-semibold text-[#666d63]"><tr><TableHead>名前</TableHead><TableHead>カテゴリー</TableHead><TableHead>時間</TableHead><TableHead>使用回数</TableHead><TableHead>良かった率</TableHead><TableHead>改善メモ</TableHead><TableHead>最終使用</TableHead><TableHead className="text-right">操作</TableHead></tr></thead>
+        <tbody className="divide-y divide-[#ece5db]">{blocks.map((block) => <BlockRow key={block.id} block={block} />)}</tbody>
+      </table>
+    </WorkspaceTableContainer>
+  );
 }
+
+function BlockRow({ block }: { block: DbBlockTemplate }) {
+  return (
+    <tr className="hover:bg-[#fafcf8]"><TableCell><Link href={`/blocks/${block.id}`} className="font-semibold text-[#34453a] hover:text-[#4f8058] hover:underline">{block.name}</Link><p className="mt-1 line-clamp-1 text-[12px] text-[#777e74]">{block.tags.length ? block.tags.join(" ") : "タグ未設定"}</p></TableCell><TableCell>{block.majorCategory || "未分類"}<span className="block text-[12px] text-[#777e74]">{block.minorCategory || "未分類"}</span></TableCell><TableCell>{block.duration}</TableCell><TableCell>{block.usageCount}回</TableCell><TableCell>{block.goodRate == null ? <span className="text-[#777e74]">未評価</span> : <span>{block.goodRate}% <small className="text-[11px] text-[#777e74]">({block.reactionCount}件)</small></span>}</TableCell><TableCell>{block.improvementCount ?? 0}件</TableCell><TableCell>{block.lastUsed}</TableCell><TableCell className="text-right"><div className="flex justify-end gap-1.5"><Link href={`/blocks/${block.id}`} className="secondary-row-action">詳細</Link><Link href={`/blocks/${block.id}/edit`} className="secondary-row-action">編集</Link><Link href={`/lessons/new?block=${block.id}`} className="inline-flex h-8 items-center rounded-lg bg-[#5d8f68] px-2.5 text-[12px] font-semibold text-white">使う</Link></div></TableCell></tr>
+  );
+}
+
+function BlockCards({ blocks }: { blocks: DbBlockTemplate[] }) {
+  return <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{blocks.map((block) => <article key={block.id} className="rounded-xl border border-[#e6ded3] bg-white/82 p-4"><div className="flex items-start justify-between gap-3"><div><Link href={`/blocks/${block.id}`} className="text-[15px] font-semibold hover:text-[#4f8058]">{block.name}</Link><p className="mt-1 text-[12px] text-[#687068]">{block.majorCategory}／{block.minorCategory}</p></div><WorkspaceStatus tone="sand">{block.duration}</WorkspaceStatus></div><div className="mt-3 grid grid-cols-3 gap-2 text-center text-[12px]"><MiniMetric label="使用" value={`${block.usageCount}回`} /><MiniMetric label="反応" value={block.goodRate == null ? "未評価" : `${block.goodRate}%`} /><MiniMetric label="改善" value={`${block.improvementCount ?? 0}件`} /></div><div className="mt-4 flex justify-end gap-2"><Link href={`/blocks/${block.id}`} className="secondary-row-action">詳細</Link><Link href={`/lessons/new?block=${block.id}`} className="inline-flex h-8 items-center rounded-lg bg-[#5d8f68] px-2.5 text-[12px] font-semibold text-white">使う</Link></div></article>)}</div>;
+}
+
+function BlockCategoryGroups({ blocks }: { blocks: DbBlockTemplate[] }) {
+  const groups = groupBy(blocks, (block) => block.majorCategory || "未分類");
+  return <div className="space-y-5">{Array.from(groups.entries()).map(([category, items]) => <WorkspaceSection key={category} title={category} description={`${items.length}件`}><BlockTable blocks={items} /></WorkspaceSection>)}</div>;
+}
+
+function AnalysisWorkspace({ blocks }: { blocks: DbBlockTemplate[] }) {
+  const mostUsed = [...blocks].filter((block) => block.usageCount > 0).sort((a, b) => b.usageCount - a.usageCount).slice(0, 5);
+  const good = [...blocks].filter((block) => block.goodRate != null).sort((a, b) => (b.goodRate ?? -1) - (a.goodRate ?? -1) || (b.reactionCount ?? 0) - (a.reactionCount ?? 0)).slice(0, 5);
+  const unused = [...blocks].sort((a, b) => (a.lastUsedAt || "").localeCompare(b.lastUsedAt || "")).slice(0, 5);
+  const improvement = [...blocks].filter((block) => (block.improvementCount ?? 0) > 0).sort((a, b) => (b.improvementCount ?? 0) - (a.improvementCount ?? 0)).slice(0, 5);
+  const changed = [...blocks].filter((block) => (block.changeCount ?? 0) > 0).sort((a, b) => (b.changeCount ?? 0) - (a.changeCount ?? 0)).slice(0, 5);
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <AnalysisList title="よく使うブロック" rows={mostUsed} metric={(block) => `${block.usageCount}回`} />
+        <AnalysisList title="反応が良いブロック" rows={good} metric={(block) => `${block.goodRate}%（評価${block.reactionCount ?? 0}件）`} />
+        <AnalysisList title="最近使っていないブロック" rows={unused} metric={(block) => block.lastUsed} />
+        <AnalysisList title="改善メモが多いブロック" rows={improvement} metric={(block) => `${block.improvementCount ?? 0}件`} />
+        <AnalysisList title="予定から変更されやすいブロック" rows={changed} metric={(block) => `${block.changeCount ?? 0}件`} />
+        <div className="flex min-h-[220px] flex-col justify-between rounded-xl border border-[#ded7e9] bg-[#f7f4fb] p-5"><div><BarChart3 className="h-6 w-6 text-[#7568a7]" /><h2 className="mt-3 text-[17px] font-semibold">詳細な分析はレポートへ</h2><p className="mt-2 text-[13px] leading-6 text-[#6d6877]">期間、形式、プラン、場所で絞り込み、出席と予定差分を横断して確認できます。</p></div><WorkspaceAction href="/reports?view=blocks" icon={BarChart3} primary>レポートを開く</WorkspaceAction></div>
+      </div>
+    </div>
+  );
+}
+
+function AnalysisList({ title, rows, metric }: { title: string; rows: DbBlockTemplate[]; metric: (block: DbBlockTemplate) => string }) {
+  return <section className="rounded-xl border border-[#e6ded3] bg-white/82 p-4"><h2 className="text-[16px] font-semibold">{title}</h2>{rows.length ? <ol className="mt-3 divide-y divide-[#ece5db]">{rows.map((block, index) => <li key={block.id} className="flex items-center gap-3 py-2.5"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#eef4eb] text-[12px] font-semibold text-[#4f8058]">{index + 1}</span><Link href={`/blocks/${block.id}`} className="min-w-0 flex-1 truncate text-[14px] font-medium hover:text-[#4f8058] hover:underline">{block.name}</Link><span className="shrink-0 text-[12px] text-[#6d746a]">{metric(block)}</span></li>)}</ol> : <p className="mt-4 text-[13px] text-[#777e74]">対象データがありません。</p>}</section>;
+}
+
+function FilterField({ label, children }: { label: string; children: React.ReactNode }) {
+  return <label className="block min-w-0"><span className="mb-1.5 block text-[12px] font-semibold text-[#656c63]">{label}</span>{children}</label>;
+}
+
+function FilterSelect({ label, name, value, options }: { label: string; name: string; value?: string; options: ReadonlyArray<readonly [string, string]> }) {
+  return <FilterField label={label}><select name={name} defaultValue={value ?? options[0]?.[0] ?? ""} className="h-10 w-full min-w-0 rounded-lg border border-[#dcd6cc] bg-white px-3 text-[13px] text-[#3f463e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6f9a76]">{options.map(([optionValue, optionLabel]) => <option key={`${name}-${optionValue}`} value={optionValue}>{optionLabel}</option>)}</select></FilterField>;
+}
+
+function TableHead({ children, className = "" }: { children: React.ReactNode; className?: string }) { return <th scope="col" className={`whitespace-nowrap px-3 py-3 ${className}`}>{children}</th>; }
+function TableCell({ children, className = "" }: { children: React.ReactNode; className?: string }) { return <td className={`px-3 py-3 align-middle text-[#3e453d] ${className}`}>{children}</td>; }
+function HeaderStat({ label, value, tone = "green" }: { label: string; value: string; tone?: "green" | "coral" | "purple" }) { const color = tone === "coral" ? "text-[#bd5d50]" : tone === "purple" ? "text-[#7568a7]" : "text-[#477b52]"; return <div className="rounded-lg bg-[#f7f5f0] px-2.5 py-2 text-center"><p className="text-[11px] text-[#7a8077]">{label}</p><p className={`mt-0.5 text-[15px] font-semibold ${color}`}>{value}</p></div>; }
+function MiniMetric({ label, value }: { label: string; value: string }) { return <div className="rounded-lg bg-[#f7f5f0] p-2"><p className="text-[11px] text-[#777e74]">{label}</p><p className="mt-0.5 font-semibold">{value}</p></div>; }
+
+function ViewLink({ label, view, active, params }: { label: string; view: string; active: boolean; params: SearchParams }) {
+  const query = new URLSearchParams();
+  query.set("tab", "blocks");
+  for (const key of ["q", "category", "subcategory", "tag", "sort"] as const) if (params[key]) query.set(key, params[key]!);
+  query.set("view", view);
+  return <Link href={`/lessons?${query.toString()}`} className={active ? "inline-flex h-8 items-center rounded-lg bg-[#e6f0e3] px-3 text-[12px] font-semibold text-[#386b46]" : "inline-flex h-8 items-center rounded-lg border border-[#ddd6cc] bg-white px-3 text-[12px] font-semibold text-[#626a60] hover:bg-[#f7f4ef]"}>{label}</Link>;
+}
+
+function normalizeTab(value?: string): LessonTab { return value === "plans" || value === "blocks" || value === "records" || value === "analysis" ? value : "schedule"; }
+function isRecordPending(schedule: DbSchedule, now: number) { return schedule.status === "record_pending" || (Date.parse(schedule.startsAt) < now && schedule.status !== "recorded"); }
+function matchesPeriod(value: string, period: string | undefined, now: number) {
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp) || !period || period === "all") return true;
+  if (period === "past") return timestamp < now;
+  if (period === "future") return timestamp >= now;
+  const current = new Date(now);
+  const tokyo = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" }).format(current);
+  const [year, month, day] = tokyo.split("-").map(Number);
+  const start = period === "month" ? new Date(`${year}-${String(month).padStart(2, "0")}-01T00:00:00+09:00`) : startOfTokyoWeek(year, month, day);
+  const end = period === "month" ? new Date(new Date(`${year}-${String(month).padStart(2, "0")}-01T00:00:00+09:00`).setMonth(month)) : new Date(start.getTime() + 7 * 86_400_000);
+  return timestamp >= start.getTime() && timestamp < end.getTime();
+}
+function startOfTokyoWeek(year: number, month: number, day: number) { const date = new Date(`${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T00:00:00+09:00`); const weekday = new Date(date.toLocaleString("en-US", { timeZone: "Asia/Tokyo" })).getDay(); date.setDate(date.getDate() - (weekday === 0 ? 6 : weekday - 1)); return date; }
+function unique(values: string[]) { return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b, "ja")); }
+function uniqueBy<T>(values: T[], key: (value: T) => string) { const map = new Map<string, T>(); for (const value of values) if (!map.has(key(value))) map.set(key(value), value); return Array.from(map.values()); }
+function groupBy<T>(values: T[], key: (value: T) => string) { const map = new Map<string, T[]>(); for (const value of values) { const group = key(value); map.set(group, [...(map.get(group) ?? []), value]); } return map; }
+function formatShortDate(value: string) { return new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(value)); }

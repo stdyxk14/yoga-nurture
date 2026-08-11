@@ -37,8 +37,10 @@ export type BlockTemplate = {
   usageCount: number;
   averageRating: number;
   goodRate?: number | null;
+  reactionCount?: number;
   improvementCount?: number;
   skipCount?: number;
+  changeCount?: number;
   lastUsed: string;
   lastUsedAt?: string;
 };

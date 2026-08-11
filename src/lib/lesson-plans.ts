@@ -35,6 +35,7 @@ export type DbLessonPlan = {
   blocks: DbLessonPlanBlock[];
   blockCount: number;
   categoryMinutes: Array<{ category: string; minutes: number }>;
+  usageCount: number;
 };
 
 type RawPlan = {
@@ -51,6 +52,7 @@ type RawPlan = {
 
 type RawPlanSummary = RawPlan & {
   lesson_plan_blocks?: Array<{ id: string }>;
+  schedules?: Array<{ id: string }>;
 };
 
 type RawPlanBlock = {
@@ -186,6 +188,7 @@ function mapPlan(row: RawPlan, planBlocks: RawPlanBlock[]): DbLessonPlan {
     blocks,
     blockCount: blocks.length,
     categoryMinutes: buildCategoryMinutes(blocks),
+    usageCount: 0,
   };
 }
 
@@ -257,7 +260,8 @@ export async function getLessonPlanSummaries() {
       status,
       created_at,
       updated_at,
-      lesson_plan_blocks(id)
+      lesson_plan_blocks(id),
+      schedules(id)
     `)
     .neq("status", "archived")
     .order("updated_at", { ascending: false });
@@ -267,6 +271,7 @@ export async function getLessonPlanSummaries() {
   return ((data ?? []) as unknown as RawPlanSummary[]).map((plan) => ({
     ...mapPlan(plan, []),
     blockCount: plan.lesson_plan_blocks?.length ?? 0,
+    usageCount: plan.schedules?.length ?? 0,
   }));
 }
 
@@ -373,5 +378,6 @@ export async function getLessonPlanForSchedule(schedule: DbSchedule): Promise<Db
     blocks,
     blockCount: blocks.length,
     categoryMinutes: buildCategoryMinutes(blocks),
+    usageCount: 0,
   };
 }

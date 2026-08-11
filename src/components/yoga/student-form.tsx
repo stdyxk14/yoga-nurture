@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, type ReactNode } from "react";
-import { Save, Trash2, UserRound } from "lucide-react";
+import { Archive, Save, UserRound } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,19 +13,19 @@ import type { StudentFormState } from "@/lib/students";
 
 const ageGroups = ["年齢不明", "10代", "20前半", "20半ば", "20後半", "30前半", "30半ば", "30後半", "40前半", "40半ば", "40後半", "50前半", "50半ば", "50後半", "60代以上"];
 type StudentAction = (state: StudentFormState, formData: FormData) => Promise<StudentFormState>;
-type DeleteAction = (formData: FormData) => Promise<void>;
+type ArchiveAction = (formData: FormData) => Promise<void>;
 
 export function StudentForm({
   mode,
   student,
   action,
-  deleteAction,
+  archiveAction,
   deleteError,
 }: {
   mode: "new" | "edit";
   student?: StudentRecord;
   action: StudentAction;
-  deleteAction?: DeleteAction;
+  archiveAction?: ArchiveAction;
   deleteError?: string;
 }) {
   const isEdit = mode === "edit";
@@ -42,7 +42,7 @@ export function StudentForm({
           returnHref={returnHref}
           error={formError}
           pending={pending}
-          deleteAction={deleteAction}
+          archiveAction={archiveAction}
         />
       </form>
 
@@ -68,7 +68,7 @@ export function StudentForm({
                   <Input name="kana" defaultValue={student?.kana ?? ""} placeholder="さとう みさき" className="h-10 bg-white/80 text-[14px]" />
                 </Field>
                 <Field label="年代">
-                  <select name="age_group" defaultValue={student?.ageGroup ?? "30半ば"} className="h-10 w-full rounded-md border border-input bg-white/80 px-3 text-[14px]">
+                  <select name="age_group" defaultValue={student?.ageGroup ?? "年齢不明"} className="h-10 w-full rounded-md border border-input bg-white/80 px-3 text-[14px]">
                     {ageGroups.map((ageGroup) => <option key={ageGroup} value={ageGroup}>{ageGroup}</option>)}
                   </select>
                 </Field>
@@ -97,7 +97,7 @@ export function StudentForm({
               <FormError error={formError} />
 
               <div className="mt-5 flex justify-between gap-2">
-                <div>{deleteAction ? <DeleteStudentButton action={deleteAction} /> : null}</div>
+                <div>{archiveAction ? <ArchiveStudentButton action={archiveAction} /> : null}</div>
                 <div className="flex gap-2">
                   <Link href={returnHref} className="inline-flex h-9 items-center rounded-lg border border-[#d8e3d4] bg-white px-4 text-[13px] font-bold text-[#4f7b58]">
                     キャンセル
@@ -119,14 +119,14 @@ function MobileStudentForm({
   returnHref,
   error,
   pending,
-  deleteAction,
+  archiveAction,
 }: {
   isEdit: boolean;
   student?: StudentRecord;
   returnHref: string;
   error?: string;
   pending: boolean;
-  deleteAction?: DeleteAction;
+  archiveAction?: ArchiveAction;
 }) {
   return (
     <div className="mx-auto max-w-[430px] space-y-4 overflow-x-hidden">
@@ -144,7 +144,7 @@ function MobileStudentForm({
             <Input name="kana" defaultValue={student?.kana ?? ""} placeholder="さとう みさき" className="h-11 w-full bg-white/90 text-[16px]" />
           </Field>
           <Field label="年代">
-            <select name="age_group" defaultValue={student?.ageGroup ?? "30半ば"} className="h-11 w-full rounded-md border border-input bg-white/90 px-3 text-[16px]">
+            <select name="age_group" defaultValue={student?.ageGroup ?? "年齢不明"} className="h-11 w-full rounded-md border border-input bg-white/90 px-3 text-[16px]">
               {ageGroups.map((ageGroup) => <option key={ageGroup} value={ageGroup}>{ageGroup}</option>)}
             </select>
           </Field>
@@ -175,7 +175,7 @@ function MobileStudentForm({
         <Link href={returnHref} className="inline-flex h-11 items-center justify-center rounded-2xl border border-[#d8e3d4] bg-white text-[14px] font-bold text-[#4f7b58]">
           キャンセル
         </Link>
-        {deleteAction ? <DeleteStudentButton action={deleteAction} /> : null}
+        {archiveAction ? <ArchiveStudentButton action={archiveAction} /> : null}
       </div>
     </div>
   );
@@ -203,24 +203,24 @@ function SubmitButton({ isEdit, pending }: { isEdit: boolean; pending: boolean }
   );
 }
 
-function DeleteStudentButton({
+function ArchiveStudentButton({
   action,
 }: {
-  action: DeleteAction;
+  action: ArchiveAction;
 }) {
   return (
     <button
       type="submit"
       formAction={action}
       onClick={(event) => {
-        if (!window.confirm("この生徒カルテを削除します。よろしいですか？")) {
+        if (!window.confirm("この生徒カルテをアーカイブします。過去の予定・記録・コメントは保持されます。よろしいですか？")) {
           event.preventDefault();
         }
       }}
       className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#f2c9bd] bg-[#fff0ea] px-4 text-[13px] font-bold text-[#d96c55] disabled:opacity-60"
     >
-      <Trash2 className="h-4 w-4" />
-      削除する
+      <Archive className="h-4 w-4" />
+      アーカイブ
     </button>
   );
 }

@@ -1,193 +1,189 @@
 import Link from "next/link";
-import { AlertCircle, Edit3, Plus, Search, UserRound } from "lucide-react";
+import { ArchiveRestore, CalendarCheck, Edit3, Plus, Search, ShieldAlert, UserRound, UsersRound } from "lucide-react";
+import { restoreStudentAction } from "@/app/students/actions";
 import { Input } from "@/components/ui/input";
-import { PageHeader, Pill, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
-import type { StudentRecord } from "@/components/yoga/records";
-import { getStudents } from "@/lib/students";
+import { StudentWorkspaceList } from "@/components/yoga/student-workspace-list";
+import {
+  WorkspaceAction,
+  WorkspaceEmptyState,
+  WorkspacePageHeader,
+  WorkspaceSection,
+  WorkspaceStatus,
+  WorkspaceSummaryCard,
+  WorkspaceToolbar,
+} from "@/components/yoga/workspace-kit";
+import { getStudentWorkspace, normalizeStudentFilter, type StudentFilterKey, type StudentRecentEntry, type StudentWorkspaceRow } from "@/lib/students";
 
-const filterItems = ["すべて", "最近受講", "要フォロー", "注意点あり"];
+type StudentSearchParams = { q?: string; filter?: string; selected?: string; error?: string };
+
+const filters: Array<{ key: StudentFilterKey; label: string }> = [
+  { key: "all", label: "すべて" },
+  { key: "recent", label: "最近受講" },
+  { key: "followup", label: "要フォロー" },
+  { key: "caution", label: "注意点あり" },
+  { key: "scheduled", label: "次回予定あり" },
+  { key: "no-attendance", label: "受講なし" },
+  { key: "archived", label: "アーカイブ済み" },
+];
 
 export const dynamic = "force-dynamic";
 
-export default async function StudentsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+export default async function StudentsPage({ searchParams }: { searchParams: Promise<StudentSearchParams> }) {
   const params = await searchParams;
+  const filter = normalizeStudentFilter(params.filter);
   const query = params.q ?? "";
-  const students = await getStudents(query);
-  const cautionCount = students.filter((student) => student.caution).length;
+  const workspace = await getStudentWorkspace({ search: query, filter, selectedId: params.selected });
+  const selected = workspace.selected;
+  const selectHrefs = Object.fromEntries(workspace.students.map((student) => [student.id, buildStudentHref(params, { selected: student.id, filter })]));
+  const listRows = workspace.students.map(({ id, name, kana, caution, pendingFollowUpCount, attendedCount, lastLessonDate, nextLessonDate, archived }) => ({ id, name, kana, caution, pendingFollowUpCount, attendedCount, lastLessonDate, nextLessonDate: nextLessonDate ?? "未定", archived }));
 
   return (
-    <>
-      <div className="md:hidden">
-        <MobileStudents students={students} query={query} />
-      </div>
+    <div className="mx-auto w-full max-w-[1560px] space-y-5">
+      <WorkspacePageHeader
+        eyebrow="STUDENT WORKSPACE"
+        title="生徒カルテ"
+        description="安全面と次回フォローを先に確認し、必要なときだけプロフィールや履歴へ進めます。"
+        actions={<WorkspaceAction href="/students/new" icon={Plus} primary>生徒を登録</WorkspaceAction>}
+      />
 
-      <div className="hidden md:block">
-        <PageHeader title="生徒カルテ" subtitle="生徒一人ひとりの状態・記録を管理" />
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <WorkspaceSummaryCard label="登録生徒" value={`${workspace.summary.activeStudents}名`} detail="アクティブな生徒" href="/students?filter=all" />
+        <WorkspaceSummaryCard label="要フォロー" value={`${workspace.summary.followUpStudents}名`} detail="未完了フォローあり" tone="coral" href="/students?filter=followup" />
+        <WorkspaceSummaryCard label="注意点あり" value={`${workspace.summary.cautionStudents}名`} detail="安全面の注意あり" tone="purple" href="/students?filter=caution" />
+        <WorkspaceSummaryCard label="30日以内に受講" value={`${workspace.summary.recentStudents}名`} detail="実参加のdistinct生徒" tone="green" href="/students?filter=recent" />
+        <WorkspaceSummaryCard label="次回予定あり" value={`${workspace.summary.nextScheduledStudents}名`} detail="未来予定に参加登録あり" tone="sand" href="/students?filter=scheduled" />
+      </section>
 
-        <form action="/students" className="mb-3 flex items-center justify-between gap-3">
-          <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-[#e7dfd4] bg-white/80 px-3 py-2">
-            <Search className="h-4 w-4 shrink-0 text-[#6b7468]" />
-            <Input name="q" defaultValue={query} placeholder="名前・ふりがな・年代・経験・注意点で検索" className="h-8 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0" />
-          </div>
-          <button className="inline-flex h-10 items-center rounded-xl border border-[#d8e3d4] bg-white px-4 text-[13px] font-bold text-[#4f7b58]">検索</button>
-          {query ? <Link href="/students" className="inline-flex h-10 items-center rounded-xl border border-[#eadbd2] bg-[#fff8f4] px-4 text-[13px] font-bold text-[#c86b55]">クリア</Link> : null}
-          <Link href="/students/new" className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#5d956d] px-4 text-[13px] font-bold text-white">
-            <Plus className="h-4 w-4" />
-            生徒を登録
-          </Link>
-        </form>
+      {params.error ? <div className="rounded-xl border border-[#f0d0ca] bg-[#fff1ed] px-4 py-3 text-[13px] font-medium text-[#a65348]">{params.error}</div> : null}
 
-        <SoftCard className="p-3.5">
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            {filterItems.map((item, index) => <Pill key={item} active={index === 0}>{item}</Pill>)}
-          </div>
-
-          {students.length ? (
-            <div className="grid gap-2">
-              {students.map((student) => (
-              <div key={student.id} className="grid min-w-0 grid-cols-[170px_74px_70px_minmax(90px,0.9fr)_minmax(92px,1fr)_minmax(90px,1fr)_72px_92px_92px_118px] items-center gap-2 rounded-xl border border-[#eee4d8] bg-white/70 px-3 py-3">
-                <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#edf4ea] text-[#4f875a]">
-                    <UserRound className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-[14px] font-extrabold">{student.name}</p>
-                    <p className="truncate text-[11px] font-semibold text-[#798176]">{student.kana}</p>
-                  </div>
-                </div>
-                <p className="text-[13px] font-bold">{student.ageGroup}</p>
-                <p className="text-[13px] font-bold">{student.gender}</p>
-                <p className="line-clamp-2 text-[12px] font-medium leading-5">{student.experience}</p>
-                <p className="line-clamp-2 text-[12px] font-medium leading-5">{student.caution}</p>
-                <p className="line-clamp-2 text-[12px] font-medium leading-5 text-[#5f665c]">{student.memo}</p>
-                <p className="text-[12px] font-bold text-[#4f875a]">{student.linkedLessonCount}回</p>
-                <p className="text-[12px] font-bold text-[#c86b55]">キャンセル {student.cancelCount ?? 0}回</p>
-                <p className="line-clamp-2 text-[11px] font-bold">{student.lastLessonDate}<br />次回 {student.nextLessonDate ?? "未定"}</p>
-                <div className="flex justify-end gap-1.5">
-                  <Link href={`/students/${student.id}`} className="inline-flex h-8 items-center whitespace-nowrap rounded-lg border border-[#cfe1ca] bg-[#f8fcf6] px-2.5 text-[12px] font-bold text-[#5d956d]">
-                    詳細を見る
-                  </Link>
-                  <Link href={`/students/${student.id}/edit`} className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#e7dfd4] bg-white text-[#6b7468]" aria-label={`${student.name}を編集`}>
-                    <Edit3 className="h-4 w-4" />
-                  </Link>
-                </div>
-              </div>
-              ))}
+      <WorkspaceToolbar>
+        <form action="/students" className="grid gap-3 md:grid-cols-[minmax(220px,1fr)_auto_auto] md:items-end">
+          <input type="hidden" name="filter" value={filter} />
+          {selected ? <input type="hidden" name="selected" value={selected.id} /> : null}
+          <label className="block min-w-0">
+            <span className="mb-1.5 block text-[12px] font-semibold text-[#656c63]">生徒を検索</span>
+            <div className="flex h-10 items-center gap-2 rounded-lg border border-[#dcd6cc] bg-white px-3">
+              <Search className="h-4 w-4 text-[#777e74]" />
+              <Input name="q" defaultValue={query} placeholder="名前・ふりがな・年代・注意点" className="h-8 border-0 px-0 text-[14px] shadow-none focus-visible:ring-0" />
             </div>
-          ) : (
-            <EmptyStudents />
-          )}
-        </SoftCard>
-
-        <section className="mt-4 grid grid-cols-3 gap-4">
-          <SoftCard className="p-3.5">
-            <SectionTitle icon={UserRound} title="登録生徒" />
-            <p className="text-[34px] font-extrabold leading-none text-[#4f875a]">{students.length}<span className="ml-1 text-sm">名</span></p>
-            <p className="mt-2 text-[12px] font-semibold text-[#697467]">年代・性別を属性分析に使う想定</p>
-          </SoftCard>
-          <SoftCard className="p-3.5">
-            <SectionTitle icon={AlertCircle} title="要フォロー" />
-            <p className="text-[34px] font-extrabold leading-none text-[#ec6f5d]">{cautionCount}<span className="ml-1 text-sm">名</span></p>
-            <p className="mt-2 text-[12px] font-semibold text-[#697467]">レッスン後コメントから確認</p>
-          </SoftCard>
-          <SoftCard className="p-3.5">
-            <SectionTitle icon={AlertCircle} title="注意点あり" />
-            <p className="text-[34px] font-extrabold leading-none text-[#7a6cc4]">{cautionCount}<span className="ml-1 text-sm">名</span></p>
-            <p className="mt-2 text-[12px] font-semibold text-[#697467]">レッスン前に注意点を確認</p>
-          </SoftCard>
-        </section>
-      </div>
-    </>
-  );
-}
-
-function EmptyStudents() {
-  return (
-    <div className="rounded-2xl border border-dashed border-[#d8e3d4] bg-[#f8fcf6] p-8 text-center">
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#5d956d]">
-        <UserRound className="h-6 w-6" />
-      </div>
-      <p className="mt-3 text-[15px] font-extrabold">まだ生徒が登録されていません</p>
-      <p className="mt-1 text-[12px] font-semibold text-[#6b7468]">最初の生徒カルテを登録すると、ここに一覧表示されます。</p>
-      <Link href="/students/new" className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-[#5d956d] px-4 text-[13px] font-bold text-white">
-        <Plus className="h-4 w-4" />
-        生徒を登録
-      </Link>
-    </div>
-  );
-}
-
-function MobileStudents({ students, query }: { students: StudentRecord[]; query: string }) {
-  return (
-    <div className="mx-auto max-w-[430px] space-y-4 overflow-x-hidden">
-      <div className="rounded-[24px] border border-[#eee4d8] bg-white/82 p-4 shadow-[0_12px_26px_rgba(122,104,80,0.08)]">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div>
-            <h1 className="text-[22px] font-extrabold tracking-normal">生徒カルテ</h1>
-            <p className="mt-1 text-[12px] font-semibold text-[#6d7469]">状態・注意点・レッスン後メモを確認</p>
-          </div>
-          <Link href="/students/new" className="inline-flex h-10 shrink-0 items-center gap-1 rounded-full bg-[#5d956d] px-3 text-[12px] font-bold text-white">
-            <Plus className="h-4 w-4" />
-            登録
-          </Link>
-        </div>
-        <form action="/students" className="grid gap-2">
-          <div className="flex items-center gap-2 rounded-2xl border border-[#e7dfd4] bg-[#fffdf8] px-3 py-2">
-            <Search className="h-4 w-4 shrink-0 text-[#6b7468]" />
-            <Input name="q" defaultValue={query} placeholder="名前・年代・注意点で検索" className="h-8 min-w-0 border-0 bg-transparent px-0 text-[13px] shadow-none focus-visible:ring-0" />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <button className="h-10 rounded-xl bg-[#5d956d] text-[13px] font-bold text-white">検索</button>
-            <Link href="/students" className="inline-flex h-10 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white text-[13px] font-bold text-[#4f7b58]">クリア</Link>
-          </div>
+          </label>
+          <button className="h-10 rounded-lg bg-[#5d8f68] px-4 text-[13px] font-semibold text-white">検索</button>
+          <Link href={buildStudentHref({}, { filter, selected: selected?.id })} className="inline-flex h-10 items-center justify-center rounded-lg border border-[#ddd6cc] bg-white px-4 text-[13px] font-semibold text-[#626a60]">検索をクリア</Link>
         </form>
-        <div className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1">
-          {filterItems.map((item, index) => (
-            <button key={item} className={`h-8 shrink-0 rounded-full px-3 text-[12px] font-bold ${index === 0 ? "bg-[#7fa06f] text-white" : "border border-[#e7dfd4] bg-white/80 text-[#5f665c]"}`}>
-              {item}
-            </button>
+        <nav aria-label="生徒フィルター" className="mt-3 flex flex-wrap gap-2 border-t border-[#ece5db] pt-3">
+          {filters.map((item) => (
+            <Link
+              key={item.key}
+              href={buildStudentHref(params, { filter: item.key, selected: selected?.id })}
+              aria-current={filter === item.key ? "page" : undefined}
+              className={filter === item.key ? "inline-flex h-9 items-center rounded-lg bg-[#e6f0e3] px-3 text-[13px] font-semibold text-[#386b46]" : "inline-flex h-9 items-center rounded-lg border border-[#ddd6cc] bg-white px-3 text-[13px] font-semibold text-[#626a60] hover:bg-[#f7f4ef]"}
+            >
+              {item.label}
+            </Link>
           ))}
-        </div>
-      </div>
+          <span className="ml-auto self-center text-[13px] text-[#737a70]">検索結果 {workspace.resultCount}名</span>
+        </nav>
+      </WorkspaceToolbar>
 
-      <div className="grid gap-3">
-        {students.length ? students.map((student) => (
-          <article key={student.id} className="rounded-[22px] border border-[#eee4d8] bg-white/86 p-4 shadow-[0_10px_24px_rgba(122,104,80,0.07)]">
-            <div className="flex items-start gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#edf4ea] text-[#4f875a]">
-                <UserRound className="h-6 w-6" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <h2 className="truncate text-[16px] font-extrabold">{student.name}</h2>
-                    <p className="text-[11px] font-semibold text-[#798176]">{student.kana}</p>
-                  </div>
-                  <span className="shrink-0 rounded-full bg-[#f1f6ee] px-2.5 py-1 text-[11px] font-bold text-[#4f875a]">{student.ageGroup}・{student.gender}</span>
-                </div>
-                <div className="mt-3 grid gap-2 text-[12px] font-semibold leading-5 text-[#5f665c]">
-                  <p className="line-clamp-2"><span className="text-[#3f5f45]">経験：</span>{student.experience}</p>
-                  <p className="line-clamp-2"><span className="text-[#c75d52]">注意：</span>{student.caution}</p>
-                  <p className="line-clamp-2"><span className="text-[#6b5ba7]">メモ：</span>{student.memo}</p>
-                </div>
-              </div>
-            </div>
-            <div className="mt-3 flex items-center justify-between rounded-2xl bg-[#faf7ef] px-3 py-2 text-[11px] font-bold text-[#667061]">
-              <span>受講 {student.linkedLessonCount}回 / キャンセル {student.cancelCount ?? 0}回</span>
-              <span>最終 {student.lastLessonDate}</span>
-            </div>
-            <p className="mt-2 rounded-xl bg-[#f8fcf6] px-3 py-2 text-[11px] font-bold text-[#5d6b58]">次回予定：{student.nextLessonDate ?? "未定"}</p>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <Link href={`/students/${student.id}`} className="inline-flex h-10 items-center justify-center rounded-xl border border-[#cfe1ca] bg-[#f8fcf6] text-[13px] font-bold text-[#5d956d]">
-                詳細を見る
-              </Link>
-              <Link href={`/students/${student.id}/edit`} className="inline-flex h-10 items-center justify-center rounded-xl border border-[#e7dfd4] bg-white text-[13px] font-bold text-[#6b7468]">
-                編集
-              </Link>
-            </div>
-          </article>
-        )) : <EmptyStudents />}
-      </div>
+      {workspace.students.length ? (
+        <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)] xl:items-start">
+          <div className="min-w-0">
+            <div className="hidden md:block"><StudentWorkspaceList rows={listRows} selectedId={selected?.id} selectHrefs={selectHrefs} /></div>
+            <MobileStudentCards rows={workspace.students} selectedId={selected?.id} params={params} filter={filter} />
+          </div>
+          {selected ? <StudentPreview student={selected} /> : null}
+        </div>
+      ) : (
+        <WorkspaceEmptyState
+          title={filter === "archived" ? "アーカイブ済みの生徒はいません" : "該当する生徒はいません"}
+          description="検索条件またはフィルターを変更してください。新しい生徒は登録ボタンから追加できます。"
+          action={<WorkspaceAction href="/students/new" icon={Plus} primary>生徒を登録</WorkspaceAction>}
+        />
+      )}
     </div>
   );
 }
+
+function StudentPreview({ student }: { student: StudentWorkspaceRow }) {
+  const observations = student.recentEntries.filter((entry) => entry.condition.trim() || entry.memo.trim()).slice(0, 3);
+  const histories = student.recentEntries.slice(0, 3);
+  return (
+    <aside className="min-w-0 rounded-xl border border-[#e5ddd2] bg-white/86 shadow-[0_5px_18px_rgba(91,76,53,0.045)] xl:sticky xl:top-4">
+      <div className="border-b border-[#ece5db] p-4">
+        <div className="flex items-start gap-3">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#e8f1e5] text-[#4f8058]"><UserRound className="h-6 w-6" /></span>
+          <div className="min-w-0 flex-1"><h2 className="truncate text-[19px] font-semibold">{student.name}</h2><p className="mt-1 text-[13px] text-[#70776e]">{student.ageGroup || "未登録"}・{student.gender || "未登録"}</p></div>
+          {student.archived ? <WorkspaceStatus>アーカイブ済み</WorkspaceStatus> : null}
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {student.archived ? <form action={restoreStudentAction.bind(null, student.id)}><button className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#5d8f68] px-3 text-[12px] font-semibold text-white"><ArchiveRestore className="h-4 w-4" />アーカイブ解除</button></form> : <><Link href={`/students/${student.id}/edit`} className="secondary-row-action"><Edit3 className="h-3.5 w-3.5" />編集</Link><Link href={`/students/${student.id}`} className="inline-flex h-8 items-center rounded-lg bg-[#5d8f68] px-3 text-[12px] font-semibold text-white">詳細を開く</Link></>}
+        </div>
+      </div>
+
+      <div className="space-y-4 p-4">
+        <PreviewPriority icon={ShieldAlert} title="ケガ・安全上の注意" value={student.caution || "未登録"} tone="coral" />
+        <PreviewPriority icon={CalendarCheck} title="未完了フォロー" value={student.pendingFollowUps.length ? student.pendingFollowUps.map((entry) => entry.nextFollow).join("／") : "なし"} tone="sand" />
+        <div className="grid grid-cols-2 gap-2">
+          <PreviewDatum label="前回の様子" value={student.lastObservation || "記録なし"} />
+          <PreviewDatum label="次回予定" value={student.nextLessonDate || "未定"} />
+        </div>
+        <div>
+          <h3 className="text-[13px] font-semibold text-[#535b52]">直近の参加状況</h3>
+          <div className="mt-2 flex flex-wrap gap-1.5">{histories.length ? histories.map((entry) => <AttendanceStatus key={`${entry.recordId}-${entry.dateIso}`} entry={entry} />) : <span className="text-[13px] text-[#777e74]">記録なし</span>}</div>
+        </div>
+      </div>
+
+      <div className="border-t border-[#ece5db] p-4">
+        <h3 className="text-[14px] font-semibold">補助情報</h3>
+        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-[13px]">
+          <PreviewDatum label="経験" value={student.experience || "未登録"} />
+          <PreviewDatum label="通常メモ" value={student.memo || "未登録"} />
+          <PreviewDatum label="受講回数" value={`${student.attendedCount}回`} />
+          <PreviewDatum label="キャンセル" value={`${student.cancelCount}回`} />
+          <PreviewDatum label="無断欠席" value={`${student.noShowCount}回`} />
+          <PreviewDatum label="キャンセル率" value={student.recentEntries.length ? `${student.cancelRate}%` : "データなし"} />
+        </dl>
+      </div>
+
+      <div className="grid gap-4 border-t border-[#ece5db] p-4 lg:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+        <PreviewHistory title="最近の観察メモ" entries={observations} observation />
+        <PreviewHistory title="最近のレッスン履歴" entries={histories} />
+      </div>
+    </aside>
+  );
+}
+
+function PreviewPriority({ icon: Icon, title, value, tone }: { icon: typeof ShieldAlert; title: string; value: string; tone: "coral" | "sand" }) {
+  return <section className={tone === "coral" ? "rounded-lg border border-[#f0d0ca] bg-[#fff4f0] p-3" : "rounded-lg border border-[#ead9bc] bg-[#fff9ec] p-3"}><div className="flex items-center gap-2"><Icon className={tone === "coral" ? "h-4 w-4 text-[#b65a4d]" : "h-4 w-4 text-[#8b704c]"} /><h3 className="text-[13px] font-semibold">{title}</h3></div><p className="mt-1.5 text-[13px] leading-6 text-[#4e554d]">{value}</p></section>;
+}
+
+function PreviewDatum({ label, value }: { label: string; value: string }) {
+  return <div className="min-w-0"><p className="text-[12px] font-medium text-[#7a8177]">{label}</p><p className="mt-0.5 break-words text-[13px] leading-5 text-[#3f463e]">{value}</p></div>;
+}
+
+function PreviewHistory({ title, entries, observation = false }: { title: string; entries: StudentRecentEntry[]; observation?: boolean }) {
+  return <section><h3 className="text-[13px] font-semibold">{title}</h3>{entries.length ? <ol className="mt-2 space-y-2">{entries.map((entry) => <li key={`${title}-${entry.recordId}-${entry.dateIso}`} className="rounded-lg bg-[#f7f5f0] p-2.5"><p className="text-[12px] font-medium text-[#4f8058]">{entry.date}・{entry.lessonName}</p><p className="mt-1 line-clamp-2 text-[12px] leading-5 text-[#5f675d]">{observation ? entry.condition || entry.memo || "記録なし" : attendanceLabel(entry.attendanceStatus)}</p></li>)}</ol> : <p className="mt-2 text-[13px] text-[#777e74]">記録なし</p>}</section>;
+}
+
+function AttendanceStatus({ entry }: { entry: StudentRecentEntry }) {
+  const tone = entry.attendanceStatus === "present" ? "green" : entry.attendanceStatus === "cancelled" ? "sand" : "coral";
+  return <WorkspaceStatus tone={tone}>{entry.date.replace(/\d{4}年/, "")} {attendanceLabel(entry.attendanceStatus)}</WorkspaceStatus>;
+}
+
+function MobileStudentCards({ rows, selectedId, params, filter }: { rows: StudentWorkspaceRow[]; selectedId?: string; params: StudentSearchParams; filter: StudentFilterKey }) {
+  return <div className="grid gap-3 md:hidden">{rows.map((student) => <article key={student.id} className={student.id === selectedId ? "rounded-xl border border-[#aecaab] bg-[#f2f7ef] p-4" : "rounded-xl border border-[#e6ded3] bg-white/84 p-4"}><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="truncate text-[16px] font-semibold">{student.name}</h2><p className="mt-1 text-[12px] text-[#727970]">{student.ageGroup}・{student.gender}</p></div>{student.pendingFollowUpCount ? <WorkspaceStatus tone="coral">要フォロー</WorkspaceStatus> : null}</div><p className="mt-3 line-clamp-2 text-[13px] leading-5 text-[#a65348]">注意：{student.caution || "登録なし"}</p><div className="mt-3 grid grid-cols-3 gap-2 text-[12px]"><span>受講 {student.attendedCount}回</span><span>最終 {student.lastLessonDate}</span><span>次回 {student.nextLessonDate}</span></div><div className="mt-4 flex gap-2">{student.archived ? <form action={restoreStudentAction.bind(null, student.id)}><button className="inline-flex h-9 items-center rounded-lg bg-[#5d8f68] px-3 text-[12px] font-semibold text-white">復元</button></form> : <><Link href={buildStudentHref(params, { filter, selected: student.id })} className="secondary-row-action">概要を選択</Link><Link href={`/students/${student.id}`} className="inline-flex h-8 items-center rounded-lg bg-[#5d8f68] px-3 text-[12px] font-semibold text-white">詳細</Link></>}</div></article>)}</div>;
+}
+
+function buildStudentHref(current: StudentSearchParams, patch: { filter?: StudentFilterKey; selected?: string }) {
+  const query = new URLSearchParams();
+  const q = current.q?.trim();
+  if (q) query.set("q", q);
+  const filter = patch.filter ?? normalizeStudentFilter(current.filter);
+  if (filter !== "all") query.set("filter", filter);
+  const selected = patch.selected ?? current.selected;
+  if (selected) query.set("selected", selected);
+  const value = query.toString();
+  return value ? `/students?${value}` : "/students";
+}
+
+function attendanceLabel(status: StudentRecentEntry["attendanceStatus"]) { return status === "present" ? "参加" : status === "cancelled" ? "キャンセル" : "無断欠席"; }

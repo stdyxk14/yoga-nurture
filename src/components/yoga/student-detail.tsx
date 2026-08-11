@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ArrowDownUp, BarChart3, Dumbbell, HeartHandshake, NotebookPen, Sparkles, Target, UserRound } from "lucide-react";
+import { ArrowDownUp, BarChart3, Dumbbell, HeartHandshake, NotebookPen, ShieldAlert, Sparkles, Target, UserRound } from "lucide-react";
 import { updateFollowUpStatusAction } from "@/app/follow-ups/actions";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PageHeader, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
@@ -43,7 +43,9 @@ export function StudentDetail({
           <Link href={`/students/${student.id}/edit`} className="inline-flex h-8 items-center rounded-lg bg-[#5d956d] px-4 text-[13px] font-bold text-white">編集する</Link>
         </div>
 
-        <SoftCard className="p-4">
+        <SafetyBrief student={student} observations={observations} stats={stats} />
+
+        <SoftCard className="mt-4 p-4">
           <div className="grid grid-cols-[160px_minmax(0,1fr)] gap-5">
             <div className="flex flex-col items-center justify-center">
               <div className="flex h-32 w-32 items-center justify-center rounded-2xl bg-[#edf4ea] text-[#4f875a] shadow-inner">
@@ -179,6 +181,8 @@ function MobileStudentDetail({
         </div>
       </section>
 
+      <SafetyBrief student={student} observations={observations} stats={stats} mobile />
+
       <section className="grid grid-cols-2 gap-2">
         <SummaryCard label="受講回数" value={`${stats.attendedCount}回`} />
         <SummaryCard label="キャンセル" value={`${stats.cancelCount}回`} tone="orange" />
@@ -246,6 +250,45 @@ function MobileStudentDetail({
         <EmptyHistoryMessage text="受講履歴が蓄積されると、受講頻度・よく受けるクラス・反応の傾向が表示されます。" />
       </MobileSection>
     </div>
+  );
+}
+
+function SafetyBrief({
+  student,
+  observations,
+  stats,
+  mobile = false,
+}: {
+  student: StudentRecord;
+  observations: StudentObservation[];
+  stats: StudentAttendanceStats;
+  mobile?: boolean;
+}) {
+  const pendingFollow = observations.find((item) => item.nextFollow.trim() && (item.followUpStatus ?? "pending") === "pending");
+  const latestObservation = observations.find((item) => item.condition.trim() || item.memo?.trim());
+  const values = [
+    ["ケガ・注意点", student.caution || "未登録"],
+    ["未完了フォロー", pendingFollow?.nextFollow || "なし"],
+    ["前回の観察", latestObservation?.condition || latestObservation?.memo || "記録なし"],
+    ["次回予定", stats.nextScheduledDate || "未定"],
+    ["次回確認すること", pendingFollow?.nextFollow || (student.caution ? "当日の痛み・違和感を確認" : "未登録")],
+  ] as const;
+
+  return (
+    <section className={`${mobile ? "rounded-[24px]" : "rounded-2xl"} border border-[#ead9bc] bg-[#fffaf0] p-4 shadow-[0_6px_18px_rgba(122,104,80,0.05)]`}>
+      <div className="flex items-center gap-2">
+        <ShieldAlert className="h-5 w-5 text-[#a36642]" />
+        <div><h2 className="text-[16px] font-extrabold">当日の安全ブリーフ</h2><p className="text-[12px] font-medium text-[#746b5e]">レッスン前に優先して確認</p></div>
+      </div>
+      <dl className={`mt-3 grid gap-2 ${mobile ? "grid-cols-1" : "md:grid-cols-2 xl:grid-cols-5"}`}>
+        {values.map(([label, value]) => (
+          <div key={label} className="min-w-0 rounded-xl border border-[#eee0c7] bg-white/76 p-3">
+            <dt className="text-[12px] font-bold text-[#8b704c]">{label}</dt>
+            <dd className="mt-1 break-words text-[13px] font-medium leading-5 text-[#3f453c]">{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
   );
 }
 
