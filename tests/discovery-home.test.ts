@@ -60,8 +60,16 @@ test("URL normalization removes trackers, canonicalizes YouTube, deduplicates, a
   const deduped = dedupeRadarCandidates([
     { sourceUrl: "https://example.com/article?utm_medium=social", title: "Yoga Teaching Guide" },
     { sourceUrl: "https://example.com/article", title: "Yoga Teaching Guide" },
+    {
+      sourceUrl: "https://publisher.example/research/yoga-risk-review",
+      title: "Yoga and its risks: A systematic review of adverse events reported in case reports and case series",
+    },
+    {
+      sourceUrl: "https://index.example/123456",
+      title: "Yoga and its risks: A systematic review of adverse events reported in case reports and case series",
+    },
   ]);
-  assert.equal(deduped.length, 1);
+  assert.equal(deduped.length, 2);
 });
 
 test("relevance explanation comes from structured evidence", () => {

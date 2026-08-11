@@ -479,21 +479,28 @@ export function normalizeRadarUrl(value: string): string | null {
 
 export function dedupeRadarCandidates<T extends { sourceUrl: string; title: string }>(items: T[]): Array<T & { normalizedUrl: string }> {
   const urls = new Set<string>();
-  const fingerprints = new Set<string>();
+  const sourceFingerprints = new Set<string>();
+  const crossSourceTitles = new Set<string>();
   const result: Array<T & { normalizedUrl: string }> = [];
 
   for (const item of items) {
     const normalizedUrl = normalizeRadarUrl(item.sourceUrl);
     if (!normalizedUrl || urls.has(normalizedUrl)) continue;
     const hostname = new URL(normalizedUrl).hostname.replace(/^www\./, "");
-    const titleKey = item.title.toLowerCase().normalize("NFKC").replace(/[^\p{L}\p{N}]+/gu, "").slice(0, 120);
-    const fingerprint = `${hostname}:${titleKey}`;
-    if (titleKey.length >= 12 && fingerprints.has(fingerprint)) continue;
+    const titleKey = radarTitleFingerprint(item.title);
+    const sourceFingerprint = `${hostname}:${titleKey}`;
+    if (titleKey.length >= 12 && sourceFingerprints.has(sourceFingerprint)) continue;
+    if (titleKey.length >= 32 && crossSourceTitles.has(titleKey)) continue;
     urls.add(normalizedUrl);
-    fingerprints.add(fingerprint);
+    sourceFingerprints.add(sourceFingerprint);
+    if (titleKey.length >= 32) crossSourceTitles.add(titleKey);
     result.push({ ...item, normalizedUrl });
   }
   return result;
+}
+
+export function radarTitleFingerprint(title: string): string {
+  return title.toLowerCase().normalize("NFKC").replace(/[^\p{L}\p{N}]+/gu, "").slice(0, 180);
 }
 
 export function estimateRadarCost({

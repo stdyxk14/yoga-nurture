@@ -11,6 +11,7 @@ import {
   extractAnonymizedSafetySignals,
   generateRadarTopics,
   normalizeRadarUrl,
+  radarTitleFingerprint,
   type GeneratedRadarTopic,
   type RadarTopicSignal,
 } from "@/lib/discovery-home";
@@ -314,7 +315,7 @@ export async function refreshRadarForUser({
         .limit(4),
       admin
         .from("radar_items")
-        .select("normalized_url")
+        .select("normalized_url,original_title")
         .eq("user_id", userId)
         .order("last_seen_at", { ascending: false })
         .limit(120),
@@ -327,6 +328,11 @@ export async function refreshRadarForUser({
       ? topics
       : rotateRadarTopics(topics, tokyoDateKey(new Date()));
     const knownUrls = new Set((knownRows ?? []).map((row) => row.normalized_url as string));
+    const knownTitleKeys = new Set(
+      (knownRows ?? [])
+        .map((row) => radarTitleFingerprint(String(row.original_title ?? "")))
+        .filter((titleKey) => titleKey.length >= 32),
+    );
     let topicIndex = 0;
 
     while (searchCount < claim.search_limit && topicIndex < orderedTopics.length && candidates.length < claim.summary_limit) {
@@ -348,7 +354,10 @@ export async function refreshRadarForUser({
         lastError = null;
         for (const item of result.items) {
           if (knownUrls.has(item.normalized_url)) continue;
+          const titleKey = radarTitleFingerprint(item.original_title);
+          if (titleKey.length >= 32 && knownTitleKeys.has(titleKey)) continue;
           knownUrls.add(item.normalized_url);
+          if (titleKey.length >= 32) knownTitleKeys.add(titleKey);
           candidates.push(item);
           if (candidates.length >= claim.summary_limit) break;
         }

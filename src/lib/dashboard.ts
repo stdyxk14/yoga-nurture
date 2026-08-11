@@ -1,6 +1,7 @@
 import { formatJapaneseDate } from "@/lib/date-format";
 import {
   buildTeachingInsights,
+  dedupeRadarCandidates,
   extractAnonymizedSafetySignals,
   generateRadarTopics,
   type GeneratedRadarTopic,
@@ -480,8 +481,11 @@ async function loadRadar({
     if (runsResult.error) throw runsResult.error;
 
     const settings = settingsResult.data as RawRadarSettings | null;
-    const rawItems = ((itemsResult.data ?? []) as unknown as RawRadarItem[])
-      .filter((item) => firstRelation(item.source)?.status !== "blocked");
+    const rawItems = dedupeRadarCandidates(
+      ((itemsResult.data ?? []) as unknown as RawRadarItem[])
+        .filter((item) => firstRelation(item.source)?.status !== "blocked")
+        .map((item) => ({ item, sourceUrl: item.source_url, title: item.original_title })),
+    ).map(({ item }) => item);
     const itemIds = rawItems.map((item) => item.id);
     const feedbackResult = itemIds.length
       ? await supabase.from("radar_feedback").select("item_id,action").in("item_id", itemIds)
