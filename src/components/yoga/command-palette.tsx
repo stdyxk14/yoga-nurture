@@ -124,8 +124,20 @@ export function CommandPalette({ open, onOpenChange }: Props) {
         onOpenChange(true);
       }
     };
+    const handleExternalOpen = () => {
+      if (open) {
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      } else {
+        onOpenChange(true);
+      }
+    };
     window.addEventListener("keydown", handleShortcut);
-    return () => window.removeEventListener("keydown", handleShortcut);
+    window.addEventListener("yoga:open-command-palette", handleExternalOpen);
+    return () => {
+      window.removeEventListener("keydown", handleShortcut);
+      window.removeEventListener("yoga:open-command-palette", handleExternalOpen);
+    };
   }, [onOpenChange, open]);
 
   const performSearch = useCallback(async (nextQuery: string) => {

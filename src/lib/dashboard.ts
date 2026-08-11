@@ -49,6 +49,7 @@ export type RadarItem = {
   isAiSummary: boolean;
   relevanceScore: number;
   trustLabel: string;
+  topicKeys: string[];
   feedback: string[];
 };
 
@@ -135,6 +136,7 @@ type RawRadarItem = {
   published_on: string | null;
   retrieved_at: string;
   item_type: RadarItemType;
+  topic_keys: string[] | null;
   ai_summary: string;
   relevance_reason: string;
   relevance_score: number;
@@ -464,12 +466,12 @@ async function loadRadar({
       supabase.from("radar_topics").select("topic_key,label_ja,label_en,source_kind,status,priority").eq("status", "active").order("priority", { ascending: false }).limit(4),
       supabase
         .from("radar_items")
-        .select("id,source_url,original_title,source_name,author,published_on,retrieved_at,item_type,ai_summary,relevance_reason,relevance_score,trust_score,is_ai_summary,source:radar_sources(status)")
+        .select("id,source_url,original_title,source_name,author,published_on,retrieved_at,item_type,topic_keys,ai_summary,relevance_reason,relevance_score,trust_score,is_ai_summary,source:radar_sources(status)")
         .eq("processing_status", "ready")
         .eq("visibility_status", "visible")
         .order("relevance_score", { ascending: false })
         .order("retrieved_at", { ascending: false })
-        .limit(12),
+        .limit(30),
       supabase.from("radar_runs").select("estimated_cost_usd").gte("started_at", monthStart),
     ]);
     if (settingsResult.error) throw settingsResult.error;
@@ -479,8 +481,7 @@ async function loadRadar({
 
     const settings = settingsResult.data as RawRadarSettings | null;
     const rawItems = ((itemsResult.data ?? []) as unknown as RawRadarItem[])
-      .filter((item) => firstRelation(item.source)?.status !== "blocked")
-      .slice(0, 4);
+      .filter((item) => firstRelation(item.source)?.status !== "blocked");
     const itemIds = rawItems.map((item) => item.id);
     const feedbackResult = itemIds.length
       ? await supabase.from("radar_feedback").select("item_id,action").in("item_id", itemIds)
@@ -496,7 +497,7 @@ async function loadRadar({
 
     return {
       status,
-      message: radarStatusMessage(status, Boolean(rawItems.length), settings?.last_error_code ?? null),
+      message: radarStatusMessage(status, Boolean(rawItems.length)),
       lastUpdatedLabel: lastUpdated ? formatDateTime(lastUpdated) : "まだ取得していません",
       items: rawItems.map((item) => ({
         id: item.id,
@@ -515,6 +516,7 @@ async function loadRadar({
         isAiSummary: item.is_ai_summary,
         relevanceScore: Number(item.relevance_score),
         trustLabel: trustLabel(item.item_type, Number(item.trust_score)),
+        topicKeys: item.topic_keys ?? [],
         feedback: feedbackByItem.get(item.id) ?? [],
       })),
       topics: ((topicsResult.data ?? []) as RawRadarTopic[]).map((topic) => ({ key: topic.topic_key, labelJa: topic.label_ja, labelEn: topic.label_en, sourceKind: topic.source_kind })),
@@ -552,13 +554,11 @@ function resolveRadarStatus({
   return "empty";
 }
 
-function radarStatusMessage(status: RadarStatus, hasItems: boolean, errorCode: string | null): string {
-  if (status === "ready") return hasItems ? "外の知識と、今の指導テーマをつないでいます。" : "関連度の高い新着を探しています。";
-  if (status === "disabled") return "外部検索は準備中（安全にOFF）です。今日のブリーフと自分の発見は通常どおり利用できます。";
-  if (status === "budget") return "今月の上限に達したため外部取得を停止中です。保存済み情報は引き続き読めます。";
-  if (status === "failed") return `前回の外部取得に失敗しました${errorCode ? `（${errorCode}）` : ""}。既存情報は削除していません。`;
-  if (status === "empty") return "今回は表示条件を満たす情報がありませんでした。次回の定期更新で再確認します。";
-  return "既存データから追跡テーマを作成中です。ほかのホーム機能はすぐに使えます。";
+function radarStatusMessage(status: RadarStatus, hasItems: boolean): string {
+  if (status === "ready") return hasItems ? "更新済み" : "更新準備中";
+  if (status === "failed" || status === "budget" || (status === "disabled" && hasItems)) return "前回情報を表示中";
+  if (status === "empty") return "次回更新を待っています";
+  return "更新準備中";
 }
 
 function buildNextActions({

@@ -12,6 +12,12 @@ export async function refreshRadarAction(): Promise<void> {
   revalidatePath("/dashboard");
 }
 
+export async function replenishRadarAction(): Promise<void> {
+  const { userId } = await createMutationContext();
+  await refreshRadarForUser({ userId, triggerType: "replenish" });
+  revalidatePath("/dashboard");
+}
+
 export async function submitRadarFeedbackAction(formData: FormData): Promise<void> {
   const itemId = String(formData.get("item_id") ?? "").trim();
   const action = String(formData.get("action") ?? "").trim();

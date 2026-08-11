@@ -3,66 +3,33 @@
 import Link from "next/link";
 import {
   ArrowUpRight,
-  BookOpenText,
   CalendarDays,
   CalendarPlus2,
   ChartNoAxesCombined,
-  Check,
   ChevronRight,
   CircleAlert,
   Clock3,
-  ExternalLink,
   FilePenLine,
-  Heart,
   Lightbulb,
   ListChecks,
-  LoaderCircle,
   MapPin,
   NotebookPen,
-  RefreshCw,
+  Search,
   SearchCheck,
   ShieldCheck,
-  Sparkles,
   UserRoundCheck,
   UsersRound,
-  X,
 } from "lucide-react";
-import { useFormStatus } from "react-dom";
-import { refreshRadarAction, submitRadarFeedbackAction } from "@/app/dashboard/actions";
-import type { DashboardData, RadarItem, RadarStatus } from "@/lib/dashboard";
+import { KnowledgeRadar } from "@/components/yoga/knowledge-radar";
+import type { DashboardData } from "@/lib/dashboard";
 import { cn } from "@/lib/utils";
 
 export function DashboardView({ data }: { data: DashboardData }) {
   return (
     <main className="space-y-5 pb-10">
-      <header className="relative overflow-hidden rounded-[28px] border border-[#dbe6d7] bg-[linear-gradient(135deg,#f4f9f1_0%,#fffaf2_58%,#f8f1eb_100%)] px-5 py-5 shadow-[0_18px_60px_rgba(71,94,70,0.08)] sm:px-7 sm:py-6">
-        <div className="absolute -right-12 -top-20 h-56 w-56 rounded-full bg-[#dbe9d5]/55 blur-3xl" />
-        <div className="absolute -bottom-24 left-1/3 h-48 w-48 rounded-full bg-[#f2d9cc]/45 blur-3xl" />
-        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl">
-            <div className="mb-3 flex flex-wrap items-center gap-2 text-[12px] font-bold text-[#637265]">
-              <span className="rounded-full border border-white/80 bg-white/70 px-3 py-1.5">{data.todayLabel}</span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#e8f2e5] px-3 py-1.5 text-[#507258]">
-                <Sparkles className="h-3.5 w-3.5" /> 発見型ホーム
-              </span>
-            </div>
-            <p className="text-[14px] font-bold text-[#68806b]">{data.greeting}</p>
-            <h1 className="mt-1 text-[clamp(25px,3vw,38px)] font-black tracking-[-0.04em] text-[#243b2b]">
-              今日の指導を、次の気づきへ。
-            </h1>
-            <p className="mt-3 max-w-2xl text-[13px] font-medium leading-6 text-[#68726a] sm:text-[14px]">
-              今日の実務、自分の現場データ、外の知識をひとつの流れで確認できます。
-            </p>
-          </div>
-          <div className="flex max-w-xl flex-wrap gap-2 lg:justify-end">
-            {data.radar.topics.map((topic) => (
-              <span key={topic.key} className="rounded-full border border-[#d9e4d5] bg-white/75 px-3 py-1.5 text-[11px] font-bold text-[#536a57]">
-                {topic.labelJa}
-              </span>
-            ))}
-          </div>
-        </div>
-      </header>
+      <CompactHomeHeader data={data} />
+
+      <KnowledgeRadar radar={data.radar} />
 
       {data.error ? (
         <div className="flex items-start gap-3 rounded-2xl border border-[#edc9bd] bg-[#fff7f3] p-4 text-[13px] font-semibold leading-5 text-[#875347]">
@@ -76,13 +43,35 @@ export function DashboardView({ data }: { data: DashboardData }) {
         <QuickActions />
       </div>
 
-      <div className="grid items-start gap-5 xl:grid-cols-2">
-        <TeachingInsights insights={data.insights} />
-        <KnowledgeRadar radar={data.radar} />
-      </div>
+      <TeachingInsights insights={data.insights} />
 
       <NextActions actions={data.nextActions} />
     </main>
+  );
+}
+
+function CompactHomeHeader({ data }: { data: DashboardData }) {
+  return (
+    <header className="flex min-h-16 flex-col gap-3 rounded-2xl border border-[#dde3da] bg-white/88 px-4 py-3 shadow-[0_8px_28px_rgba(56,72,59,0.05)] backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-5">
+      <div className="min-w-0">
+        <p className="text-[15px] font-black text-[#314337]">{data.greeting}</p>
+        <p className="mt-0.5 text-[12px] font-semibold text-[#727c74]">{data.todayLabel}</p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+        <span className="hidden text-[12px] font-semibold text-[#737d75] lg:inline">レーダー最終更新 {data.radar.lastUpdatedLabel}</span>
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new Event("yoga:open-command-palette"))}
+          className="inline-flex h-9 items-center gap-2 rounded-xl border border-[#d9ddd6] bg-white px-3 text-[12px] font-black text-[#5d6860] transition hover:border-[#b9c8b6] hover:bg-[#f4f7f2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6f9a76]"
+          aria-label="全体検索を開く"
+        >
+          <Search className="h-4 w-4" aria-hidden="true" />検索
+        </button>
+        <Link href="/schedules/new" className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#54765b] px-3 text-[12px] font-black text-white transition hover:bg-[#45664d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6f9a76]">
+          <CalendarPlus2 className="h-4 w-4" aria-hidden="true" />予定を登録
+        </Link>
+      </div>
+    </header>
   );
 }
 
@@ -300,142 +289,6 @@ function TeachingInsights({ insights }: { insights: DashboardData["insights"] })
         未分類・未評価・未確認の値は推測せず、集計対象から分けています。現場での変更は「失敗」ではなく適応として扱います。
       </p>
     </section>
-  );
-}
-
-function KnowledgeRadar({ radar }: { radar: DashboardData["radar"] }) {
-  return (
-    <section className="rounded-[26px] border border-[#e4dfd7] bg-white shadow-[0_14px_45px_rgba(76,66,55,0.06)]">
-      <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between sm:p-5">
-        <div>
-          <p className="text-[10px] font-black tracking-[0.12em] text-[#8b765b]">OUTSIDE KNOWLEDGE</p>
-          <div className="mt-1 flex items-center gap-2">
-            <BookOpenText className="h-5 w-5 text-[#7a664e]" />
-            <h2 className="text-[19px] font-black tracking-[-0.02em] text-[#3e372f]">ヨガナレッジレーダー</h2>
-          </div>
-          <p className="mt-1 text-[11px] font-semibold text-[#7b7b74]">最終更新 {radar.lastUpdatedLabel}・概算 ${radar.monthlyEstimatedCostUsd.toFixed(4)} / 今月</p>
-        </div>
-        <form action={refreshRadarAction}>
-          <RefreshButton disabled={radar.status === "disabled" || radar.status === "budget"} />
-        </form>
-      </div>
-
-      <div className="px-4 sm:px-5">
-        <RadarState status={radar.status} message={radar.message} />
-        {radar.topics.length ? (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {radar.topics.map((topic) => <span key={topic.key} className="rounded-full bg-[#f4efe7] px-2.5 py-1 text-[10px] font-bold text-[#78664f]">{topic.labelJa}</span>)}
-          </div>
-        ) : null}
-      </div>
-
-      <div className="space-y-3 p-4 sm:p-5">
-        {radar.items.length ? radar.items.map((item) => <RadarItemCard key={item.id} item={item} />) : <RadarEmpty status={radar.status} />}
-      </div>
-    </section>
-  );
-}
-
-function RadarItemCard({ item }: { item: RadarItem }) {
-  const helpful = item.feedback.includes("helpful");
-  const saved = item.feedback.includes("read_later");
-  return (
-    <article className="rounded-2xl border border-[#e7e2da] bg-[#fdfbf8] p-4">
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span className={cn("rounded-full px-2.5 py-1 text-[9px] font-black", item.itemType === "social_signal" ? "bg-[#f4e9e4] text-[#956557]" : "bg-[#e8efe5] text-[#55705a]")}>{item.itemTypeLabel}</span>
-        <span className="rounded-full border border-[#e6e0d7] bg-white px-2.5 py-1 text-[9px] font-bold text-[#766f66]">{item.trustLabel}</span>
-      </div>
-      <h3 className="mt-3 text-[15px] font-black leading-6 tracking-[-0.015em] text-[#3d3c38]">{item.title}</h3>
-      <p className="mt-1 text-[10px] font-semibold text-[#868078]">{item.sourceName}・{item.author}・{item.publishedLabel}</p>
-
-      <div className="mt-3 rounded-xl border border-[#e9e4dc] bg-white p-3">
-        <div className="flex items-center gap-1.5 text-[10px] font-black text-[#655d52]"><Clock3 className="h-3.5 w-3.5" />30秒で読む要点</div>
-        <p className="mt-2 text-[11px] font-medium leading-[1.75] text-[#62645f]">{item.summary}</p>
-        {item.isAiSummary ? <p className="mt-2 inline-flex items-center gap-1 text-[9px] font-bold text-[#8a8176]"><Sparkles className="h-3 w-3" />AI要約。医療・安全上の判断は必ず元情報を確認してください。</p> : null}
-      </div>
-
-      <div className="mt-3 flex items-start gap-2 rounded-xl bg-[#eef4eb] p-3">
-        <SearchCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#5c7c61]" />
-        <div>
-          <p className="text-[9px] font-black tracking-[0.08em] text-[#68806b]">WHY NOW</p>
-          <p className="mt-1 text-[11px] font-semibold leading-5 text-[#56645a]">{item.relevanceReason}</p>
-        </div>
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <Link href={item.sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#5c735f] px-3 text-[10px] font-black text-white hover:bg-[#4d6451]">
-          元情報を見る<ExternalLink className="h-3 w-3" />
-        </Link>
-        <FeedbackForm itemId={item.id} action="helpful" label={helpful ? "役に立った" : "役に立った"} icon={helpful ? Check : Heart} active={helpful} />
-        <FeedbackForm itemId={item.id} action="not_now" label="今は不要" icon={X} />
-        <FeedbackForm itemId={item.id} action="read_later" label={saved ? "あとで読むに保存" : "あとで読む"} icon={saved ? Check : BookOpenText} active={saved} />
-        <details className="relative ml-auto">
-          <summary className="cursor-pointer list-none rounded-lg px-2 py-2 text-[10px] font-black text-[#77736c] hover:bg-white">•••</summary>
-          <div className="absolute right-0 z-10 mt-1 w-48 rounded-xl border border-[#e1ddd5] bg-white p-2 shadow-xl">
-            <FeedbackForm itemId={item.id} action="block_source" label="この情報源を表示しない" icon={CircleAlert} danger />
-          </div>
-        </details>
-      </div>
-    </article>
-  );
-}
-
-function FeedbackForm({ itemId, action, label, icon: Icon, active = false, danger = false }: { itemId: string; action: string; label: string; icon: typeof Heart; active?: boolean; danger?: boolean }) {
-  return (
-    <form action={submitRadarFeedbackAction}>
-      <input type="hidden" name="item_id" value={itemId} />
-      <input type="hidden" name="action" value={action} />
-      <FeedbackButton label={label} icon={Icon} active={active} danger={danger} />
-    </form>
-  );
-}
-
-function FeedbackButton({ label, icon: Icon, active, danger }: { label: string; icon: typeof Heart; active: boolean; danger: boolean }) {
-  const { pending } = useFormStatus();
-  return (
-    <button type="submit" disabled={pending || active} className={cn(
-      "inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[10px] font-black transition disabled:cursor-default",
-      active ? "border-[#bcd3bd] bg-[#e7f0e5] text-[#507058]" : "border-[#e2ddd5] bg-white text-[#706d66] hover:border-[#cdd8c9]",
-      danger && "w-full justify-start border-transparent text-[#a05f53] hover:border-[#edcfc7] hover:bg-[#fff6f3]",
-    )}>
-      {pending ? <LoaderCircle className="h-3 w-3 animate-spin" /> : <Icon className="h-3 w-3" />}{label}
-    </button>
-  );
-}
-
-function RefreshButton({ disabled }: { disabled: boolean }) {
-  const { pending } = useFormStatus();
-  return (
-    <button type="submit" disabled={disabled || pending} className="inline-flex h-9 items-center gap-2 rounded-xl border border-[#d9d2c8] bg-white px-3 text-[10px] font-black text-[#6d6256] shadow-sm transition hover:border-[#c9cfc2] disabled:cursor-not-allowed disabled:opacity-45">
-      {pending ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-      {pending ? "更新中" : "手動更新"}
-    </button>
-  );
-}
-
-function RadarState({ status, message }: { status: RadarStatus; message: string }) {
-  const tone = status === "ready" ? "ready" : status === "failed" ? "failed" : status === "budget" ? "budget" : "neutral";
-  return (
-    <div className={cn(
-      "flex items-start gap-2.5 rounded-xl border p-3 text-[10px] font-semibold leading-4",
-      tone === "ready" && "border-[#d8e5d4] bg-[#f3f8f1] text-[#5d705f]",
-      tone === "failed" && "border-[#edcdc5] bg-[#fff7f4] text-[#8d5b50]",
-      tone === "budget" && "border-[#ead8b9] bg-[#fff9ec] text-[#8a6b38]",
-      tone === "neutral" && "border-[#e2ddd4] bg-[#faf8f4] text-[#716d65]",
-    )}>
-      {status === "ready" ? <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : status === "failed" ? <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : <RefreshCw className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
-      <span>{message}</span>
-    </div>
-  );
-}
-
-function RadarEmpty({ status }: { status: RadarStatus }) {
-  return (
-    <div className="rounded-2xl border border-dashed border-[#ddd8cf] bg-[#fbfaf7] p-5 text-center">
-      <span className="mx-auto inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-[#84745e] shadow-sm"><BookOpenText className="h-5 w-5" /></span>
-      <p className="mt-3 text-[12px] font-black text-[#5e5a53]">{status === "setting_up" || status === "disabled" ? "自動ナレッジレーダーを準備中" : "表示できる外部情報はまだありません"}</p>
-      <p className="mx-auto mt-1 max-w-sm text-[10px] font-semibold leading-4 text-[#817d76]">今日のブリーフ、自分の発見、クイック操作は外部取得に関係なく利用できます。</p>
-    </div>
   );
 }
 

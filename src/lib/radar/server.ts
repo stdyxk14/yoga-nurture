@@ -15,11 +15,12 @@ import {
   type RadarTopicSignal,
 } from "@/lib/discovery-home";
 import { classifyRadarFailure, parseRadarStructuredResponse, type RadarSourceType } from "@/lib/radar/validation";
+import { rotateRadarTopics } from "@/lib/radar/rotation";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const radarPromptVersion = "radar-search-v1";
 
-type RadarTrigger = "bootstrap" | "cron" | "manual";
+type RadarTrigger = "bootstrap" | "cron" | "manual" | "replenish";
 type ClaimResult = {
   decision: string;
   run_id: string;
@@ -96,7 +97,7 @@ const radarItemSchema = {
   properties: {
     items: {
       type: "array",
-      maxItems: 2,
+      maxItems: 3,
       items: {
         type: "object",
         additionalProperties: false,
@@ -262,14 +263,24 @@ export async function refreshRadarForUser({
     return { status: "disabled", searchCount: 0, itemCount: 0, sourceCount: 0, estimatedCostUsd: 0, model };
   }
 
-  const runKey = `${tokyoDateKey(new Date())}:${triggerType}`;
-  const { data: claimData, error: claimError } = await admin.rpc("claim_radar_run", {
-    p_user_id: userId,
-    p_trigger_type: triggerType,
-    p_run_key: runKey,
-    p_model: model,
-    p_prompt_version: radarPromptVersion,
-  });
+  const runKey = triggerType === "replenish"
+    ? "phase5a-radar-replenishment-v1"
+    : `${tokyoDateKey(new Date())}:${triggerType}`;
+  const claimResult = triggerType === "replenish"
+    ? await admin.rpc("claim_radar_replenishment", {
+        p_user_id: userId,
+        p_run_key: runKey,
+        p_model: model,
+        p_prompt_version: radarPromptVersion,
+      })
+    : await admin.rpc("claim_radar_run", {
+        p_user_id: userId,
+        p_trigger_type: triggerType,
+        p_run_key: runKey,
+        p_model: model,
+        p_prompt_version: radarPromptVersion,
+      });
+  const { data: claimData, error: claimError } = claimResult;
   if (claimError) throw new Error(`Radar run claim failed: ${claimError.message}`);
   const claim = claimData as ClaimResult;
   if (claim.decision !== "claimed") {
@@ -312,12 +323,16 @@ export async function refreshRadarForUser({
     if (knownError) throw knownError;
 
     const topics = (topicRows ?? []).map(mapStoredTopic);
+    const orderedTopics = triggerType === "replenish"
+      ? topics
+      : rotateRadarTopics(topics, tokyoDateKey(new Date()));
     const knownUrls = new Set((knownRows ?? []).map((row) => row.normalized_url as string));
     let topicIndex = 0;
 
-    while (searchCount < claim.search_limit && topicIndex < topics.length && candidates.length < claim.summary_limit) {
-      const topic = topics[topicIndex];
-      const remaining = Math.min(2, claim.summary_limit - candidates.length);
+    while (searchCount < claim.search_limit && topicIndex < orderedTopics.length && candidates.length < claim.summary_limit) {
+      const topic = orderedTopics[topicIndex];
+      const itemsPerSearch = triggerType === "replenish" ? 3 : 2;
+      const remaining = Math.min(itemsPerSearch, claim.summary_limit - candidates.length);
       searchCount += 1;
       try {
         const result = await searchTopic({
@@ -340,6 +355,10 @@ export async function refreshRadarForUser({
         topicIndex += 1;
       } catch (error) {
         lastError = classifyRadarFailure(error);
+        if (triggerType === "replenish") {
+          topicIndex += 1;
+          continue;
+        }
         if (!lastError.retryable || searchCount >= claim.search_limit) break;
       }
     }
@@ -407,7 +426,7 @@ export async function refreshRadarForUser({
   }
 }
 
-export async function runRadarForEligibleUser(triggerType: "bootstrap" | "cron"): Promise<RadarRunResult & { userCount: number }> {
+export async function runRadarForEligibleUser(triggerType: "bootstrap" | "cron" | "replenish"): Promise<RadarRunResult & { userCount: number }> {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin.from("profiles").select("id").order("created_at", { ascending: true }).limit(1);
   if (error) throw new Error(`Radar user lookup failed: ${error.message}`);
@@ -525,7 +544,7 @@ async function searchTopic({
   const request: ResponseCreateParamsNonStreaming & { max_tool_calls: number } = {
     model,
     store: false,
-    max_output_tokens: 1600,
+    max_output_tokens: maxItems >= 3 ? 2200 : 1600,
     max_tool_calls: 1,
     tool_choice: "required",
     tools: [{
@@ -548,7 +567,7 @@ async function searchTopic({
     input: [
       `追跡テーマ: ${topic.labelJa} / ${topic.labelEn}`,
       `検索語: ${query}`,
-      `最大${Math.min(2, maxItems)}件。新しさと指導への具体性を優先してください。`,
+      `最大${Math.min(3, maxItems)}件。新しさと指導への具体性を優先してください。`,
       knownUrls.length ? `次の既取得URLは除外してください: ${knownUrls.join(" ")}` : "既取得URLはありません。",
       "source_urlには検索で確認した元ページURL、titleには元ページの題名を入れてください。authorやpublished_onが確認できなければ空文字にしてください。",
     ].join("\n"),
@@ -569,7 +588,7 @@ async function searchTopic({
   const relevance = buildStructuredRelevanceReason(topic);
   const rawCandidates: StoredRadarItem[] = [];
 
-  for (const item of parsed.items.slice(0, Math.min(2, maxItems))) {
+  for (const item of parsed.items.slice(0, Math.min(3, maxItems))) {
     const normalizedUrl = normalizeRadarUrl(item.source_url);
     if (!normalizedUrl || !sourceEvidence.urls.has(normalizedUrl)) continue;
     const url = new URL(normalizedUrl);

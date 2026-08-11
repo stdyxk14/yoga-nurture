@@ -12,6 +12,7 @@ import {
   sanitizeForExternalPrompt,
 } from "../src/lib/discovery-home.ts";
 import { isAuthorizedRadarCronRequest } from "../src/lib/radar/guards.ts";
+import { rotateRadarTopics } from "../src/lib/radar/rotation.ts";
 import { classifyRadarFailure, parseRadarStructuredResponse } from "../src/lib/radar/validation.ts";
 
 test("topic generation anonymizes safety notes and never emits names or contact details", () => {
@@ -76,6 +77,15 @@ test("cost estimate includes bounded web search calls and model token rates", ()
   assert.equal(estimateRadarCost({ model: "gpt-5.4-nano", searchCalls: -1, inputTokens: -1, outputTokens: -1 }), 0);
 });
 
+test("daily topic rotation changes the leading themes without dropping any theme", () => {
+  const topics = ["shoulders", "backbend", "hips", "breath"];
+  const first = rotateRadarTopics(topics, "2026-08-11");
+  const second = rotateRadarTopics(topics, "2026-08-12");
+  assert.notEqual(first[0], second[0]);
+  assert.deepEqual([...first].sort(), [...topics].sort());
+  assert.deepEqual([...second].sort(), [...topics].sort());
+});
+
 test("cron authentication requires an exact bearer secret", () => {
   assert.equal(isAuthorizedRadarCronRequest("Bearer safe-secret", "safe-secret"), true);
   assert.equal(isAuthorizedRadarCronRequest("Bearer wrong", "safe-secret"), false);
@@ -101,6 +111,26 @@ test("invalid AI structured output is rejected", () => {
     }],
   }));
   assert.equal(parsed.items.length, 1);
+});
+
+test("replenishment structured output accepts three items but rejects a fourth", () => {
+  const item = {
+    source_url: "https://example.com/yoga",
+    title: "Yoga",
+    source_name: "Example",
+    author: "",
+    published_on: "",
+    language: "en",
+    item_type: "general_article",
+    summary: "Short summary",
+    relevance_score: 0.8,
+    trust_score: 0.6,
+  } as const;
+  assert.equal(parseRadarStructuredResponse(JSON.stringify({ items: [item, item, item] })).items.length, 3);
+  assert.throws(
+    () => parseRadarStructuredResponse(JSON.stringify({ items: [item, item, item, item] })),
+    /RADAR_STRUCTURED_OUTPUT_INVALID/,
+  );
 });
 
 test("OpenAI rate limits, timeouts, and malformed output are safe and retryable", () => {

@@ -69,7 +69,7 @@ export function parseRadarStructuredResponse(outputText: string): { items: Struc
   }
   const rawItems = (parsed as { items: unknown[] }).items;
   const items = rawItems.filter(isStructuredRadarSearchItem);
-  if (items.length !== rawItems.length || items.length > 2) throw new Error("RADAR_STRUCTURED_OUTPUT_INVALID");
+  if (items.length !== rawItems.length || items.length > 3) throw new Error("RADAR_STRUCTURED_OUTPUT_INVALID");
   return { items };
 }
 
