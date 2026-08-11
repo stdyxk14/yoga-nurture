@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BarChart3, CalendarDays, ClipboardCheck, FileBarChart, Layers3, UsersRound } from "lucide-react";
+import { AiTeachingReviewView } from "@/components/yoga/ai-teaching-review-view";
 import {
   WorkspaceEmptyState,
   WorkspacePageHeader,
@@ -23,6 +24,7 @@ import {
   type ReportPeriodKey,
   type ReportViewKey,
 } from "@/lib/reports";
+import { getTeachingReviewState, type TeachingReviewState } from "@/lib/ai-review/queries";
 
 type ReportSearchParams = {
   view?: string;
@@ -32,10 +34,12 @@ type ReportSearchParams = {
   format?: string;
   plan?: string;
   place?: string;
+  ai_period?: string;
 };
 
 const reportViews: Array<{ key: ReportViewKey; label: string }> = [
-  { key: "overview", label: "概要" },
+  { key: "ai_review", label: "AI総合指導レビュー" },
+  { key: "overview", label: "数値概要" },
   { key: "attendance", label: "出席" },
   { key: "students", label: "生徒" },
   { key: "plans", label: "プラン" },
@@ -58,14 +62,18 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const params = await searchParams;
   const view = normalizeReportView(params.view);
   const period = normalizeReportPeriod(params.period);
-  const report = await getReportData({ period, from: params.from, to: params.to, format: params.format, plan: params.plan, place: params.place });
+  const aiPeriodDays: 30 | 90 = params.ai_period === "30" ? 30 : 90;
+  const [report, reviewState] = await Promise.all([
+    getReportData({ period, from: params.from, to: params.to, format: params.format, plan: params.plan, place: params.place }),
+    view === "ai_review" ? getTeachingReviewState(aiPeriodDays) : Promise.resolve(null),
+  ]);
 
   return (
     <div className="mx-auto w-full max-w-[1560px] space-y-5">
       <WorkspacePageHeader
         eyebrow="REPORT WORKSPACE"
         title="レポート"
-        description="期間と母集団を固定し、出席・生徒属性・教材・予定差分を同じ条件で振り返ります。"
+        description="AI総合指導レビューを起点に、根拠となる記録へ戻りながら指導の強み・改善・次の行動を確認します。数値集計は別ビューで維持しています。"
       >
         <div className="flex flex-wrap gap-2" role="tablist" aria-label="レポート表示">
           {reportViews.map((item) => (
@@ -82,7 +90,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         </div>
       </WorkspacePageHeader>
 
-      <WorkspaceToolbar>
+      {view !== "ai_review" ? <WorkspaceToolbar>
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
           <div>
             <p className="mb-2 text-[12px] font-semibold text-[#656c63]">期間</p>
@@ -112,18 +120,19 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           <button className="h-10 rounded-lg bg-[#5d8f68] px-4 text-[13px] font-semibold text-white">フィルター適用</button>
           <Link href={buildReportHref({}, { view, period, from: period === "custom" ? params.from : undefined, to: period === "custom" ? params.to : undefined })} className="inline-flex h-10 items-center justify-center rounded-lg border border-[#ddd6cc] bg-white px-4 text-[13px] font-semibold text-[#626a60]">クリア</Link>
         </form>
-      </WorkspaceToolbar>
+      </WorkspaceToolbar> : null}
 
-      {report.error ? <div className="rounded-xl border border-[#f0d0ca] bg-[#fff1ed] px-4 py-3 text-[13px] font-medium leading-6 text-[#a65348]">{report.error}</div> : null}
+      {view !== "ai_review" && report.error ? <div className="rounded-xl border border-[#f0d0ca] bg-[#fff1ed] px-4 py-3 text-[13px] font-medium leading-6 text-[#a65348]">{report.error}</div> : null}
 
-      {!report.error && !report.hasAnyData ? <WorkspaceEmptyState title="この条件で集計できるデータがありません" description="期間または共通フィルターを変更してください。全登録生徒の属性は生徒タブから確認できます。" /> : null}
-      {!report.error ? <ReportView view={view} report={report} /> : null}
-      {!report.error ? <DataQuality report={report} /> : null}
+      {view !== "ai_review" && !report.error && !report.hasAnyData ? <WorkspaceEmptyState title="この条件で集計できるデータがありません" description="期間または共通フィルターを変更してください。全登録生徒の属性は生徒タブから確認できます。" /> : null}
+      {view === "ai_review" || !report.error ? <ReportView view={view} report={report} reviewState={reviewState} aiPeriodDays={aiPeriodDays} /> : null}
+      {view !== "ai_review" && !report.error ? <DataQuality report={report} /> : null}
     </div>
   );
 }
 
-function ReportView({ view, report }: { view: ReportViewKey; report: ReportData }) {
+function ReportView({ view, report, reviewState, aiPeriodDays }: { view: ReportViewKey; report: ReportData; reviewState: TeachingReviewState | null; aiPeriodDays: 30 | 90 }) {
+  if (view === "ai_review" && reviewState) return <AiTeachingReviewView state={reviewState} periodDays={aiPeriodDays} />;
   if (view === "attendance") return <AttendanceView report={report} />;
   if (view === "students") return <StudentsView report={report} />;
   if (view === "plans") return <PlansView report={report} />;
@@ -327,6 +336,7 @@ function buildReportHref(current: ReportSearchParams, patch: Partial<ReportSearc
   if (values.format && values.format !== "all") query.set("format", values.format);
   if (values.plan && values.plan !== "all") query.set("plan", values.plan);
   if (values.place && values.place !== "all") query.set("place", values.place);
+  if (values.ai_period === "30" || values.ai_period === "90") query.set("ai_period", values.ai_period);
   return `/reports?${query.toString()}`;
 }
 

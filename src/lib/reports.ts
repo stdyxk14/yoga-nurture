@@ -2,7 +2,7 @@ import { requireUserId } from "@/lib/students";
 import { measurePerformance } from "@/lib/performance";
 
 export type ReportPeriodKey = "week" | "month" | "3months" | "half" | "year" | "custom";
-export type ReportViewKey = "overview" | "attendance" | "students" | "plans" | "blocks" | "execution" | "closures";
+export type ReportViewKey = "ai_review" | "overview" | "attendance" | "students" | "plans" | "blocks" | "execution" | "closures";
 
 export type ReportQuery = {
   period: ReportPeriodKey;
@@ -305,7 +305,7 @@ export function normalizeReportPeriod(value?: string | null): ReportPeriodKey {
 }
 
 export function normalizeReportView(value?: string | null): ReportViewKey {
-  return value === "attendance" || value === "students" || value === "plans" || value === "blocks" || value === "execution" || value === "closures" ? value : "overview";
+  return value === "overview" || value === "attendance" || value === "students" || value === "plans" || value === "blocks" || value === "execution" || value === "closures" ? value : "ai_review";
 }
 
 export function resolveReportPeriod({ period, from, to, now = new Date() }: Pick<ReportQuery, "period" | "from" | "to" | "now">): { period: ReportPeriod | null; error?: string } {
