@@ -184,7 +184,6 @@ export function KnowledgeRadar({ radar }: { radar: DashboardData["radar"] }) {
       active: true,
       moved: false,
     };
-    track.setPointerCapture(event.pointerId);
   }, []);
 
   const handlePointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
@@ -192,7 +191,10 @@ export function KnowledgeRadar({ radar }: { radar: DashboardData["radar"] }) {
     const drag = dragRef.current;
     if (!track || !drag.active || drag.pointerId !== event.pointerId) return;
     const distance = event.clientX - drag.startX;
-    if (Math.abs(distance) > 4) drag.moved = true;
+    if (Math.abs(distance) > 4 && !drag.moved) {
+      drag.moved = true;
+      track.setPointerCapture(event.pointerId);
+    }
     if (!drag.moved) return;
     event.preventDefault();
     track.scrollLeft = drag.startScrollLeft - distance;
