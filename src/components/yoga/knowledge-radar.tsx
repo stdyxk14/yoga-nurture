@@ -151,7 +151,7 @@ export function KnowledgeRadar({ radar }: { radar: DashboardData["radar"] }) {
     const card = cards[nextIndex];
     if (!card) return;
     const firstCardOffset = cards[0]?.offsetLeft ?? 0;
-    track.scrollTo({ left: Math.max(0, card.offsetLeft - firstCardOffset), behavior: "smooth" });
+    track.scrollLeft = Math.max(0, card.offsetLeft - firstCardOffset);
     setCurrentIndex(nextIndex);
   }, [featuredItems.length]);
 
