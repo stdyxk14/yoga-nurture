@@ -3,7 +3,7 @@
   "regions": ["hnd1"],
   "crons": [
     {
-      "path": "/api/cron/radar-preflight",
+      "path": "/api/cron/radar-refresh",
       "schedule": "0 21 * * *"
     }
   ]
