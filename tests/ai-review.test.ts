@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   aiReviewAxes,
@@ -66,4 +67,10 @@ test("internal AI cron authentication requires an exact bearer secret", () => {
   assert.equal(isAuthorizedInternalAiCronRequest("Bearer wrong", "exact-secret"), false);
   assert.equal(isAuthorizedInternalAiCronRequest(null, "exact-secret"), false);
   assert.equal(isAuthorizedInternalAiCronRequest("Bearer exact-secret", undefined), false);
+});
+
+test("internal AI cron routes bypass session auth and reach bearer authentication", () => {
+  const proxy = readFileSync("src/proxy.ts", "utf8");
+  assert.match(proxy, /pathname === "\/api\/cron\/ai-review"/);
+  assert.match(proxy, /pathname === "\/api\/cron\/ai-daily-suggestions"/);
 });

@@ -15,6 +15,8 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
     pathname.startsWith("/auth") ||
+    pathname === "/api/cron/ai-review" ||
+    pathname === "/api/cron/ai-daily-suggestions" ||
     pathname === "/api/cron/radar-refresh" ||
     pathname === "/api/cron/radar-preflight" ||
     PUBLIC_FILE.test(pathname)
