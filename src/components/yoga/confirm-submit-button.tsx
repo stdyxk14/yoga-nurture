@@ -34,9 +34,9 @@ export function ConfirmSubmitButton({
       <AlertDialog.Root>
         <AlertDialog.Trigger type="button" disabled={disabled} className={className}>{children}</AlertDialog.Trigger>
         <AlertDialog.Portal>
-          <AlertDialog.Backdrop className="liquid-dialog-backdrop fixed inset-0 z-[90] transition-opacity data-ending-style:opacity-0 data-starting-style:opacity-0" />
+          <AlertDialog.Backdrop className="fixed inset-0 z-[90] bg-[#20251f]/45 backdrop-blur-[2px] transition-opacity data-ending-style:opacity-0 data-starting-style:opacity-0" />
           <AlertDialog.Viewport className="fixed inset-0 z-[91] flex items-center justify-center p-4">
-            <AlertDialog.Popup className="liquid-dialog-surface w-full max-w-md rounded-[26px] p-5 outline-none transition-[transform,opacity] data-ending-style:scale-[0.98] data-ending-style:opacity-0 data-starting-style:scale-[0.98] data-starting-style:opacity-0">
+            <AlertDialog.Popup className="w-full max-w-md rounded-xl border border-[#eadfd4] bg-[#fffdf9] p-5 shadow-[0_24px_70px_rgba(35,41,34,0.24)] outline-none transition-[transform,opacity] data-ending-style:scale-[0.98] data-ending-style:opacity-0 data-starting-style:scale-[0.98] data-starting-style:opacity-0">
               <div className="flex items-start gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#fff0ea] text-[#bd5d50]">
                   <AlertTriangle className="h-5 w-5" aria-hidden="true" />

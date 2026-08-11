@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BarChart3, CalendarDays, Flower2, Home, Menu, Search, Settings, Sparkles, UserRound, X } from "lucide-react";
+import { BarChart3, CalendarDays, Home, Leaf, Menu, Search, Settings, Sprout, UserRound, X } from "lucide-react";
 import { CommandPalette } from "@/components/yoga/command-palette";
 import { cn } from "@/lib/utils";
 
@@ -39,7 +39,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className={cn("yn-app min-h-screen max-w-full overflow-x-clip text-[#20231e]", !isProtectedScriptRoute && "liquid-workspace")}>
+    <div className="yn-app min-h-screen max-w-full overflow-x-hidden bg-[var(--yoga-bg)] text-[#20231e]">
       <MobileTopBar title={current?.label ?? "YOGA NURTURE"} onMenuClick={() => setMobileMenuOpen(true)} />
       <MobileMenu open={mobileMenuOpen} pathname={pathname} onClose={() => setMobileMenuOpen(false)} />
       <div
@@ -47,17 +47,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           "min-h-screen min-w-0 md:grid md:grid-cols-[var(--app-sidebar-width)_minmax(0,1fr)]",
           isProtectedScriptRoute
             ? "md:[--app-sidebar-width:176px] xl:[--app-sidebar-width:196px]"
-            : "md:[--app-sidebar-width:104px] xl:[--app-sidebar-width:232px]",
+            : "md:[--app-sidebar-width:80px] xl:[--app-sidebar-width:196px]",
         )}
       >
         <DesktopSidebar pathname={pathname} compact={!isProtectedScriptRoute} onSearch={() => handleCommandPaletteOpenChange(true)} />
 
         <main
           className={cn(
-            "relative z-10 min-w-0 max-w-full overflow-x-clip pb-28 pt-3 print:px-0 print:py-0 md:pb-5",
+            "min-w-0 max-w-full overflow-x-hidden pb-28 pt-3 print:px-0 print:py-0 md:pb-4",
             isProtectedScriptRoute
               ? "px-3 md:px-3 md:py-3 xl:px-4"
-              : "px-3 md:px-3 md:py-3 md:pl-0 xl:px-5 xl:pl-0 min-[1400px]:pr-6",
+              : "px-3 md:px-4 md:py-4 xl:px-5 min-[1400px]:px-6",
           )}
         >
           <div className={cn("w-full min-w-0 max-w-full", !isProtectedScriptRoute && "mx-auto max-w-[1480px]")}>{children}</div>
@@ -73,19 +73,15 @@ function DesktopSidebar({ pathname, compact, onSearch }: { pathname: string; com
   return (
     <aside
       className={cn(
-        "app-sidebar liquid-sidebar sticky top-3 z-20 m-3 mr-0 hidden h-[calc(100dvh-1.5rem)] min-w-0 flex-col overflow-hidden rounded-[26px] py-4 print:hidden md:flex",
-        compact ? "px-2.5 xl:px-3.5" : "px-3",
+        "app-sidebar sticky top-0 hidden h-screen min-w-0 flex-col overflow-hidden border-r border-[#e5ded3] bg-[#fbfaf6] py-4 shadow-[6px_0_24px_rgba(111,92,71,0.045)] print:hidden md:flex",
+        compact ? "px-2 xl:px-3" : "px-3",
       )}
     >
-      <div className={cn("mb-5 flex flex-col items-center", compact && "xl:mb-6")}>
-        <div className={cn("relative flex items-center justify-center overflow-hidden rounded-2xl border border-white/80 bg-[linear-gradient(145deg,rgba(255,255,255,.92),rgba(224,240,222,.68))] text-[#3f7650] shadow-[inset_0_1px_0_rgba(255,255,255,.96),0_10px_28px_rgba(80,116,89,.16)]", compact ? "h-12 w-12 xl:h-14 xl:w-14" : "h-14 w-14")}>
-          <span className="absolute inset-1 rounded-xl border border-[#bdd7bd]/55" aria-hidden="true" />
-          <Flower2 className={cn("relative h-6 w-6", compact ? "xl:h-7 xl:w-7" : "h-7 w-7")} strokeWidth={1.45} />
+      <div className={cn("mb-5 flex flex-col items-center", compact && "xl:mb-5")}>
+        <div className={cn("flex items-center justify-center rounded-full border border-[#8eb799] bg-[#f5faf3] text-[#3f8156]", compact ? "h-11 w-11 xl:h-14 xl:w-14 xl:border-2" : "h-14 w-14 border-2")}>
+          <Sprout className={cn("h-6 w-6", compact ? "xl:h-8 xl:w-8" : "h-8 w-8")} strokeWidth={1.5} />
         </div>
-        <div className={cn("mt-2.5 text-center text-[13px] font-black leading-4 tracking-[0.16em] text-[#3b6148]", compact ? "hidden xl:block" : "block")}>
-          YOGA <span className="text-[#7b6d9d]">NURTURE</span>
-        </div>
-        <p className={cn("mt-1 text-[10px] font-bold tracking-[0.08em] text-[#7a817a]", compact && "hidden xl:block")}>TEACHING WORKSPACE</p>
+        <div className={cn("mt-2 text-center font-serif leading-5 tracking-[0.12em] text-[#3e764e]", compact ? "hidden text-[16px] xl:block" : "text-[16px]")}>YOGA<br />NURTURE</div>
       </div>
 
       <button
@@ -93,7 +89,7 @@ function DesktopSidebar({ pathname, compact, onSearch }: { pathname: string; com
         onClick={onSearch}
         title="全体検索（Ctrl / Cmd + K）"
         className={cn(
-          "liquid-control liquid-lift mb-4 flex w-full rounded-2xl font-semibold text-[#536159] hover:border-white hover:bg-white/75 hover:text-[#386f4a] focus-visible:outline-none",
+          "mb-4 flex w-full rounded-xl border border-[#dedbd2] bg-white/78 font-semibold text-[#59645a] transition hover:border-[#c9d8c5] hover:bg-[#eef4eb] hover:text-[#386f4a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6f9a76] focus-visible:ring-offset-2",
           compact
             ? "min-h-12 flex-col items-center justify-center gap-1 px-1 text-[12px] xl:h-10 xl:min-h-0 xl:flex-row xl:justify-start xl:gap-2.5 xl:px-3 xl:text-[13px]"
             : "h-10 items-center gap-2.5 px-3 text-[13px]",
@@ -102,10 +98,10 @@ function DesktopSidebar({ pathname, compact, onSearch }: { pathname: string; com
       >
         <Search className="h-4.5 w-4.5 shrink-0" strokeWidth={1.8} aria-hidden="true" />
         <span>検索</span>
-        <kbd className={cn("ml-auto rounded-lg border border-white/80 bg-white/56 px-1.5 py-0.5 text-[10px] font-semibold text-[#777d75] shadow-sm", compact && "hidden xl:inline")}>⌘ / Ctrl K</kbd>
+        <kbd className={cn("ml-auto rounded border border-[#ddd9d0] bg-[#f7f5f0] px-1.5 py-0.5 text-[9px] font-semibold text-[#777d75]", compact && "hidden xl:inline")}>⌘ / Ctrl K</kbd>
       </button>
 
-      <nav className="space-y-2.5" aria-label="メインナビゲーション">
+      <nav className="space-y-2" aria-label="メインナビゲーション">
         {navItems.map((item) => {
           const active = isActivePath(pathname, item.href);
           const Icon = item.icon;
@@ -116,13 +112,11 @@ function DesktopSidebar({ pathname, compact, onSearch }: { pathname: string; com
               aria-current={active ? "page" : undefined}
               title={compact ? item.label : undefined}
               className={cn(
-                "liquid-lift flex rounded-2xl border font-semibold focus-visible:outline-none",
+                "flex rounded-xl font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6f9a76] focus-visible:ring-offset-2",
                 compact
                   ? "min-h-14 flex-col items-center justify-center gap-1 px-1 text-[12px] xl:min-h-11 xl:flex-row xl:justify-start xl:gap-3 xl:px-3 xl:text-[14px]"
                   : "h-11 items-center gap-3 px-3 text-[14px]",
-                active
-                  ? "border-white/80 bg-[linear-gradient(145deg,rgba(231,244,229,.98),rgba(255,255,255,.72))] text-[#315f42] shadow-[inset_0_1px_0_rgba(255,255,255,.98),inset_0_0_20px_rgba(185,222,192,.26),0_9px_24px_rgba(63,104,74,.13)]"
-                  : "border-transparent text-[#4d5951] hover:border-white/70 hover:bg-white/44 hover:text-[#356946]",
+                active ? "bg-[#5d8f68] text-white shadow-[0_5px_14px_rgba(64,113,77,0.16)]" : "text-[#4c514b] hover:bg-[#eef4eb] hover:text-[#386f4a]",
               )}
             >
               <Icon className="h-5 w-5 shrink-0" strokeWidth={1.7} aria-hidden="true" />
@@ -133,9 +127,11 @@ function DesktopSidebar({ pathname, compact, onSearch }: { pathname: string; com
         })}
       </nav>
 
-      <div className={cn("mt-auto rounded-2xl border border-white/58 bg-white/28 p-3 text-[#667168] shadow-[inset_0_1px_0_rgba(255,255,255,.78)]", compact && "hidden xl:block")}>
-        <div className="flex items-center gap-2 text-[11px] font-black tracking-[0.05em] text-[#53665a]"><Sparkles className="h-4 w-4 text-[#7a6d9e]" />MY PRACTICE</div>
-        <p className="mt-1.5 text-[11px] font-medium leading-4.5">今日の記録が、次の指導の気づきになります。</p>
+      <div className={cn("pointer-events-none absolute -bottom-6 -left-7 h-80 w-64 opacity-[0.14]", compact && "hidden xl:block")} aria-hidden="true">
+        <Leaf className="absolute bottom-4 left-10 h-28 w-28 rotate-[-32deg] text-[#83946f]" strokeWidth={1} />
+        <Leaf className="absolute bottom-28 left-20 h-24 w-24 rotate-[22deg] text-[#83946f]" strokeWidth={1} />
+        <Leaf className="absolute bottom-44 left-2 h-20 w-20 rotate-[-12deg] text-[#83946f]" strokeWidth={1} />
+        <div className="absolute bottom-1 left-20 h-72 w-px -rotate-[24deg] bg-[#83946f]" />
       </div>
     </aside>
   );
@@ -147,14 +143,14 @@ function isActivePath(pathname: string, href: string) {
 
 function MobileTopBar({ title, onMenuClick }: { title: string; onMenuClick: () => void }) {
   return (
-    <header className="liquid-glass sticky left-2 right-2 top-2 z-40 mx-2 mt-2 flex h-14 items-center justify-between rounded-2xl px-3 print:hidden md:hidden">
-      <button type="button" onClick={onMenuClick} className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/44 text-[#536159] focus-visible:outline-none" aria-label="メニューを開く">
+    <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-[#e7dfd4] bg-[#fbfaf6]/96 px-4 backdrop-blur print:hidden md:hidden">
+      <button type="button" onClick={onMenuClick} className="flex h-10 w-10 items-center justify-center rounded-lg text-[#5d6b58] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6f9a76]" aria-label="メニューを開く">
         <Menu className="h-5 w-5" />
       </button>
       <div className="min-w-0 text-center">
         <div className="mx-auto flex items-center justify-center gap-1.5 text-[#4f875a]">
-          <Flower2 className="h-4 w-4" strokeWidth={1.7} />
-          <span className="text-[12px] font-black tracking-[0.12em]">YOGA NURTURE</span>
+          <Sprout className="h-4 w-4" strokeWidth={1.7} />
+          <span className="font-serif text-[13px] tracking-[0.08em]">YOGA NURTURE</span>
         </div>
         <p className="truncate text-[12px] font-semibold text-[#31372f]">{title}</p>
       </div>
@@ -175,21 +171,21 @@ function MobileMenu({ open, pathname, onClose }: { open: boolean; pathname: stri
 
   return (
     <div className={cn("fixed inset-0 z-[60] print:hidden md:hidden", open ? "pointer-events-auto" : "pointer-events-none")} aria-hidden={!open}>
-      <button type="button" aria-label="メニューを閉じる" onClick={onClose} tabIndex={open ? 0 : -1} className={cn("liquid-dialog-backdrop absolute inset-0 transition-opacity", open ? "opacity-100" : "opacity-0")} />
-      <aside className={cn("liquid-sidebar absolute inset-y-3 left-3 w-[286px] max-w-[82vw] rounded-[26px] p-4 transition-transform duration-200", open ? "translate-x-0" : "-translate-x-[calc(100%+1rem)]")}>
+      <button type="button" aria-label="メニューを閉じる" onClick={onClose} tabIndex={open ? 0 : -1} className={cn("absolute inset-0 bg-[#1e241c]/28 transition-opacity", open ? "opacity-100" : "opacity-0")} />
+      <aside className={cn("absolute inset-y-0 left-0 w-[286px] max-w-[82vw] border-r border-[#e7dfd4] bg-[#fbfaf6] p-4 shadow-[16px_0_34px_rgba(70,58,42,0.18)] transition-transform duration-200", open ? "translate-x-0" : "-translate-x-full")}>
         <div className="mb-5 flex items-center justify-between">
           <div className="flex items-center gap-2 text-[#4f875a]">
-            <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/80 bg-white/66"><Flower2 className="h-5 w-5" /></span>
+            <span className="flex h-10 w-10 items-center justify-center rounded-full border border-[#b7d7b6] bg-[#f4faf2]"><Sprout className="h-5 w-5" /></span>
             <div><p className="font-serif text-[14px] tracking-[0.1em]">YOGA NURTURE</p><p className="text-[12px] font-semibold text-[#6b7468]">メニュー</p></div>
           </div>
-          <button type="button" onClick={onClose} className="liquid-control flex h-10 w-10 items-center justify-center rounded-xl text-[#5d6b58] focus-visible:outline-none" aria-label="閉じる"><X className="h-5 w-5" /></button>
+          <button type="button" onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-lg border border-[#e4dbcf] bg-white text-[#5d6b58] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6f9a76]" aria-label="閉じる"><X className="h-5 w-5" /></button>
         </div>
         <nav className="grid gap-2" aria-label="モバイルメニュー">
           {navItems.map((item) => {
             const active = isActivePath(pathname, item.href);
             const Icon = item.icon;
             return (
-              <Link key={item.href} href={item.href} onClick={onClose} tabIndex={open ? 0 : -1} aria-current={active ? "page" : undefined} className={cn("flex h-12 items-center gap-3 rounded-2xl border px-3 text-[14px] font-semibold focus-visible:outline-none", active ? "border-white/80 bg-[linear-gradient(145deg,#e4f1e2,rgba(255,255,255,.72))] text-[#315f42] shadow-[0_8px_20px_rgba(65,106,76,.12)]" : "border-transparent bg-white/24 text-[#4c514b]")}>
+              <Link key={item.href} href={item.href} onClick={onClose} tabIndex={open ? 0 : -1} aria-current={active ? "page" : undefined} className={cn("flex h-12 items-center gap-3 rounded-xl px-3 text-[14px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6f9a76]", active ? "bg-[#5d8f68] text-white" : "border border-[#eee4d8] bg-white/74 text-[#4c514b]")}>
                 <Icon className="h-5 w-5" aria-hidden="true" />{item.label}
               </Link>
             );
@@ -202,14 +198,14 @@ function MobileMenu({ open, pathname, onClose }: { open: boolean; pathname: stri
 
 function MobileBottomNav({ pathname }: { pathname: string }) {
   return (
-    <nav className="liquid-glass fixed inset-x-2 bottom-2 z-50 rounded-2xl px-2 pb-[env(safe-area-inset-bottom)] print:hidden md:hidden" aria-label="下部ナビゲーション">
+    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-[#e7dfd4] bg-[#fbfaf6]/96 px-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(91,76,53,0.08)] backdrop-blur print:hidden md:hidden" aria-label="下部ナビゲーション">
       <div className="grid h-16 grid-cols-5">
         {navItems.map((item) => {
           const active = isActivePath(pathname, item.href);
           const Icon = item.icon;
           return (
             <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} className={cn("flex flex-col items-center justify-center gap-1 rounded-xl text-[12px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6f9a76]", active ? "text-[#5d8f68]" : "text-[#787d75]")}>
-              <span className={cn("flex h-8 w-8 items-center justify-center rounded-xl", active ? "border border-white/80 bg-[#e3efdf] shadow-sm" : "bg-transparent")}><Icon className="h-5 w-5" strokeWidth={1.7} aria-hidden="true" /></span>
+              <span className={cn("flex h-8 w-8 items-center justify-center rounded-full", active ? "bg-[#e3efdf]" : "bg-transparent")}><Icon className="h-5 w-5" strokeWidth={1.7} aria-hidden="true" /></span>
               {item.shortLabel}
             </Link>
           );

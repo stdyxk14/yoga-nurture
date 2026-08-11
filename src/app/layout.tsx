@@ -3,7 +3,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppShell } from "@/components/yoga/app-shell";
 import "./globals.css";
-import "./liquid-glass.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

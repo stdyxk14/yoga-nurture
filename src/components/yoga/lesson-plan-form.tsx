@@ -935,7 +935,7 @@ function FloatingBlockSearchBar({
   return (
     <div className="pointer-events-none fixed bottom-5 left-[220px] right-6 z-40 hidden xl:block 2xl:left-[500px] 2xl:right-[350px]">
       {filtersOpen ? (
-        <div className="liquid-dialog-surface pointer-events-auto mb-2 max-h-[56vh] overflow-y-auto rounded-3xl bg-[#fffdf8]/90 p-3">
+        <div className="pointer-events-auto mb-2 max-h-[56vh] overflow-y-auto rounded-3xl border border-[#e5ded3] bg-[#fffdf8] p-3 shadow-[0_12px_30px_rgba(75,65,48,0.12)]">
           <FilterControls
             visibleSubcategories={visibleSubcategories}
             tags={tags}
@@ -961,7 +961,7 @@ function FloatingBlockSearchBar({
           />
         </div>
       ) : null}
-      <div className="liquid-action-bar pointer-events-auto rounded-3xl p-2">
+      <div className="pointer-events-auto rounded-3xl border border-[#e5ded3] bg-[#fffdf8]/96 p-2 shadow-[0_10px_26px_rgba(75,65,48,0.12)] backdrop-blur">
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative min-w-[260px] flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#8a9286]" />
