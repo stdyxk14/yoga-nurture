@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { ArrowLeft, BarChart3, FileText, History, MessageSquareText, Pencil, Sparkles } from "lucide-react";
+import { BarChart3, FileText, History, MessageSquareText, Pencil, Sparkles } from "lucide-react";
 import { BlockAiSuggestionPanel } from "@/components/yoga/block-ai-suggestion-panel";
-import { PageHeader, Pill, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
+import { Pill, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
 import { RichScriptText } from "@/components/yoga/rich-script-text";
+import { WorkspaceAction, WorkspaceActionBar, WorkspacePageHeader, WorkspaceStatus } from "@/components/yoga/workspace-kit";
 import type { BlockUsageHistory } from "@/components/yoga/records";
 import type { StudentAiSuggestionState } from "@/lib/ai-suggestions";
 import type { DbBlockTemplate } from "@/lib/blocks";
@@ -32,36 +33,27 @@ export function BlockDetail({
         <MobileBlockDetail block={block} histories={histories} aiSuggestionState={aiSuggestionState} />
       </div>
       <div className="hidden md:block">
-      <PageHeader title="ブロック詳細" subtitle="原稿・利用実績・改善履歴をまとめて確認" />
+      <WorkspacePageHeader
+        eyebrow="BLOCK LIBRARY"
+        title={block.name}
+        description="誘導セリフ、利用実績、実施後記録からの改善履歴をまとめて確認できます。"
+        backLink={{ href: "/lessons?tab=blocks", label: "ブロック一覧へ戻る" }}
+        meta={<><WorkspaceStatus tone="green">{block.majorCategory}</WorkspaceStatus><WorkspaceStatus tone="sand">{block.minorCategory}</WorkspaceStatus><WorkspaceStatus tone="purple">{block.duration}</WorkspaceStatus></>}
+      />
 
-      <div className="mb-3 flex flex-wrap justify-end gap-2">
-        <Link href="/lessons?tab=blocks" className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
-          <ArrowLeft className="h-3.5 w-3.5" />
-          ブロック一覧に戻る
-        </Link>
-        <Link href="/lessons?tab=plans" className="inline-flex h-8 items-center rounded-lg border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
-          レッスンプランに戻る
-        </Link>
-        <a href="#history" className="inline-flex h-8 items-center rounded-lg bg-[#5d956d] px-3 text-[12px] font-bold text-white">
-          関連する記録を見る
-        </a>
-      </div>
+      <WorkspaceActionBar className="my-4">
+        <WorkspaceAction href="#history" icon={History}>関連する記録</WorkspaceAction>
+        <WorkspaceAction href="/lessons?tab=plans">レッスンプラン一覧</WorkspaceAction>
+        <WorkspaceAction href={`/blocks/${block.id}/edit`} icon={Pencil} variant="primary">編集</WorkspaceAction>
+      </WorkspaceActionBar>
 
-      <section className="grid grid-cols-[minmax(0,1fr)_330px] gap-4">
+      <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px] xl:grid-cols-[minmax(0,1fr)_330px]">
         <SoftCard className="p-4">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start justify-between gap-4 border-b border-[#ebe3d8] pb-3">
             <div className="min-w-0">
-              <h2 className="truncate text-[24px] font-extrabold">{block.name}</h2>
-              <div className="mt-2 flex flex-wrap gap-2 text-[12px] font-bold">
-                <span className="max-w-[220px] truncate rounded-full bg-[#edf5ef] px-3 py-1 text-[#4f875a]" title={block.majorCategory}>{block.majorCategory}</span>
-                <span className="max-w-[220px] truncate rounded-full bg-[#fff7e8] px-3 py-1 text-[#9b7338]" title={block.minorCategory}>{block.minorCategory}</span>
-                <span className="rounded-full bg-[#f2efff] px-3 py-1 text-[#7469bf]">{block.duration}</span>
-              </div>
+              <h2 className="text-[17px] font-semibold">ブロック内容</h2>
+              <p className="mt-1 text-[13px] leading-5 text-[var(--yn-text-muted)]">原稿で使用する目的・注意点・誘導セリフです。</p>
             </div>
-            <Link href={`/blocks/${block.id}/edit`} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
-              <Pencil className="h-3.5 w-3.5" />
-              編集
-            </Link>
           </div>
 
           <div className="mt-4 grid grid-cols-3 gap-3">
@@ -73,7 +65,7 @@ export function BlockDetail({
           <div className="mt-4">
             <SectionTitle icon={FileText} title="誘導セリフ全文" />
             <div className="rounded-xl border border-[#eee4d8] bg-white/72 p-4">
-              <RichScriptText text={block.script} className="whitespace-pre-wrap text-[13px] font-medium leading-7 text-[#30362f]" />
+              <RichScriptText text={block.script} className="whitespace-pre-wrap text-[14px] font-normal leading-7 text-[#30362f]" />
             </div>
           </div>
 
@@ -103,7 +95,7 @@ export function BlockDetail({
 
           <SoftCard className="p-3.5">
             <SectionTitle icon={Sparkles} title="まとめ" />
-            <div className="grid gap-2 text-[12px] font-medium leading-5 text-[#50584e]">
+            <div className="grid gap-2 text-[13px] font-normal leading-5 text-[#50584e]">
               <SummaryNote title="よく出てくる講師メモ" body={histories[0]?.teacherMemo ?? "まだ使用履歴はありません。初回利用後に講師メモが蓄積されます。"} />
               <SummaryNote title="改善メモの要点" body={histories.find((history) => history.improvementMemo)?.improvementMemo ?? "まだ改善メモはありません。"} />
               <SummaryNote title="反応が良かったときの傾向" body="レッスン後記録が蓄積されると表示されます。" />
@@ -267,9 +259,9 @@ function MiniHistory({ label, value }: { label: string; value: string }) {
 
 function InfoCard({ label, value, tone = "green" }: { label: string; value: string; tone?: "green" | "coral" }) {
   return (
-    <div className="min-w-0 rounded-xl border border-[#eee4d8] bg-white/72 p-3">
-      <p className={tone === "coral" ? "text-[12px] font-bold text-[#d96c55]" : "text-[12px] font-bold text-[#4f7b58]"}>{label}</p>
-      <p className="mt-1 line-clamp-3 text-[12px] font-medium leading-5 text-[#50584e]">{value}</p>
+    <div className="min-w-0 border-l-2 border-[#d9e5d5] py-1 pl-3">
+      <p className={tone === "coral" ? "text-[13px] font-semibold text-[#d06a57]" : "text-[13px] font-semibold text-[#4f7b58]"}>{label}</p>
+      <p className="mt-1 line-clamp-3 text-[13px] font-normal leading-5 text-[#50584e]">{value}</p>
     </div>
   );
 }
@@ -277,8 +269,8 @@ function InfoCard({ label, value, tone = "green" }: { label: string; value: stri
 function SummaryStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-[#eee4d8] bg-white/72 p-3 text-center">
-      <p className="text-[11px] font-bold text-[#7c8476]">{label}</p>
-      <p className="mt-1 truncate text-[22px] font-extrabold text-[#4f875a]">{value}</p>
+      <p className="text-[13px] font-medium text-[#7c8476]">{label}</p>
+      <p className="mt-1 truncate text-[20px] font-semibold text-[#4f875a]">{value}</p>
     </div>
   );
 }

@@ -1,14 +1,22 @@
 "use client";
 
-import { useMemo, useState, useActionState } from "react";
-import type { ReactNode } from "react";
+import { useActionState, useMemo, useState } from "react";
 import Link from "next/link";
 import { CalendarDays, CheckCircle2, FileText, Save, UsersRound } from "lucide-react";
 import { createScheduleAction } from "@/app/schedules/actions";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { StudentRecord } from "@/components/yoga/records";
-import { PageHeader, Pill, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
+import {
+  WorkspaceAction,
+  WorkspaceActionBar,
+  WorkspaceEmptyState,
+  WorkspaceFeedback,
+  WorkspaceField,
+  WorkspaceFormSection,
+  WorkspacePageHeader,
+  WorkspaceStatus,
+} from "@/components/yoga/workspace-kit";
 import type { DbLessonPlan } from "@/lib/lesson-plans";
 import type { DbSchedule, ScheduleFormState } from "@/lib/schedules";
 
@@ -22,13 +30,11 @@ type Props = {
 };
 
 const initialState: ScheduleFormState = {};
-
 const lessonFormatOptions = [
   { value: "group", label: "グループ" },
   { value: "personal", label: "パーソナル" },
   { value: "online", label: "オンライン" },
 ] as const;
-
 const scheduleStatusOptions = [
   { value: "scheduled", label: "予定" },
   { value: "preparing", label: "事前準備中" },
@@ -48,177 +54,143 @@ export function ScheduleForm({ plans, students, initialPlanId, schedule, action 
   const selectedStudentIds = new Set(schedule?.participants.map((student) => student.id) ?? []);
   const startsAt = schedule ? toTokyoInputValues(schedule.startsAt) : null;
   const endsAt = schedule ? toTokyoInputValues(schedule.endsAt) : null;
-  const title = mode === "edit" ? "予定編集" : "予定登録";
-  const subtitle = mode === "edit" ? "レッスン予定の日時・場所・参加予定生徒を更新します。" : "作成済みレッスンプランに日時・場所・参加予定生徒を紐づけます。";
-  const submitLabel = mode === "edit" ? "予定を更新" : "この内容で予定を登録";
-  const pendingLabel = mode === "edit" ? "更新中..." : "保存中...";
+  const isEdit = mode === "edit";
   const cancelHref = schedule ? `/schedules/${schedule.id}` : "/lessons";
 
   return (
-    <form action={formAction} className="space-y-4 pb-24 md:pb-0">
-      <PageHeader title={title} subtitle={subtitle} />
+    <form action={formAction} aria-busy={pending} className="mx-auto max-w-[1320px] space-y-4 pb-10">
+      <WorkspacePageHeader
+        title={isEdit ? "レッスン予定を編集" : "レッスン予定を登録"}
+        description={isEdit ? "日時・場所・参加予定生徒を更新します。" : "保存済みのレッスンプランに、日時と参加予定生徒を紐づけます。"}
+        backLink={{ href: cancelHref, label: isEdit ? "予定詳細へ戻る" : "レッスンカルテへ戻る" }}
+        eyebrow="LESSON SCHEDULE"
+        meta={<span>プラン → 日時・場所 → 参加予定生徒の順に確認します</span>}
+      />
 
-      {state.error ? (
-        <p className="rounded-xl border border-[#f2c7be] bg-[#fff0ea] px-4 py-3 text-[13px] font-bold text-[#c4523d]">{state.error}</p>
-      ) : null}
+      {state.error ? <WorkspaceFeedback tone="error">{state.error}</WorkspaceFeedback> : null}
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="space-y-4">
-          <SoftCard className="p-4">
-            <SectionTitle icon={FileText} title="使用するレッスンプランを選択" subtitle="保存済みのレッスンプランから予定に使う内容を選びます。" />
-            {plans.length ? (
-              <>
-                <div className="mt-4 rounded-2xl border border-[#eee4d8] bg-[#fbfaf6] p-3 text-[12px] font-semibold leading-5 text-[#6b7468]">
-                  使いたいレッスンプランがまだない場合は、先にレッスンプランを作成してください。
-                  <Link href="/lessons/new" className="ml-2 inline-flex h-8 items-center rounded-lg bg-[#5d956d] px-3 text-[12px] font-bold text-white">
-                    新しくレッスンプランを作成
-                  </Link>
-                </div>
-                <div className="mt-4 grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
-                  {plans.map((plan) => {
-                    const active = selectedPlanId === plan.id;
-                    return (
-                      <button
-                        key={plan.id}
-                        type="button"
-                        onClick={() => setSelectedPlanId(plan.id)}
-                        className={
-                          active
-                            ? "min-h-[176px] rounded-2xl border border-[#5d956d] bg-[#edf5ef] p-3 text-left shadow-[0_8px_18px_rgba(64,113,77,0.12)]"
-                            : "min-h-[176px] rounded-2xl border border-[#eee4d8] bg-white/75 p-3 text-left"
-                        }
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <h2 className="line-clamp-2 text-[15px] font-extrabold leading-5">{plan.name}</h2>
-                          {active ? <CheckCircle2 className="h-4 w-4 shrink-0 text-[#5d956d]" /> : null}
-                        </div>
-                        <p className="mt-2 line-clamp-2 text-[12px] font-semibold leading-5 text-[#5f665c]">{plan.theme || "テーマ未設定"}</p>
-                        <div className="mt-3 grid grid-cols-2 gap-2">
-                          <MiniInfo label="合計時間" value={`${plan.totalMinutes}分`} />
-                          <MiniInfo label="ブロック数" value={`${plan.blockCount}個`} />
-                        </div>
-                        <div className="mt-3 flex flex-wrap gap-1.5">
-                          {plan.tags.length ? plan.tags.slice(0, 3).map((tag) => <Pill key={tag}>{tag}</Pill>) : <Pill>タグ未設定</Pill>}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            ) : (
-              <div className="mt-4 rounded-2xl border border-dashed border-[#d8e3d4] bg-white/60 p-6 text-center">
-                <p className="text-[15px] font-extrabold">まだレッスンプランがありません。</p>
-                <p className="mt-2 text-[13px] font-medium leading-6 text-[#6b7468]">先にブロックを組み合わせて、予定に紐づけるレッスンプランを作成してください。</p>
-                <Link href="/lessons/new" className="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-[#5d956d] px-4 text-[13px] font-bold text-white">
-                  新しくレッスンプランを作成
-                </Link>
+      <WorkspaceActionBar className="sticky top-[4.5rem] md:top-4" sticky={false}>
+        <WorkspaceAction href={cancelHref} variant="secondary">キャンセル</WorkspaceAction>
+        <WorkspaceAction type="submit" disabled={pending || !plans.length} variant="primary" icon={Save}>
+          {pending ? (isEdit ? "更新中…" : "保存中…") : isEdit ? "予定を更新" : "予定を登録"}
+        </WorkspaceAction>
+      </WorkspaceActionBar>
+
+      <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.08fr)_minmax(340px,0.92fr)]">
+        <WorkspaceFormSection title="1. 使用するレッスンプラン" description="予定のベースにする保存済みプランを1つ選びます。">
+          {plans.length ? (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[var(--yn-surface-muted)] px-3 py-2.5 text-[13px] text-[var(--yn-text-muted)]">
+                <span>選択中：<strong className="font-semibold text-[var(--yn-text)]">{selectedPlan?.name ?? "未選択"}</strong></span>
+                <Link href="/lessons/new" className="font-semibold text-[var(--yn-primary-strong)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--yn-focus)]">新しいプランを作成</Link>
               </div>
-            )}
-            <input type="hidden" name="lesson_plan_id" value={selectedPlanId} />
-          </SoftCard>
-
-          <SoftCard className="p-4">
-            <SectionTitle icon={CalendarDays} title="日時・場所" subtitle="60分以外の予定も、開始と終了で登録できます。" />
-            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              <Field label="日付">
-                <Input name="date" type="date" defaultValue={startsAt?.date ?? defaultDate} required className="h-10 bg-white/90" />
-              </Field>
-              <Field label="開始時間">
-                <Input name="start_time" type="time" defaultValue={startsAt?.time ?? "10:00"} required className="h-10 bg-white/90" />
-              </Field>
-              <Field label="終了時間">
-                <Input name="end_time" type="time" defaultValue={endsAt?.time ?? "11:00"} required className="h-10 bg-white/90" />
-              </Field>
-              <Field label="場所">
-                <Input name="place" defaultValue={schedule?.place || selectedPlan?.place || "スタジオA"} required className="h-10 bg-white/90" />
-              </Field>
-              <Field label="形式">
-                <select name="format" defaultValue={schedule?.format || selectedPlan?.format || "group"} className="h-10 w-full rounded-xl border border-[#e1d9ce] bg-white/90 px-3 text-[13px] font-semibold">
-                  {lessonFormatOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </select>
-              </Field>
-              <Field label="ステータス">
-                <select name="status" defaultValue={schedule?.status ?? "scheduled"} className="h-10 w-full rounded-xl border border-[#e1d9ce] bg-white/90 px-3 text-[13px] font-semibold">
-                  {scheduleStatusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </select>
-              </Field>
-            </div>
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <Field label="この予定の注意事項">
-                <Textarea
-                  name="schedule_caution"
-                  defaultValue={schedule?.scheduleCaution ?? ""}
-                  placeholder="例：今日は初参加の生徒がいるため、導入をゆっくりめにする"
-                  className="min-h-[96px] bg-white/90 text-[13px]"
-                />
-              </Field>
-              <Field label="この予定のメモ">
-                <Textarea
-                  name="schedule_memo"
-                  defaultValue={schedule?.scheduleMemo ?? ""}
-                  placeholder="例：スタジオBは床が冷えやすいのでブランケット確認"
-                  className="min-h-[96px] bg-white/90 text-[13px]"
-                />
-              </Field>
-            </div>
-          </SoftCard>
-        </div>
-
-        <div className="space-y-4">
-          <SoftCard className="p-4">
-            <SectionTitle icon={UsersRound} title="参加予定生徒" subtitle="予定時点の参加予定者を選びます。" />
-            {students.length ? (
-              <div className="mt-4 grid gap-2">
-                {students.map((student) => (
-                  <label key={student.id} className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[#eee4d8] bg-white/75 p-3">
-                    <input name="student_ids" value={student.id} type="checkbox" defaultChecked={selectedStudentIds.has(student.id)} className="mt-1 h-4 w-4 shrink-0 accent-[#5d956d]" />
-                    <span className="min-w-0">
-                      <span className="block text-[13px] font-extrabold">{student.name}</span>
-                      <span className="mt-1 block line-clamp-2 text-[11px] font-medium leading-5 text-[#6b7468]">注意点: {student.caution || "未登録"}</span>
-                      <span className="mt-1 block line-clamp-2 text-[11px] font-medium leading-5 text-[#6b7468]">メモ: {student.memo || "未登録"}</span>
-                    </span>
-                  </label>
-                ))}
+              <div className="max-h-[430px] space-y-2 overflow-y-auto overscroll-contain pr-1">
+                {plans.map((plan) => {
+                  const active = selectedPlanId === plan.id;
+                  return (
+                    <button
+                      key={plan.id}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => setSelectedPlanId(plan.id)}
+                      className={active
+                        ? "flex w-full items-start gap-3 rounded-xl border border-[#83aa8a] bg-[#edf5ef] p-3 text-left shadow-[0_3px_10px_rgba(64,113,77,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--yn-focus)]"
+                        : "flex w-full items-start gap-3 rounded-xl border border-[var(--yn-border)] bg-white/76 p-3 text-left transition hover:border-[#bdcfb9] hover:bg-[#f8faf6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--yn-focus)]"}
+                    >
+                      <span className={active ? "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#5d8f68] text-white" : "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#d8ddd3] bg-white text-[#8a8f86]"}>
+                        {active ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> : <FileText className="h-4 w-4" aria-hidden="true" />}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[14px] font-semibold text-[var(--yn-text)]">{plan.name}</span>
+                        <span className="mt-1 line-clamp-2 block text-[13px] leading-5 text-[var(--yn-text-muted)]">{plan.theme || "テーマ未設定"}</span>
+                        <span className="mt-2 flex flex-wrap gap-1.5">
+                          <WorkspaceStatus tone="sand">{plan.totalMinutes}分</WorkspaceStatus>
+                          <WorkspaceStatus>{plan.blockCount}ブロック</WorkspaceStatus>
+                          {plan.tags.slice(0, 2).map((tag) => <WorkspaceStatus key={tag} tone="green">{tag}</WorkspaceStatus>)}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
-            ) : (
-              <div className="mt-4 rounded-2xl border border-dashed border-[#d8e3d4] bg-white/60 p-5 text-center">
-                <p className="text-[13px] font-bold text-[#6b7468]">まだ生徒が登録されていません。</p>
-                <Link href="/students/new" className="mt-3 inline-flex h-9 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white px-4 text-[12px] font-bold text-[#4f7b58]">
-                  生徒を登録
-                </Link>
-              </div>
-            )}
-          </SoftCard>
+            </>
+          ) : (
+            <WorkspaceEmptyState
+              title="レッスンプランがありません"
+              description="先にブロックを組み合わせて、予定のベースになるプランを作成してください。"
+              action={<WorkspaceAction href="/lessons/new" variant="primary">レッスンプランを作成</WorkspaceAction>}
+            />
+          )}
+          <input type="hidden" name="lesson_plan_id" value={selectedPlanId} />
+        </WorkspaceFormSection>
 
-          <SoftCard className="p-4">
-            <p className="text-[13px] font-extrabold text-[#4f7b58]">次の流れ</p>
-            <div className="mt-3 grid gap-2 text-[12px] font-semibold leading-5 text-[#50584e]">
-              <p>1. 予定を保存する</p>
-              <p>2. 紐づくレッスンプランから原稿を印刷する</p>
-              <p>3. レッスン後に実施後記録へ進む</p>
-            </div>
-            <div className="mt-4 grid gap-2">
-              <button type="submit" disabled={pending || !plans.length} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#5d956d] px-5 text-[13px] font-bold text-white shadow-[0_8px_18px_rgba(64,113,77,0.2)] disabled:opacity-60">
-                <Save className="h-4 w-4" />
-                {pending ? pendingLabel : submitLabel}
-              </button>
-              <Link href={cancelHref} className="inline-flex h-10 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white px-4 text-[13px] font-bold text-[#4f7b58]">
-                キャンセル
-              </Link>
-            </div>
-          </SoftCard>
-        </div>
+        <WorkspaceFormSection title="2. 日時・場所" description="開始と終了を分けて登録できます。">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <WorkspaceField label="日付" required>
+              <Input name="date" type="date" defaultValue={startsAt?.date ?? defaultDate} required className="yn-control" />
+            </WorkspaceField>
+            <WorkspaceField label="場所" required>
+              <Input name="place" defaultValue={schedule?.place || selectedPlan?.place || "スタジオA"} required className="yn-control" />
+            </WorkspaceField>
+            <WorkspaceField label="開始時間" required>
+              <Input name="start_time" type="time" defaultValue={startsAt?.time ?? "10:00"} required className="yn-control" />
+            </WorkspaceField>
+            <WorkspaceField label="終了時間" required>
+              <Input name="end_time" type="time" defaultValue={endsAt?.time ?? "11:00"} required className="yn-control" />
+            </WorkspaceField>
+            <WorkspaceField label="形式" required>
+              <select name="format" defaultValue={schedule?.format || selectedPlan?.format || "group"} required className="yn-control w-full px-3">
+                {lessonFormatOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+            </WorkspaceField>
+            <WorkspaceField label="ステータス" required>
+              <select name="status" defaultValue={schedule?.status ?? "scheduled"} required className="yn-control w-full px-3">
+                {scheduleStatusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+            </WorkspaceField>
+          </div>
+          <div className="rounded-lg border border-[#e7dfd4] bg-[#faf8f3] px-3 py-3 text-[13px] leading-5 text-[var(--yn-text-muted)]">
+            <CalendarDays className="mr-1.5 inline h-4 w-4 text-[#5d8f68]" aria-hidden="true" />
+            保存後は、この予定から原稿と実施後記録へ進めます。
+          </div>
+        </WorkspaceFormSection>
       </div>
-    </form>
-  );
-}
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <label className="block min-w-0">
-      <span className="mb-1 block text-[12px] font-bold text-[#5f665c]">{label}</span>
-      {children}
-    </label>
+      <WorkspaceFormSection title="3. 参加予定生徒" description="予定時点の参加者を選びます。未選択でも保存できます。">
+        {students.length ? (
+          <div className="max-h-[390px] overflow-y-auto overscroll-contain rounded-xl border border-[var(--yn-border)] bg-[#faf8f3] p-2">
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+              {students.map((student) => (
+                <label key={student.id} className="flex cursor-pointer items-start gap-3 rounded-lg border border-transparent bg-white/80 p-3 transition hover:border-[#cbdac7] has-[:checked]:border-[#8fb296] has-[:checked]:bg-[#f1f7ef]">
+                  <input name="student_ids" value={student.id} type="checkbox" defaultChecked={selectedStudentIds.has(student.id)} className="mt-1 h-4 w-4 shrink-0 accent-[#5d8f68] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6f9a76]" />
+                  <span className="min-w-0">
+                    <span className="block text-[14px] font-semibold text-[var(--yn-text)]">{student.name}</span>
+                    <span className="mt-1 line-clamp-2 block text-[13px] leading-5 text-[var(--yn-text-muted)]">注意点：{student.caution || "未登録"}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <WorkspaceEmptyState title="生徒が登録されていません" description="参加者は後から編集できます。" action={<WorkspaceAction href="/students/new">生徒を登録</WorkspaceAction>} />
+        )}
+      </WorkspaceFormSection>
+
+      <WorkspaceFormSection title="当日の注意・補足" description="この予定にだけ必要な情報です。レッスンプラン本体は変更しません。">
+        <div className="grid gap-4 xl:grid-cols-2">
+          <WorkspaceField label="この予定の注意事項">
+            <Textarea name="schedule_caution" defaultValue={schedule?.scheduleCaution ?? ""} placeholder="例：今日は初参加の生徒がいるため、導入をゆっくりめにする" className="min-h-[120px] text-[14px]" />
+          </WorkspaceField>
+          <WorkspaceField label="この予定のメモ">
+            <Textarea name="schedule_memo" defaultValue={schedule?.scheduleMemo ?? ""} placeholder="例：スタジオBは床が冷えやすいのでブランケット確認" className="min-h-[120px] text-[14px]" />
+          </WorkspaceField>
+        </div>
+        <div className="flex items-start gap-2 rounded-lg bg-[#f5f3ee] px-3 py-3 text-[13px] leading-5 text-[var(--yn-text-muted)]">
+          <UsersRound className="mt-0.5 h-4 w-4 shrink-0 text-[#7568a7]" aria-hidden="true" />
+          生徒の注意点は各生徒カルテから参照し、ここでは予定全体に関わる事項だけを記録します。
+        </div>
+      </WorkspaceFormSection>
+    </form>
   );
 }
 
@@ -233,18 +205,5 @@ function toTokyoInputValues(value: string) {
     hour12: false,
   }).formatToParts(new Date(value));
   const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
-
-  return {
-    date: `${get("year")}-${get("month")}-${get("day")}`,
-    time: `${get("hour")}:${get("minute")}`,
-  };
-}
-
-function MiniInfo({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-[#eee4d8] bg-white/70 px-2 py-2">
-      <p className="truncate text-[10px] font-bold text-[#7c8476]">{label}</p>
-      <p className="mt-0.5 truncate text-[13px] font-extrabold text-[#4f875a]">{value}</p>
-    </div>
-  );
+  return { date: `${get("year")}-${get("month")}-${get("day")}`, time: `${get("hour")}:${get("minute")}` };
 }

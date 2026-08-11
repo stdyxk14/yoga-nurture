@@ -1,12 +1,13 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ArrowDownUp, BarChart3, Dumbbell, HeartHandshake, NotebookPen, ShieldAlert, Sparkles, Target, UserRound } from "lucide-react";
+import { ArrowDownUp, BarChart3, Dumbbell, HeartHandshake, NotebookPen, Pencil, ShieldAlert, Sparkles, Target, UserRound } from "lucide-react";
 import { updateFollowUpStatusAction } from "@/app/follow-ups/actions";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { PageHeader, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
+import { SectionTitle, SoftCard } from "@/components/yoga/page-kit";
 import type { FollowUpStatus, StudentAttendanceStats, StudentLessonHistory, StudentObservation, StudentRecord } from "@/components/yoga/records";
 import { StudentAiButton } from "@/components/yoga/student-ai-button";
 import { StudentAiSuggestionPanel } from "@/components/yoga/student-ai-suggestion-panel";
+import { WorkspaceAction, WorkspaceActionBar, WorkspacePageHeader } from "@/components/yoga/workspace-kit";
 import type { StudentAiSuggestionState } from "@/lib/ai-suggestions";
 
 export function StudentDetail({
@@ -36,17 +37,22 @@ export function StudentDetail({
       </div>
 
       <div className="hidden md:block">
-        <PageHeader title="生徒カルテ詳細" subtitle="レッスン後コメントと連動して生徒の変化を確認" />
+        <WorkspacePageHeader
+          eyebrow="STUDENT PROFILE"
+          title={student.name}
+          description="安全上の注意、最近の変化、受講履歴をひとつのカルテで確認できます。"
+          backLink={{ href: "/students", label: "生徒カルテ一覧へ戻る" }}
+          meta={<><span>{student.kana}</span><span aria-hidden="true">・</span><span>{student.ageGroup} / {student.gender}</span></>}
+        />
 
-        <div className="mb-3 flex justify-end gap-2">
-          <Link href="/students" className="inline-flex h-8 items-center rounded-lg border border-[#d8e3d4] bg-white px-3 text-[13px] font-bold text-[#4f7b58]">一覧に戻る</Link>
-          <Link href={`/students/${student.id}/edit`} className="inline-flex h-8 items-center rounded-lg bg-[#5d956d] px-4 text-[13px] font-bold text-white">編集する</Link>
-        </div>
+        <WorkspaceActionBar className="mt-4">
+          <WorkspaceAction href={`/students/${student.id}/edit`} icon={Pencil} variant="primary">編集</WorkspaceAction>
+        </WorkspaceActionBar>
 
         <SafetyBrief student={student} observations={observations} stats={stats} />
 
         <SoftCard className="mt-4 p-4">
-          <div className="grid grid-cols-[160px_minmax(0,1fr)] gap-5">
+          <div className="grid grid-cols-[140px_minmax(0,1fr)] gap-5 xl:grid-cols-[160px_minmax(0,1fr)]">
             <div className="flex flex-col items-center justify-center">
               <div className="flex h-32 w-32 items-center justify-center rounded-2xl bg-[#edf4ea] text-[#4f875a] shadow-inner">
                 <UserRound className="h-20 w-20" strokeWidth={1.35} />
@@ -54,16 +60,15 @@ export function StudentDetail({
               <p className="mt-3 text-[13px] font-bold text-[#657064]">{student.ageGroup} / {student.gender}</p>
             </div>
             <div className="min-w-0">
-              <div className="mb-3 flex items-end gap-4 border-b border-[#ebe3d8] pb-2">
-                <h1 className="text-[28px] font-extrabold leading-tight">{student.name}</h1>
-                <p className="pb-1 text-[13px] font-semibold">{student.kana}</p>
+              <div className="mb-3 border-b border-[#ebe3d8] pb-2">
+                <h2 className="text-[17px] font-semibold leading-tight">基本プロフィール</h2>
               </div>
               <div className="grid grid-cols-3 gap-3">
                 {profileItems.map(([label, value, Icon]) => (
-                  <div key={label} className="min-h-[96px] rounded-xl border border-[#eee4d8] bg-white/72 p-3">
+                  <div key={label} className="min-h-[96px] border-l-2 border-[#d9e5d5] py-1 pl-3">
                     <div className="mb-2 flex items-center gap-2">
                       <Icon className="h-4 w-4 shrink-0 text-[#8b6138]" strokeWidth={1.8} />
-                      <span className="text-[13px] font-bold">{label}</span>
+                      <span className="text-[13px] font-semibold">{label}</span>
                     </div>
                     <p className="text-[13px] font-medium leading-5 text-[#33372f]">{value}</p>
                   </div>

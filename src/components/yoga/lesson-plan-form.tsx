@@ -11,6 +11,9 @@ import type { BlockCategory, DbBlockTemplate } from "@/lib/blocks";
 import type { StudentAiSuggestionState } from "@/lib/ai-suggestions";
 import type { DbLessonPlan, LessonPlanFormState } from "@/lib/lesson-plans";
 import { Pill, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
+import { ConfirmSubmitButton } from "@/components/yoga/confirm-submit-button";
+import { LessonRecordDialog } from "@/components/yoga/lesson-record-dialog";
+import { WorkspaceFeedback, WorkspacePageHeader } from "@/components/yoga/workspace-kit";
 
 type Props = {
   mode: "new" | "edit";
@@ -226,19 +229,23 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, in
 
   return (
     <>
-      <form action={formAction} className="space-y-4 pb-36 min-[960px]:pb-0">
-      {selectedBlocks.map((block, index) => (
-        <input key={`${block.id}-${index}`} type="hidden" name="block_ids" value={block.id} />
-      ))}
-      <div className="grid gap-3 min-[960px]:grid-cols-[190px_minmax(0,1fr)_210px] lg:grid-cols-[220px_minmax(0,1fr)_240px] xl:grid-cols-[250px_minmax(0,1fr)_280px] 2xl:grid-cols-[280px_minmax(0,1fr)_320px]">
+      <form action={formAction} aria-busy={pending} className="space-y-4 pb-36 min-[960px]:pb-0">
+        <WorkspacePageHeader
+          eyebrow="LESSON PLAN"
+          title={mode === "new" ? "レッスンプランを作成" : "レッスンプランを編集"}
+          description="基本情報とブロック構成をひとつのワークスペースで確認しながら、印刷できる原稿を組み立てます。"
+          backLink={{ href: initialPlan ? `/lessons/${initialPlan.id}` : "/lessons?tab=plans", label: initialPlan ? "レッスンプラン詳細へ戻る" : "レッスンプラン一覧へ戻る" }}
+        />
+        {selectedBlocks.map((block, index) => (
+          <input key={`${block.id}-${index}`} type="hidden" name="block_ids" value={block.id} />
+        ))}
+      <div className="grid gap-3 min-[960px]:grid-cols-[210px_minmax(360px,1fr)_240px] lg:grid-cols-[220px_minmax(0,1fr)_250px] xl:grid-cols-[250px_minmax(0,1fr)_280px] 2xl:grid-cols-[280px_minmax(0,1fr)_320px]">
         <div className="space-y-4 min-[960px]:sticky min-[960px]:top-4 min-[960px]:max-h-[calc(100dvh-2rem)] min-[960px]:self-start min-[960px]:overflow-y-auto">
           <SoftCard className="p-4">
-            <SectionTitle icon={FileText} title={mode === "new" ? "レッスンプランを作成" : "レッスンプランを編集"} subtitle="ブロックを組み合わせて、印刷できる原稿を作ります。" />
-            {formError ? (
-              <p className="mt-3 rounded-xl border border-[#f2c7be] bg-[#fff0ea] px-3 py-2 text-[12px] font-bold text-[#c4523d]">{formError}</p>
-            ) : null}
+            <SectionTitle icon={FileText} title="プラン情報" subtitle="原稿と一覧で使う基本情報です。" />
+            {formError ? <WorkspaceFeedback tone="error" className="mt-3">{formError}</WorkspaceFeedback> : null}
             <div className="mt-4 space-y-3">
-              <Label text="レッスンプラン名">
+              <Label text="レッスンプラン名（必須）">
                 <Input name="name" defaultValue={initialPlan?.name ?? ""} required className="h-10" />
               </Label>
               <Label text="テーマ">
@@ -262,18 +269,18 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, in
               <Label text="タグ">
                 <Input name="tags" defaultValue={initialPlan?.tags.join(", ") ?? ""} placeholder="#呼吸, #リラックス" className="h-10" />
               </Label>
-              <div className="rounded-2xl border border-[#e6e0d6] bg-[#fbfaf6] p-3">
+              <div className="rounded-xl border border-[#e6e0d6] bg-[#fbfaf6] p-3">
                 <div className="grid grid-cols-2 gap-2 text-center">
                   <MiniSummary label="合計時間" value={`${totalMinutes}分`} />
                   <MiniSummary label="ブロック数" value={`${selectedBlocks.length}個`} />
                 </div>
                 <div className="mt-3 space-y-1">
                   {categoryMinutes.length ? categoryMinutes.map((item) => (
-                    <div key={item.category} className="flex items-center justify-between gap-2 text-[12px] font-bold text-[#5d6b58]">
+                    <div key={item.category} className="flex items-center justify-between gap-2 text-[13px] font-semibold text-[#5d6b58]">
                       <span className="truncate">{item.category}</span>
                       <span>{item.minutes}分</span>
                     </div>
-                  )) : <p className="text-[12px] font-medium text-[#7c8476]">ブロックを追加すると時間配分が表示されます。</p>}
+                  )) : <p className="text-[13px] font-medium text-[#7c8476]">ブロックを追加すると時間配分が表示されます。</p>}
                 </div>
               </div>
             </div>
@@ -342,7 +349,7 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, in
                       {condition ? <ActiveFilterChip label={conditionLabel(condition)} onClear={() => setCondition("")} /> : null}
                     </>
                   ) : (
-                    <span className="hidden max-w-full overflow-hidden truncate whitespace-nowrap rounded-full bg-[#f8f6f0] px-3 py-1 text-[11px] font-bold text-[#6b7468] lg:inline-flex">
+                    <span className="hidden max-w-full overflow-hidden truncate whitespace-nowrap rounded-full bg-[#f8f6f0] px-3 py-1 text-[13px] font-medium text-[#6b7468] lg:inline-flex">
                       PCでは、候補カードを作成中プランへドラッグして追加できます。
                     </span>
                   )}
@@ -466,7 +473,7 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, in
                 <section key={group.category} className="rounded-2xl border border-[#eee4d8] bg-white/50 p-3">
                   <div className="mb-3 flex items-center justify-between gap-2">
                     <h3 className="truncate text-[15px] font-extrabold text-[#2f342e]">{group.category}</h3>
-                    <span className="shrink-0 rounded-full bg-[#edf5ef] px-3 py-1 text-[11px] font-bold text-[#4f875a]">{group.items.length}件</span>
+                    <span className="shrink-0 rounded-full bg-[#edf5ef] px-3 py-1 text-[13px] font-medium text-[#4f875a]">{group.items.length}件</span>
                   </div>
                   <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(210px,1fr))] xl:[grid-template-columns:repeat(auto-fit,minmax(230px,1fr))]">
                     {group.items.map((block) => (
@@ -652,7 +659,7 @@ function SelectedPlanItems({
             </span>
             <div className="min-w-0 flex-1">
               <h3 className="truncate text-[13px] font-extrabold text-[#20231e]">{block.name}</h3>
-              <p className="truncate text-[11px] font-bold text-[#6b7468]">
+              <p className="truncate text-[13px] font-medium text-[#6b7468]">
                 {block.majorCategory} / {block.minorCategory} / {block.durationMinutes}分
               </p>
             </div>
@@ -679,7 +686,7 @@ function SelectedPlanItems({
             <button
               type="button"
               onClick={() => onPreview(block)}
-              className="inline-flex h-8 items-center justify-center rounded-lg border border-[#e7dfd4] bg-white text-[11px] font-bold text-[#6b7468]"
+              className="inline-flex h-8 items-center justify-center rounded-lg border border-[#e7dfd4] bg-white text-[13px] font-semibold text-[#6b7468]"
             >
               原稿
             </button>
@@ -700,18 +707,15 @@ function SelectedPlanItems({
 
 function BlockScriptModal({ block, onClose }: { block: DbBlockTemplate; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end bg-black/30 px-3 pb-[calc(env(safe-area-inset-bottom)+88px)] pt-4 md:items-center md:justify-center md:p-3" role="dialog" aria-modal="true">
-      <div className="flex max-h-[90dvh] w-full flex-col overflow-hidden rounded-3xl border border-[#eee4d8] bg-[#fffdf8] shadow-[0_18px_48px_rgba(49,43,31,0.18)] md:max-h-[88vh] md:max-w-2xl">
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#eee4d8] bg-[#fffdf8] p-4">
-          <div className="min-w-0">
-            <p className="text-[12px] font-bold text-[#5d956d]">{block.majorCategory} / {block.minorCategory} / {block.duration}</p>
-            <h2 className="mt-1 break-words text-[20px] font-extrabold leading-tight">{block.name}</h2>
-          </div>
-          <button type="button" onClick={onClose} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#d8e3d4] bg-white text-[#4f7b58]" aria-label="閉じる">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+    <LessonRecordDialog
+      open
+      onClose={onClose}
+      title={block.name}
+      description={`${block.majorCategory} / ${block.minorCategory} / ${block.duration}`}
+      className="max-w-2xl"
+      placement="bottom"
+    >
+        <div className="p-4">
           <div className="flex flex-wrap gap-1.5">
             {block.tags.length ? block.tags.map((tag) => <Pill key={tag}>{tag}</Pill>) : <Pill>タグ未設定</Pill>}
           </div>
@@ -721,13 +725,12 @@ function BlockScriptModal({ block, onClose }: { block: DbBlockTemplate; onClose:
             <PreviewInfo title="使用回数" value={`${block.usageCount}回`} />
             <PreviewInfo title="良かった率" value={formatGoodRate(block)} />
           </div>
-          <div className="mt-4 rounded-2xl border border-[#eee4d8] bg-white/80 p-4">
-            <p className="text-[13px] font-extrabold text-[#4f7b58]">誘導セリフ全文</p>
-            <RichScriptText text={block.script} emptyText="原稿は未入力です。" className="mt-2 whitespace-pre-wrap break-words text-[13px] font-medium leading-7 text-[#30362f]" />
+          <div className="mt-4 rounded-xl border border-[#eee4d8] bg-white/80 p-4">
+            <p className="text-[14px] font-semibold text-[#4f7b58]">誘導セリフ全文</p>
+            <RichScriptText text={block.script} emptyText="原稿は未入力です。" className="mt-2 whitespace-pre-wrap break-words text-[14px] font-medium leading-7 text-[#30362f]" />
           </div>
         </div>
-      </div>
-    </div>
+    </LessonRecordDialog>
   );
 }
 
@@ -1004,11 +1007,11 @@ function FloatingBlockSearchBar({
             <ViewModeButton active={viewMode === "compact"} icon={List} label="一覧" onClick={() => setViewMode("compact")} />
             <ViewModeButton active={viewMode === "category"} icon={Layers3} label="カテゴリ別" onClick={() => setViewMode("category")} />
           </div>
-          <span className="shrink-0 whitespace-nowrap rounded-full bg-[#edf5ef] px-2.5 py-1 text-[11px] font-extrabold text-[#4f875a]">
+          <span className="shrink-0 whitespace-nowrap rounded-full bg-[#edf5ef] px-2.5 py-1 text-[13px] font-semibold text-[#4f875a]">
             {filteredCount}件中 {visibleCount}件
           </span>
           {hasFilters ? (
-            <button type="button" onClick={clearFilters} className="inline-flex h-8 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-[#d8e3d4] bg-white px-2.5 text-[11px] font-bold text-[#4f7b58]">
+            <button type="button" onClick={clearFilters} className="inline-flex h-8 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-[#d8e3d4] bg-white px-2.5 text-[13px] font-semibold text-[#4f7b58]">
               クリア
             </button>
           ) : null}
@@ -1040,13 +1043,13 @@ function BlockCandidateCard({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h3 className="truncate text-[14px] font-extrabold">{block.name}</h3>
-          <p className="mt-1 truncate text-[11px] font-bold text-[#5d956d]">{block.majorCategory} / {block.minorCategory}</p>
+          <p className="mt-1 truncate text-[13px] font-medium text-[#5d956d]">{block.majorCategory} / {block.minorCategory}</p>
         </div>
-        <span className="shrink-0 rounded-full bg-[#edf5ef] px-2 py-1 text-[11px] font-bold text-[#4f875a]">{block.durationMinutes}分</span>
+        <span className="shrink-0 rounded-full bg-[#edf5ef] px-2 py-1 text-[13px] font-medium text-[#4f875a]">{block.durationMinutes}分</span>
       </div>
-      {selectedCount ? <span className="mt-2 w-fit rounded-full bg-[#f2efff] px-2 py-1 text-[11px] font-bold text-[#7469bf]">選択済み {selectedCount}回</span> : null}
+      {selectedCount ? <span className="mt-2 w-fit rounded-full bg-[#f2efff] px-2 py-1 text-[13px] font-medium text-[#7469bf]">選択済み {selectedCount}回</span> : null}
       <p className="mt-1.5 line-clamp-2 text-[11.5px] font-medium leading-5 text-[#50584e]">{block.purpose || block.script || "目的や原稿は未入力です。"}</p>
-      <p className="mt-1.5 line-clamp-2 text-[11px] font-bold leading-5 text-[#c86b55]">{block.cautions ? `注意点：${block.cautions}` : "注意点：未入力"}</p>
+      <p className="mt-1.5 line-clamp-2 text-[13px] font-medium leading-5 text-[#c86b55]">{block.cautions ? `注意点：${block.cautions}` : "注意点：未入力"}</p>
       <div className="mt-1.5 flex min-h-6 flex-wrap gap-1 overflow-hidden">
         {block.tags.slice(0, 4).map((item) => <Pill key={item}>{item}</Pill>)}
       </div>
@@ -1085,8 +1088,8 @@ function BlockCompactRow({
     <article draggable onDragStart={onDragStart} className="grid min-w-0 cursor-grab gap-2 rounded-2xl border border-[#eee4d8] bg-white/75 p-3 active:cursor-grabbing md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_72px_78px_90px_auto] md:items-center">
       <div className="min-w-0">
         <h3 className="truncate text-[14px] font-extrabold">{block.name}</h3>
-        <p className="truncate text-[11px] font-bold text-[#5d956d]">{block.majorCategory} / {block.minorCategory}</p>
-        {selectedCount ? <span className="mt-1 inline-flex rounded-full bg-[#f2efff] px-2 py-0.5 text-[10px] font-bold text-[#7469bf]">選択済み {selectedCount}回</span> : null}
+        <p className="truncate text-[13px] font-medium text-[#5d956d]">{block.majorCategory} / {block.minorCategory}</p>
+        {selectedCount ? <span className="mt-1 inline-flex rounded-full bg-[#f2efff] px-2 py-0.5 text-[12px] font-semibold text-[#7469bf]">選択済み {selectedCount}回</span> : null}
       </div>
       <p className="line-clamp-2 text-[12px] font-medium leading-5 text-[#50584e]">{block.purpose || block.script || "目的や原稿は未入力です。"}</p>
       <MiniSummary label="時間" value={`${block.durationMinutes}分`} />
@@ -1102,7 +1105,7 @@ function BlockCompactRow({
 
 function ActiveFilterChip({ label, onClear }: { label: string; onClear: () => void }) {
   return (
-    <span className="inline-flex max-w-full shrink-0 items-center gap-1 rounded-full bg-[#edf5ef] px-2.5 py-1 text-[11px] font-bold text-[#4f875a]">
+    <span className="inline-flex max-w-full shrink-0 items-center gap-1 rounded-full bg-[#edf5ef] px-2.5 py-1 text-[13px] font-medium text-[#4f875a]">
       <span className="truncate">{label}</span>
       <button type="button" onClick={onClear} className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-white/80" aria-label={`${label}を解除`}>
         <X className="h-3 w-3" />
@@ -1113,7 +1116,7 @@ function ActiveFilterChip({ label, onClear }: { label: string; onClear: () => vo
 
 function ViewModeButton({ active, icon: Icon, label, onClick }: { active: boolean; icon: typeof LayoutGrid; label: string; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className={active ? "inline-flex h-8 min-w-9 items-center justify-center gap-1 whitespace-nowrap rounded-lg bg-[#7ea06f] px-2 text-[11px] font-bold text-white" : "inline-flex h-8 min-w-9 items-center justify-center gap-1 whitespace-nowrap rounded-lg px-2 text-[11px] font-bold text-[#5d6b58]"}>
+    <button type="button" onClick={onClick} className={active ? "inline-flex h-8 min-w-9 items-center justify-center gap-1 whitespace-nowrap rounded-lg bg-[#7ea06f] px-2 text-[13px] font-semibold text-white" : "inline-flex h-8 min-w-9 items-center justify-center gap-1 whitespace-nowrap rounded-lg px-2 text-[13px] font-semibold text-[#5d6b58]"}>
       <Icon className="h-3.5 w-3.5" />
       <span className="hidden sm:inline">{label}</span>
     </button>
@@ -1131,26 +1134,23 @@ function PreviewInfo({ title, value }: { title: string; value: string }) {
 
 function DeleteLessonPlanButton({ action }: { action: DeleteAction }) {
   return (
-    <button
-      type="submit"
+    <ConfirmSubmitButton
       formAction={action}
-      onClick={(event) => {
-        if (!window.confirm("このレッスンプランを削除します。予定や記録からの紐づきは解除されます。よろしいですか？")) {
-          event.preventDefault();
-        }
-      }}
+      title="レッスンプランを削除しますか？"
+      message="予定や記録からの紐づきは解除されます。この操作は元に戻せません。"
+      confirmLabel="削除する"
       className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#f2c9bd] bg-[#fff0ea] px-4 text-[13px] font-bold text-[#d96c55]"
     >
       <Trash2 className="h-4 w-4" />
       レッスンプランを削除
-    </button>
+    </ConfirmSubmitButton>
   );
 }
 
 function Label({ text, children }: { text: string; children: ReactNode }) {
   return (
     <label className="block min-w-0">
-      <span className="mb-1 block text-[12px] font-bold text-[#5f665c]">{text}</span>
+      <span className="mb-1 block text-[13px] font-semibold text-[#5f665c]">{text}</span>
       {children}
     </label>
   );
@@ -1158,9 +1158,9 @@ function Label({ text, children }: { text: string; children: ReactNode }) {
 
 function MiniSummary({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-[#eee4d8] bg-white/70 px-2 py-1.5">
-      <p className="truncate text-[10px] font-bold text-[#7c8476]">{label}</p>
-      <p className="mt-0.5 truncate text-[12px] font-extrabold text-[#4f875a]">{value}</p>
+    <div className="rounded-lg border border-[#eee4d8] bg-white/70 px-2 py-1.5">
+      <p className="truncate text-[12px] font-medium text-[#7c8476]">{label}</p>
+      <p className="mt-0.5 truncate text-[13px] font-semibold text-[#4f875a]">{value}</p>
     </div>
   );
 }

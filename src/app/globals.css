@@ -89,6 +89,21 @@
   --chart-5: #8eb6a0;
   --radius: 0.875rem;
   --yoga-bg: #fbfaf6;
+  --yn-surface: rgba(255, 253, 249, 0.94);
+  --yn-surface-muted: #f5f3ee;
+  --yn-border: #e6ded3;
+  --yn-border-subtle: #eee7dd;
+  --yn-text: #283027;
+  --yn-text-muted: #687068;
+  --yn-primary: #5d8f68;
+  --yn-primary-strong: #4e805a;
+  --yn-focus: #6f9a76;
+  --yn-purple: #7568a7;
+  --yn-coral: #bd5d50;
+  --yn-sand: #8b704c;
+  --yn-shadow-soft: 0 4px 16px rgba(91, 76, 53, 0.045);
+  --yn-shadow-raised: 0 10px 28px rgba(66, 60, 48, 0.08);
+  --app-sidebar-width: 0px;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -152,6 +167,14 @@
 }
 
 @layer utilities {
+  .yn-control {
+    @apply min-h-10 rounded-lg border-[#dcd6cc] bg-white text-[14px] shadow-none focus-visible:border-[#8cad91] focus-visible:ring-2 focus-visible:ring-[#6f9a76]/35;
+  }
+
+  .yn-icon-button {
+    @apply inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#ddd6cc] bg-white text-[#5f675d] transition hover:border-[#bdcfb9] hover:bg-[#f5f9f3] hover:text-[#416f49] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6f9a76] focus-visible:ring-offset-2;
+  }
+
   .secondary-row-action {
     @apply inline-flex h-8 items-center justify-center whitespace-nowrap rounded-lg border border-[#ddd6cc] bg-white px-2.5 text-[12px] font-semibold text-[#5f675d] transition hover:border-[#bdcfb9] hover:bg-[#f5f9f3] hover:text-[#416f49] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6f9a76];
   }

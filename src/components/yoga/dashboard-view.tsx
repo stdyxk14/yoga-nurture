@@ -56,11 +56,11 @@ export function DashboardView({ data }: { data: DashboardData }) {
 
 function DashboardHeader({ greeting, todayLabel }: { greeting: string; todayLabel: string }) {
   return (
-    <header className="flex flex-col gap-3 rounded-[24px] border border-[#eee4d8] bg-white/72 p-4 shadow-[0_10px_24px_rgba(91,76,53,0.06)] md:flex-row md:items-start md:justify-between md:border-0 md:bg-transparent md:p-0 md:shadow-none">
+    <header className="flex flex-col gap-3 rounded-2xl border border-[var(--yn-border)] bg-[var(--yn-surface)] p-4 shadow-[var(--yn-shadow-soft)] md:flex-row md:items-start md:justify-between">
       <div>
         <p className="mb-1 text-[14px] font-bold text-[#4f7b58]">{greeting}</p>
         <div className="flex flex-col gap-1 md:flex-row md:items-end md:gap-4">
-          <h1 className="text-[24px] font-extrabold leading-tight">今日、指導をひとつ育てましょう</h1>
+          <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.02em]">今日、指導をひとつ育てましょう</h1>
           <p className="max-w-2xl text-[13px] font-semibold leading-6 text-[#5d5d58] md:pb-1 md:text-[14px]">生徒の変化、前回の気づき、次の準備がここに集まっています。</p>
         </div>
         <p className="mt-2 inline-flex h-8 items-center gap-2 rounded-xl bg-white/80 px-3 text-[13px] font-semibold text-[#30362f]">
@@ -94,13 +94,13 @@ function HeroLessonCard({ data, todaySchedules }: { data: DashboardData; todaySc
           : buildNormalHero();
 
   return (
-    <SoftCard className="overflow-hidden border-[#d9e7d3] bg-gradient-to-br from-[#f7fbf3] via-[#fffdf8] to-[#f7f0f5] p-5">
+    <SoftCard className="overflow-hidden border-[#d9e7d3] bg-[#f8faf5] p-5 shadow-[var(--yn-shadow-soft)]">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
         <div className="min-w-0">
-          <p className="mb-2 inline-flex rounded-full bg-white/80 px-3 py-1 text-[12px] font-extrabold text-[#5d956d]">{variant.eyebrow}</p>
-          <h2 className="text-[24px] font-extrabold leading-tight text-[#253022]">{variant.title}</h2>
+          <p className="mb-2 inline-flex rounded-full bg-white/80 px-3 py-1 text-[13px] font-semibold text-[#5d956d]">{variant.eyebrow}</p>
+          <h2 className="text-[24px] font-semibold leading-tight text-[#253022]">{variant.title}</h2>
           <p className="mt-2 max-w-3xl text-[13px] font-semibold leading-6 text-[#596257]">{variant.description}</p>
-          {variant.meta ? <p className="mt-3 rounded-2xl border border-[#eee4d8] bg-white/70 px-3 py-2 text-[12px] font-bold leading-5 text-[#4c554a]">{variant.meta}</p> : null}
+          {variant.meta ? <p className="mt-3 rounded-xl border border-[#eee4d8] bg-white/70 px-3 py-2 text-[13px] font-medium leading-5 text-[#4c554a]">{variant.meta}</p> : null}
         </div>
         <div className="grid gap-2 sm:grid-cols-3 lg:w-[360px] lg:grid-cols-1">
           {variant.actions.map((action, index) => (

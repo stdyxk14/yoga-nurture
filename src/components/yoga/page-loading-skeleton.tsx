@@ -18,7 +18,7 @@ export function PageLoadingSkeleton({ variant = "list" }: PageLoadingSkeletonPro
     >
       <span className="sr-only">ページを読み込んでいます</span>
 
-      <div className="animate-pulse rounded-[24px] border border-[#eee4d8] bg-white/78 p-4 shadow-[0_10px_24px_rgba(91,76,53,0.05)] motion-reduce:animate-none">
+      <div className="animate-pulse rounded-2xl border border-[var(--yn-border)] bg-[var(--yn-surface)] p-4 shadow-[var(--yn-shadow-soft)] motion-reduce:animate-none">
         <div className="h-6 w-40 rounded-full bg-[#dfeada]" />
         <div className="mt-3 h-3 w-full max-w-md rounded-full bg-[#eee7dc]" />
       </div>
@@ -43,7 +43,7 @@ export function PageLoadingSkeleton({ variant = "list" }: PageLoadingSkeletonPro
 function SkeletonCard({ compact = false, tall = false }: { compact?: boolean; tall?: boolean }) {
   return (
     <div
-      className={`animate-pulse rounded-2xl border border-[#eee4d8] bg-white/72 p-4 motion-reduce:animate-none ${
+      className={`animate-pulse rounded-xl border border-[var(--yn-border)] bg-white/76 p-4 motion-reduce:animate-none ${
         tall ? "min-h-72" : compact ? "min-h-28" : "min-h-40"
       }`}
     >

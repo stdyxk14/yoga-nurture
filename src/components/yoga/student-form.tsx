@@ -1,12 +1,18 @@
 "use client";
 
-import Link from "next/link";
-import { useActionState, type ReactNode } from "react";
+import { useActionState } from "react";
 import { Archive, Save, UserRound } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { PageHeader, SoftCard } from "@/components/yoga/page-kit";
+import { ConfirmSubmitButton } from "@/components/yoga/confirm-submit-button";
+import {
+  WorkspaceAction,
+  WorkspaceActionBar,
+  WorkspaceFeedback,
+  WorkspaceField,
+  WorkspaceFormSection,
+  WorkspacePageHeader,
+} from "@/components/yoga/workspace-kit";
 import type { StudentRecord } from "@/components/yoga/records";
 import { genderOptions } from "@/lib/student-fields";
 import type { StudentFormState } from "@/lib/students";
@@ -34,202 +40,77 @@ export function StudentForm({
   const formError = state.error ?? deleteError;
 
   return (
-    <>
-      <form action={formAction} className="md:hidden">
-        <MobileStudentForm
-          isEdit={isEdit}
-          student={student}
-          returnHref={returnHref}
-          error={formError}
-          pending={pending}
-          archiveAction={archiveAction}
-        />
-      </form>
+    <form action={formAction} aria-busy={pending} className="mx-auto max-w-[1180px] space-y-4 pb-10">
+      <WorkspacePageHeader
+        title={isEdit ? "生徒カルテを編集" : "生徒カルテを登録"}
+        description={isEdit ? "基本情報と、次の指導に必要なメモを更新します。" : "レッスン前後に確認したい基本情報を、必要な項目だけ登録します。"}
+        backLink={{ href: returnHref, label: isEdit ? "生徒詳細へ戻る" : "生徒一覧へ戻る" }}
+        eyebrow="STUDENT PROFILE"
+        meta={
+          <span className="inline-flex items-center gap-1.5">
+            <UserRound className="h-4 w-4 text-[#5d8f68]" aria-hidden="true" />
+            安全に関わる注意点を優先して記録してください
+          </span>
+        }
+      />
 
-      <form action={formAction} className="hidden md:block">
-        <PageHeader
-          title={isEdit ? "生徒カルテ編集" : "生徒カルテ新規登録"}
-          subtitle={isEdit ? "基本情報とメモを更新" : "年代・性別・注意点を最小項目で登録"}
-        />
+      {formError ? <WorkspaceFeedback tone="error">{formError}</WorkspaceFeedback> : null}
 
-        <SoftCard className="p-4">
-          <div className="grid grid-cols-[180px_minmax(0,1fr)] gap-6">
-            <div className="flex flex-col items-center justify-center rounded-2xl bg-[#edf4ea] p-5 text-[#4f875a]">
-              <UserRound className="h-20 w-20" strokeWidth={1.35} />
-              <p className="mt-3 text-center text-[13px] font-bold text-[#607463]">生徒の基本情報を<br />最小項目で管理</p>
-            </div>
+      <WorkspaceActionBar className="sticky top-[4.5rem] md:top-4" sticky={false} danger={archiveAction ? (
+        <ConfirmSubmitButton
+          message="過去の予定・記録・コメントは保持したまま、この生徒カルテをアーカイブします。"
+          title="生徒カルテをアーカイブ"
+          confirmLabel="アーカイブする"
+          formAction={archiveAction}
+          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[#efc9c0] bg-[#fff5f1] px-3.5 text-[13px] font-semibold text-[#bd5d50] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#bd5d50] focus-visible:ring-offset-2"
+        >
+          <Archive className="h-4 w-4" aria-hidden="true" />
+          アーカイブ
+        </ConfirmSubmitButton>
+      ) : undefined}>
+        <WorkspaceAction href={returnHref} variant="secondary">キャンセル</WorkspaceAction>
+        <WorkspaceAction type="submit" disabled={pending} variant="primary" icon={Save}>
+          {pending ? (isEdit ? "更新中…" : "保存中…") : isEdit ? "変更を保存" : "生徒を登録"}
+        </WorkspaceAction>
+      </WorkspaceActionBar>
 
-            <div className="min-w-0">
-              <div className="grid grid-cols-[1.2fr_1fr_150px_150px] gap-4">
-                <Field label="名前">
-                  <Input name="name" defaultValue={student?.name ?? ""} placeholder="佐藤 美咲" className="h-10 bg-white/80 text-[14px]" />
-                </Field>
-                <Field label="ふりがな">
-                  <Input name="kana" defaultValue={student?.kana ?? ""} placeholder="さとう みさき" className="h-10 bg-white/80 text-[14px]" />
-                </Field>
-                <Field label="年代">
-                  <select name="age_group" defaultValue={student?.ageGroup ?? "年齢不明"} className="h-10 w-full rounded-md border border-input bg-white/80 px-3 text-[14px]">
-                    {ageGroups.map((ageGroup) => <option key={ageGroup} value={ageGroup}>{ageGroup}</option>)}
-                  </select>
-                </Field>
-                <Field label="性別">
-                  <select name="gender" defaultValue={student?.genderCode ?? "prefer_not_to_say"} className="h-10 w-full rounded-md border border-input bg-white/80 px-3 text-[14px]">
-                    {genderOptions.map((gender) => <option key={gender.value} value={gender.value}>{gender.label}</option>)}
-                  </select>
-                </Field>
-              </div>
-
-              <div className="mt-4 grid grid-cols-2 gap-4">
-                <Field label="ヨガ他経験">
-                  <Textarea name="experience" defaultValue={student?.experience ?? ""} placeholder="ヨガ約3年、ピラティス経験あり" className="min-h-[92px] bg-white/80 text-[14px]" />
-                </Field>
-                <Field label="ケガなどの注意点">
-                  <Textarea name="caution" defaultValue={student?.caution ?? ""} placeholder="膝に違和感あり。深い後屈は避ける" className="min-h-[92px] bg-white/80 text-[14px]" />
-                </Field>
-              </div>
-
-              <div className="mt-4">
-                <Field label="その他メモ">
-                  <Textarea name="memo" defaultValue={student?.memo ?? ""} placeholder="呼吸を重視したゆったりフローが好み" className="min-h-[120px] bg-white/80 text-[14px]" />
-                </Field>
-              </div>
-
-              <FormError error={formError} />
-
-              <div className="mt-5 flex justify-between gap-2">
-                <div>{archiveAction ? <ArchiveStudentButton action={archiveAction} /> : null}</div>
-                <div className="flex gap-2">
-                  <Link href={returnHref} className="inline-flex h-9 items-center rounded-lg border border-[#d8e3d4] bg-white px-4 text-[13px] font-bold text-[#4f7b58]">
-                    キャンセル
-                  </Link>
-                  <SubmitButton isEdit={isEdit} pending={pending} />
-                </div>
-              </div>
-            </div>
-          </div>
-        </SoftCard>
-      </form>
-    </>
-  );
-}
-
-function MobileStudentForm({
-  isEdit,
-  student,
-  returnHref,
-  error,
-  pending,
-  archiveAction,
-}: {
-  isEdit: boolean;
-  student?: StudentRecord;
-  returnHref: string;
-  error?: string;
-  pending: boolean;
-  archiveAction?: ArchiveAction;
-}) {
-  return (
-    <div className="mx-auto max-w-[430px] space-y-4 overflow-x-hidden">
-      <section className="rounded-[24px] border border-[#eee4d8] bg-white/84 p-4 shadow-[0_12px_26px_rgba(122,104,80,0.08)]">
-        <h1 className="text-[22px] font-extrabold tracking-normal">{isEdit ? "生徒カルテ編集" : "生徒カルテ新規登録"}</h1>
-        <p className="mt-1 text-[12px] font-semibold leading-5 text-[#6d7469]">年代・性別・注意点を1カラムで入力</p>
-      </section>
-
-      <section className="rounded-[24px] border border-[#eee4d8] bg-white/84 p-4 shadow-[0_10px_24px_rgba(122,104,80,0.06)]">
-        <div className="grid gap-4">
-          <Field label="名前">
-            <Input name="name" defaultValue={student?.name ?? ""} placeholder="佐藤 美咲" className="h-11 w-full bg-white/90 text-[16px]" />
-          </Field>
-          <Field label="ふりがな">
-            <Input name="kana" defaultValue={student?.kana ?? ""} placeholder="さとう みさき" className="h-11 w-full bg-white/90 text-[16px]" />
-          </Field>
-          <Field label="年代">
-            <select name="age_group" defaultValue={student?.ageGroup ?? "年齢不明"} className="h-11 w-full rounded-md border border-input bg-white/90 px-3 text-[16px]">
+      <WorkspaceFormSection title="基本情報" description="名前以外は、分かる範囲で入力できます。">
+        <div className="grid gap-4 lg:grid-cols-2">
+          <WorkspaceField label="名前" required>
+            <Input name="name" defaultValue={student?.name ?? ""} placeholder="佐藤 美咲" required autoFocus className="yn-control" />
+          </WorkspaceField>
+          <WorkspaceField label="ふりがな">
+            <Input name="kana" defaultValue={student?.kana ?? ""} placeholder="さとう みさき" className="yn-control" />
+          </WorkspaceField>
+          <WorkspaceField label="年代">
+            <select name="age_group" defaultValue={student?.ageGroup ?? "年齢不明"} className="yn-control w-full px-3">
               {ageGroups.map((ageGroup) => <option key={ageGroup} value={ageGroup}>{ageGroup}</option>)}
             </select>
-          </Field>
-          <Field label="性別">
-            <select name="gender" defaultValue={student?.genderCode ?? "prefer_not_to_say"} className="h-11 w-full rounded-md border border-input bg-white/90 px-3 text-[16px]">
+          </WorkspaceField>
+          <WorkspaceField label="性別">
+            <select name="gender" defaultValue={student?.genderCode ?? "prefer_not_to_say"} className="yn-control w-full px-3">
               {genderOptions.map((gender) => <option key={gender.value} value={gender.value}>{gender.label}</option>)}
             </select>
-          </Field>
-          <Field label="ヨガ他経験">
-            <Textarea name="experience" defaultValue={student?.experience ?? ""} placeholder="ヨガ約3年、ピラティス経験あり" className="min-h-[110px] w-full bg-white/90 text-[15px]" />
-          </Field>
-          <Field label="ケガなどの注意点">
-            <Textarea name="caution" defaultValue={student?.caution ?? ""} placeholder="膝に違和感あり。深い後屈は避ける" className="min-h-[110px] w-full bg-white/90 text-[15px]" />
-          </Field>
-          <Field label="その他メモ">
-            <Textarea name="memo" defaultValue={student?.memo ?? ""} placeholder="呼吸を重視したゆったりフローが好み" className="min-h-[130px] w-full bg-white/90 text-[15px]" />
-          </Field>
+          </WorkspaceField>
         </div>
-      </section>
+      </WorkspaceFormSection>
 
-      <FormError error={error} />
+      <WorkspaceFormSection title="指導に活かす情報" description="安全面と、これまでの経験を分けて残します。">
+        <div className="grid gap-4 xl:grid-cols-2">
+          <WorkspaceField label="ヨガ・運動経験" hint="経験年数、よく行う運動、得意な動きなど">
+            <Textarea name="experience" defaultValue={student?.experience ?? ""} placeholder="ヨガ約3年、ピラティス経験あり" className="min-h-[120px] text-[14px]" />
+          </WorkspaceField>
+          <WorkspaceField label="ケガ・体調の注意点" hint="レッスン前に必ず確認したい内容">
+            <Textarea name="caution" defaultValue={student?.caution ?? ""} placeholder="膝に違和感あり。深い後屈は避ける" className="min-h-[120px] text-[14px]" />
+          </WorkspaceField>
+        </div>
+      </WorkspaceFormSection>
 
-      <div className="grid grid-cols-1 gap-2">
-        <button type="submit" disabled={pending} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#5d956d] text-[15px] font-bold text-white disabled:opacity-60">
-          <Save className="h-5 w-5" />
-          {pending ? (isEdit ? "更新中..." : "保存中...") : isEdit ? "更新する" : "保存する"}
-        </button>
-        <Link href={returnHref} className="inline-flex h-11 items-center justify-center rounded-2xl border border-[#d8e3d4] bg-white text-[14px] font-bold text-[#4f7b58]">
-          キャンセル
-        </Link>
-        {archiveAction ? <ArchiveStudentButton action={archiveAction} /> : null}
-      </div>
-    </div>
-  );
-}
-
-function FormError({ error }: { error?: string }) {
-  if (!error) return null;
-  return (
-    <div className="mt-4 rounded-2xl border border-[#f0c7b4] bg-[#fff3ec] px-4 py-3 text-[13px] font-bold leading-6 text-[#b95542]">
-      {error}
-    </div>
-  );
-}
-
-function SubmitButton({ isEdit, pending }: { isEdit: boolean; pending: boolean }) {
-  return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#5d956d] px-5 text-[13px] font-bold text-white disabled:opacity-60"
-    >
-      <Save className="h-4 w-4" />
-      {pending ? (isEdit ? "更新中..." : "保存中...") : isEdit ? "更新する" : "保存する"}
-    </button>
-  );
-}
-
-function ArchiveStudentButton({
-  action,
-}: {
-  action: ArchiveAction;
-}) {
-  return (
-    <button
-      type="submit"
-      formAction={action}
-      onClick={(event) => {
-        if (!window.confirm("この生徒カルテをアーカイブします。過去の予定・記録・コメントは保持されます。よろしいですか？")) {
-          event.preventDefault();
-        }
-      }}
-      className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#f2c9bd] bg-[#fff0ea] px-4 text-[13px] font-bold text-[#d96c55] disabled:opacity-60"
-    >
-      <Archive className="h-4 w-4" />
-      アーカイブ
-    </button>
-  );
-}
-
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="min-w-0">
-      <Label className="mb-2 text-[13px] font-bold text-[#394238]">{label}</Label>
-      {children}
-    </div>
+      <WorkspaceFormSection title="補足メモ" description="好みやコミュニケーション上の配慮を自由に記録できます。">
+        <WorkspaceField label="その他メモ">
+          <Textarea name="memo" defaultValue={student?.memo ?? ""} placeholder="呼吸を重視したゆったりフローが好み" className="min-h-[150px] text-[14px]" />
+        </WorkspaceField>
+      </WorkspaceFormSection>
+    </form>
   );
 }

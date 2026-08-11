@@ -3,7 +3,9 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PageHeader, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
+import { ConfirmSubmitButton } from "@/components/yoga/confirm-submit-button";
+import { SectionTitle } from "@/components/yoga/page-kit";
+import { WorkspaceFeedback, WorkspacePageHeader, WorkspacePanel } from "@/components/yoga/workspace-kit";
 import {
   archiveBlockCategoryAction,
   archiveBlockSubcategoryAction,
@@ -50,7 +52,11 @@ export default async function SettingsPage({
 
   return (
     <div className="mx-auto w-full max-w-full space-y-4 overflow-x-hidden pb-24 md:pb-4">
-      <PageHeader title="設定" subtitle="ユーザー情報とAIメンター設定を管理します" />
+      <WorkspacePageHeader
+        eyebrow="SETTINGS"
+        title="設定"
+        description="ユーザー情報、AIメンター、学習メモ、ブロック分類を管理します。"
+      />
 
       {profileError ? <Notice tone="error" text={`ユーザー情報を取得できませんでした。${profileError.message}`} /> : null}
 
@@ -74,7 +80,7 @@ export default async function SettingsPage({
 
 function KnowledgeSettingsPanel({ stats }: { stats: KnowledgeStats }) {
   return (
-    <SoftCard className="p-4 md:p-5">
+    <WorkspacePanel className="p-4 md:p-5">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <SectionTitle icon={BookOpenText} title="AIメンター学習メモ" subtitle="手書きメモや指導ノートを知識として整理" />
@@ -104,21 +110,21 @@ function KnowledgeSettingsPanel({ stats }: { stats: KnowledgeStats }) {
         <KnowledgeMetric label="有効化済み知識カード" value={`${stats.activeCards}件`} />
         <KnowledgeMetric label="エラー" value={`${stats.errors}件`} tone="red" />
       </div>
-    </SoftCard>
+    </WorkspacePanel>
   );
 }
 
 function KnowledgeMetric({ label, value, tone = "green" }: { label: string; value: string; tone?: "green" | "beige" | "red" }) {
   const valueClass =
     tone === "red"
-      ? "mt-1 text-[24px] font-extrabold text-[#d85f4d]"
+        ? "mt-1 text-[22px] font-semibold text-[#d85f4d]"
       : tone === "beige"
-        ? "mt-1 text-[24px] font-extrabold text-[#8b704c]"
-        : "mt-1 text-[24px] font-extrabold text-[#4f835d]";
+        ? "mt-1 text-[22px] font-semibold text-[#8b704c]"
+        : "mt-1 text-[22px] font-semibold text-[#4f835d]";
 
   return (
-    <div className="rounded-2xl border border-[#eee4d8] bg-white/72 p-3">
-      <p className="text-[12px] font-bold text-[#6d7469]">{label}</p>
+    <div className="rounded-lg border border-[#eee4d8] bg-white/72 p-3">
+      <p className="text-[13px] font-medium text-[#6d7469]">{label}</p>
       <p className={valueClass}>{value}</p>
     </div>
   );
@@ -136,7 +142,7 @@ function ProfileSettings({
   error?: string;
 }) {
   return (
-    <SoftCard className="p-4 md:p-5">
+    <WorkspacePanel className="p-4 md:p-5">
       <SectionTitle icon={UserRound} title="ユーザー情報" subtitle="表示名だけ編集できます" />
       <NoticeFromParams message={message} error={error} />
       <form id="profile-settings-form" action={updateProfileAction} className="mt-4 grid gap-4">
@@ -161,7 +167,7 @@ function ProfileSettings({
           </button>
         </form>
       </div>
-    </SoftCard>
+    </WorkspacePanel>
   );
 }
 
@@ -175,7 +181,7 @@ function AiSettingsPanel({
   error?: string;
 }) {
   return (
-    <SoftCard className="p-4 md:p-5">
+    <WorkspacePanel className="p-4 md:p-5">
       <SectionTitle icon={Sparkles} title="AIメンター設定" subtitle="必要なAI提案だけ表示できます" />
       <NoticeFromParams message={message} error={error} />
       <form action={updateAiSettingsAction} className="mt-4 grid gap-3">
@@ -186,14 +192,14 @@ function AiSettingsPanel({
           <ToggleRow name="ai_block" title="ブロック原稿AI提案" defaultChecked={settings.block} />
           <ToggleRow name="ai_lesson_record" title="レッスン後振り返りAI提案" defaultChecked={settings.lessonRecord} />
         </div>
-        <p className="rounded-2xl border border-[#eee4d8] bg-white/72 p-3 text-[12px] font-semibold leading-5 text-[#657064]">
+        <p className="rounded-lg border border-[#eee4d8] bg-white/72 p-3 text-[13px] font-medium leading-5 text-[#657064]">
           OFFにしても、これまでに生成したAI提案履歴は削除されません。
         </p>
         <Button type="submit" className="h-10 w-full rounded-xl bg-[#5d956d] text-white hover:bg-[#4f835d] sm:w-fit sm:px-6">
           AI設定を保存
         </Button>
       </form>
-    </SoftCard>
+    </WorkspacePanel>
   );
 }
 
@@ -211,7 +217,7 @@ function BlockCategoryManagement({
 
   return (
     <section id="block-categories" className="grid gap-4 xl:grid-cols-2">
-      <SoftCard className="p-4">
+      <WorkspacePanel className="p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <SectionTitle icon={FolderTree} title="大カテゴリー管理" subtitle="ブロックを探しやすくする分類です" />
           <form action={createDefaultBlockCategoriesAction}>
@@ -222,14 +228,14 @@ function BlockCategoryManagement({
           </form>
         </div>
         <NoticeFromParams message={notice.message} error={notice.error} />
-        <form action={createBlockCategoryAction} className="mt-3 grid gap-2 rounded-2xl border border-[#eee4d8] bg-white/72 p-3 sm:grid-cols-[minmax(0,1fr)_96px_auto]">
+        <form action={createBlockCategoryAction} className="mt-3 grid gap-2 rounded-xl border border-[#eee4d8] bg-white/72 p-3 sm:grid-cols-[minmax(0,1fr)_96px_auto]">
           <Input name="name" placeholder="大カテゴリー名" className="h-10 rounded-xl bg-white/90 text-[13px]" />
           <Input name="sort_order" type="number" defaultValue="0" aria-label="表示順" className="h-10 rounded-xl bg-white/90 text-[13px]" />
           <Button type="submit" className="h-10 rounded-xl bg-[#5d956d] text-white hover:bg-[#4f835d]">追加</Button>
         </form>
         <div className="mt-3 grid gap-2">
           {categories.length ? categories.map((category) => (
-            <article key={category.id} className="grid gap-2 rounded-2xl border border-[#eee4d8] bg-white/74 p-3">
+            <article key={category.id} className="grid gap-2 rounded-xl border border-[#eee4d8] bg-white/74 p-3">
               <form id={`category-${category.id}`} action={updateBlockCategoryAction.bind(null, category.id)} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_88px]">
                 <div className="min-w-0">
                   <Input name="name" defaultValue={category.name} className="h-10 rounded-xl bg-white/90 text-[13px] font-bold" />
@@ -243,11 +249,11 @@ function BlockCategoryManagement({
             <EmptyState text="まだカテゴリーが登録されていません。初期カテゴリー作成ボタン、または追加フォームから登録できます。" />
           )}
         </div>
-      </SoftCard>
+      </WorkspacePanel>
 
-      <SoftCard className="p-4">
+      <WorkspacePanel className="p-4">
         <SectionTitle icon={FolderTree} title="小カテゴリー管理" subtitle="大カテゴリーごとの細かい分類です" />
-        <form action={createBlockSubcategoryAction} className="mt-3 grid gap-2 rounded-2xl border border-[#eee4d8] bg-white/72 p-3 sm:grid-cols-[150px_minmax(0,1fr)_88px_auto]">
+        <form action={createBlockSubcategoryAction} className="mt-3 grid gap-2 rounded-xl border border-[#eee4d8] bg-white/72 p-3 sm:grid-cols-[150px_minmax(0,1fr)_88px_auto]">
           <select name="category_id" className="h-10 rounded-xl border border-input bg-white/90 px-3 text-[13px]">
             <option value="">大カテゴリーを選択</option>
             {activeCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
@@ -259,20 +265,20 @@ function BlockCategoryManagement({
           </Button>
         </form>
         {!categories.length ? (
-          <p className="mt-3 rounded-2xl border border-dashed border-[#d8e3d4] bg-[#f8fcf6] p-3 text-[12px] font-semibold leading-5 text-[#657064]">
+          <p className="mt-3 rounded-xl border border-dashed border-[#d8e3d4] bg-[#f8fcf6] p-3 text-[13px] font-medium leading-5 text-[#657064]">
             先に大カテゴリーを登録してください。
           </p>
         ) : null}
         <div className="mt-3 grid gap-2">
           {subcategories.length ? subcategories.map((subcategory) => (
-            <article key={subcategory.id} className="grid gap-2 rounded-2xl border border-[#eee4d8] bg-white/74 p-3">
+            <article key={subcategory.id} className="grid gap-2 rounded-xl border border-[#eee4d8] bg-white/74 p-3">
               <form id={`subcategory-${subcategory.id}`} action={updateBlockSubcategoryAction.bind(null, subcategory.id)} className="grid gap-2 sm:grid-cols-[150px_minmax(0,1fr)_88px]">
                 <select name="category_id" defaultValue={subcategory.category_id} className="h-10 rounded-xl border border-input bg-white/90 px-3 text-[13px]">
                   {activeCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
                 </select>
                 <div className="min-w-0">
                   <Input name="name" defaultValue={subcategory.name} className="h-10 rounded-xl bg-white/90 text-[13px] font-bold" />
-                  <p className="mt-1 truncate text-[11px] font-semibold text-[#6d7469]">現在の大カテゴリー: {subcategory.categoryName}</p>
+                  <p className="mt-1 truncate text-[13px] font-medium text-[#6d7469]">現在の大カテゴリー: {subcategory.categoryName}</p>
                   {subcategory.archived ? <Badge className="mt-1 rounded-full bg-[#f0eee8] text-[#7c756b] shadow-none">アーカイブ中</Badge> : null}
                 </div>
                 <Input name="sort_order" type="number" defaultValue={subcategory.sort_order} className="h-10 rounded-xl bg-white/90 text-[13px]" />
@@ -283,7 +289,7 @@ function BlockCategoryManagement({
             <EmptyState text="まだ小カテゴリーが登録されていません。大カテゴリーを選択して追加できます。" />
           ) : null}
         </div>
-      </SoftCard>
+      </WorkspacePanel>
     </section>
   );
 }
@@ -291,7 +297,7 @@ function BlockCategoryManagement({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="grid gap-1.5">
-      <span className="text-[12px] font-bold text-[#5f665c]">{label}</span>
+      <span className="text-[13px] font-semibold text-[#5f665c]">{label}</span>
       {children}
     </label>
   );
@@ -311,14 +317,14 @@ function ToggleRow({
   prominent?: boolean;
 }) {
   return (
-    <label className={prominent ? "flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-[#d8e3d4] bg-[#f8fcf6] p-3" : "flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-[#eee4d8] bg-white/74 p-3"}>
+    <label className={prominent ? "flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-[#d8e3d4] bg-[#f8fcf6] p-3" : "flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-[#eee4d8] bg-white/74 p-3"}>
       <span className="min-w-0">
-        <span className="block text-[13px] font-extrabold text-[#394238]">{title}</span>
-        {description ? <span className="mt-1 block text-[11px] font-semibold leading-5 text-[#657064]">{description}</span> : null}
+        <span className="block text-[14px] font-semibold text-[#394238]">{title}</span>
+        {description ? <span className="mt-1 block text-[13px] font-normal leading-5 text-[#657064]">{description}</span> : null}
       </span>
       <span className="relative inline-flex h-7 w-12 shrink-0 items-center">
         <input name={name} type="checkbox" defaultChecked={defaultChecked} className="peer sr-only" />
-        <span className="absolute inset-0 rounded-full bg-[#d9d3ca] transition peer-checked:bg-[#5d956d]" />
+        <span className="absolute inset-0 rounded-full bg-[#d9d3ca] transition peer-checked:bg-[#5d956d] peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--yn-focus)] peer-focus-visible:ring-offset-2" />
         <span className="relative ml-1 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
       </span>
     </label>
@@ -336,21 +342,26 @@ function ActionButtons({
 }) {
   return (
     <div className="grid grid-cols-3 gap-2 sm:flex sm:justify-end">
-      <Button type="submit" form={formId} variant="outline" className="h-9 rounded-xl border-[#cfe1ca] bg-[#f8fcf6] text-[12px] text-[#5d956d]">
+      <Button type="submit" form={formId} variant="outline" className="h-9 rounded-lg border-[#cfe1ca] bg-[#f8fcf6] text-[13px] text-[#5d956d]">
         <Pencil className="mr-1 h-3.5 w-3.5" />
         保存
       </Button>
       <form action={archiveAction}>
-        <Button type="submit" variant="outline" className="h-9 w-full rounded-xl border-[#e3dbcf] bg-white text-[12px] text-[#6d716a]">
+        <Button type="submit" variant="outline" className="h-9 w-full rounded-lg border-[#e3dbcf] bg-white text-[13px] text-[#6d716a]">
           <Archive className="mr-1 h-3.5 w-3.5" />
           保管
         </Button>
       </form>
       <form action={deleteAction}>
-        <Button type="submit" variant="outline" className="h-9 w-full rounded-xl border-[#f0c7b4] bg-[#fff3ec] text-[12px] text-[#e46b50]">
+        <ConfirmSubmitButton
+          title="カテゴリーを削除しますか？"
+          message="使用中のカテゴリーは削除できない場合があります。削除後は元に戻せません。"
+          confirmLabel="削除する"
+          className="inline-flex h-9 w-full items-center justify-center rounded-lg border border-[#f0c7b4] bg-[#fff3ec] px-3 text-[13px] font-semibold text-[#d85f4d]"
+        >
           <Trash2 className="mr-1 h-3.5 w-3.5" />
           削除
-        </Button>
+        </ConfirmSubmitButton>
       </form>
     </div>
   );
@@ -362,18 +373,14 @@ function NoticeFromParams({ message, error }: { message?: string; error?: string
 }
 
 function Notice({ tone, text }: { tone: "success" | "error"; text: string }) {
-  return (
-    <p className={tone === "error" ? "mt-3 rounded-xl border border-[#f0c7b4] bg-[#fff3ec] px-3 py-2 text-[12px] font-bold text-[#d85f4d]" : "mt-3 rounded-xl border border-[#cfe1ca] bg-[#f8fcf6] px-3 py-2 text-[12px] font-bold text-[#4f7b58]"}>
-      {text}
-    </p>
-  );
+  return <WorkspaceFeedback tone={tone} className="mt-3">{text}</WorkspaceFeedback>;
 }
 
 function EmptyState({ text }: { text: string }) {
   return (
-    <div className="rounded-2xl border border-dashed border-[#d8e3d4] bg-[#f8fcf6] p-4 text-center">
+    <div className="rounded-xl border border-dashed border-[#d8e3d4] bg-[#f8fcf6] p-4 text-center">
       <FolderTree className="mx-auto h-8 w-8 text-[#5d956d]" />
-      <p className="mt-2 text-[12px] font-semibold leading-5 text-[#657064]">{text}</p>
+      <p className="mt-2 text-[13px] font-medium leading-5 text-[#657064]">{text}</p>
     </div>
   );
 }
