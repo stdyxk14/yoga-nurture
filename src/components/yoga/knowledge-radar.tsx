@@ -150,8 +150,7 @@ export function KnowledgeRadar({ radar }: { radar: DashboardData["radar"] }) {
     const nextIndex = Math.max(0, Math.min(requestedIndex, cards.length - 1));
     const card = cards[nextIndex];
     if (!card) return;
-    const firstCardOffset = cards[0]?.offsetLeft ?? 0;
-    track.scrollLeft = Math.max(0, card.offsetLeft - firstCardOffset);
+    track.scrollLeft = Math.max(0, card.offsetLeft);
     setCurrentIndex(nextIndex);
   }, [featuredItems.length]);
 
