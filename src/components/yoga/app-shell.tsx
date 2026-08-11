@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-import { BarChart3, CalendarDays, Home, Leaf, Menu, Settings, Sprout, UserRound, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { BarChart3, CalendarDays, Home, Leaf, Menu, Search, Settings, Sprout, UserRound, X } from "lucide-react";
+import { CommandPalette } from "@/components/yoga/command-palette";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -17,9 +18,21 @@ const navItems = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
   const current = navItems.find((item) => isActivePath(pathname, item.href));
   const isPrintRoute = pathname?.endsWith("/script/print");
   const isProtectedScriptRoute = pathname?.endsWith("/script");
+
+  const handleCommandPaletteOpenChange = useCallback((nextOpen: boolean) => {
+    if (nextOpen) {
+      previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      setCommandPaletteOpen(true);
+      return;
+    }
+    setCommandPaletteOpen(false);
+    window.requestAnimationFrame(() => previousFocusRef.current?.focus());
+  }, []);
 
   if (pathname === "/login" || isPrintRoute) {
     return <>{children}</>;
@@ -37,7 +50,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             : "md:[--app-sidebar-width:80px] xl:[--app-sidebar-width:196px]",
         )}
       >
-        <DesktopSidebar pathname={pathname} compact={!isProtectedScriptRoute} />
+        <DesktopSidebar pathname={pathname} compact={!isProtectedScriptRoute} onSearch={() => handleCommandPaletteOpenChange(true)} />
 
         <main
           className={cn(
@@ -51,11 +64,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
       <MobileBottomNav pathname={pathname} />
+      <CommandPalette open={commandPaletteOpen} onOpenChange={handleCommandPaletteOpenChange} />
     </div>
   );
 }
 
-function DesktopSidebar({ pathname, compact }: { pathname: string; compact: boolean }) {
+function DesktopSidebar({ pathname, compact, onSearch }: { pathname: string; compact: boolean; onSearch: () => void }) {
   return (
     <aside
       className={cn(
@@ -69,6 +83,23 @@ function DesktopSidebar({ pathname, compact }: { pathname: string; compact: bool
         </div>
         <div className={cn("mt-2 text-center font-serif leading-5 tracking-[0.12em] text-[#3e764e]", compact ? "hidden text-[16px] xl:block" : "text-[16px]")}>YOGA<br />NURTURE</div>
       </div>
+
+      <button
+        type="button"
+        onClick={onSearch}
+        title="全体検索（Ctrl / Cmd + K）"
+        className={cn(
+          "mb-4 flex w-full rounded-xl border border-[#dedbd2] bg-white/78 font-semibold text-[#59645a] transition hover:border-[#c9d8c5] hover:bg-[#eef4eb] hover:text-[#386f4a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6f9a76] focus-visible:ring-offset-2",
+          compact
+            ? "min-h-12 flex-col items-center justify-center gap-1 px-1 text-[12px] xl:h-10 xl:min-h-0 xl:flex-row xl:justify-start xl:gap-2.5 xl:px-3 xl:text-[13px]"
+            : "h-10 items-center gap-2.5 px-3 text-[13px]",
+        )}
+        aria-label="全体検索を開く"
+      >
+        <Search className="h-4.5 w-4.5 shrink-0" strokeWidth={1.8} aria-hidden="true" />
+        <span>検索</span>
+        <kbd className={cn("ml-auto rounded border border-[#ddd9d0] bg-[#f7f5f0] px-1.5 py-0.5 text-[9px] font-semibold text-[#777d75]", compact && "hidden xl:inline")}>⌘ / Ctrl K</kbd>
+      </button>
 
       <nav className="space-y-2" aria-label="メインナビゲーション">
         {navItems.map((item) => {
