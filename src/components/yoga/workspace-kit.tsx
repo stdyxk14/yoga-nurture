@@ -21,11 +21,11 @@ export function WorkspacePageHeader({
   children?: ReactNode;
 }) {
   return (
-    <header className="rounded-2xl border border-[var(--yn-border)] bg-[var(--yn-surface)] px-4 py-4 shadow-[var(--yn-shadow-soft)] lg:px-5 lg:py-5">
+    <header className="liquid-topbar rounded-[24px] px-4 py-4 lg:px-5 lg:py-5">
       {backLink ? (
         <Link
           href={backLink.href}
-          className="mb-3 inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium text-[var(--yn-text-muted)] transition hover:bg-[var(--yn-surface-muted)] hover:text-[var(--yn-primary-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--yn-focus)] focus-visible:ring-offset-2"
+          className="liquid-lift mb-3 inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-transparent px-2 text-[13px] font-medium text-[var(--yn-text-muted)] hover:border-white/72 hover:bg-white/42 hover:text-[var(--yn-primary-strong)] focus-visible:outline-none"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           {backLink.label}
@@ -40,7 +40,7 @@ export function WorkspacePageHeader({
         </div>
         {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
       </div>
-      {children ? <div className="mt-4 border-t border-[var(--yn-border-subtle)] pt-4">{children}</div> : null}
+      {children ? <div className="mt-4 border-t border-white/70 pt-4">{children}</div> : null}
     </header>
   );
 }
@@ -62,10 +62,10 @@ type WorkspaceActionProps =
 export function WorkspaceAction(props: WorkspaceActionProps) {
   const { children, icon: Icon, primary = false, variant = primary ? "primary" : "secondary", className } = props;
   const actionClassName = cn(
-    "inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-3.5 text-[13px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--yn-focus)] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-55",
-    variant === "primary" && "bg-[var(--yn-primary)] text-white shadow-[0_5px_14px_rgba(64,113,77,0.16)] hover:bg-[var(--yn-primary-strong)]",
-    variant === "secondary" && "border border-[#d4ddd0] bg-white text-[#456d4c] hover:border-[#b9cbb5] hover:bg-[#f3f8f1]",
-    variant === "ghost" && "text-[var(--yn-text-muted)] hover:bg-[var(--yn-surface-muted)] hover:text-[var(--yn-text)]",
+    "liquid-lift inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3.5 text-[13px] font-semibold focus-visible:outline-none disabled:pointer-events-none disabled:opacity-55",
+    variant === "primary" && "border border-white/70 bg-[linear-gradient(145deg,#5d8f68,#487556)] text-white shadow-[inset_0_1px_0_rgba(255,255,255,.25),0_8px_20px_rgba(64,113,77,.18)] hover:bg-[#4e805a]",
+    variant === "secondary" && "liquid-control text-[#456d4c] hover:border-white hover:bg-white/78",
+    variant === "ghost" && "border border-transparent text-[var(--yn-text-muted)] hover:border-white/70 hover:bg-white/38 hover:text-[var(--yn-text)]",
     variant === "danger" && "border border-[#efc9c0] bg-[#fff5f1] text-[#bd5d50] hover:border-[#e9aa9c] hover:bg-[#ffede7]",
     className,
   );
@@ -104,7 +104,7 @@ export function WorkspaceActionBar({
   return (
     <div
       className={cn(
-        "z-30 flex min-w-0 flex-col gap-2 rounded-xl border border-[var(--yn-border)] bg-[#fffdf9]/96 p-2.5 shadow-[var(--yn-shadow-raised)] backdrop-blur md:flex-row md:items-center md:justify-between",
+        "liquid-action-bar z-30 flex min-w-0 flex-col gap-2 rounded-2xl p-2.5 md:flex-row md:items-center md:justify-between",
         sticky && "sticky top-3",
         className,
       )}
@@ -124,7 +124,7 @@ export function WorkspacePanel({
   className?: string;
   as?: "div" | "section" | "article";
 }) {
-  return <Tag className={cn("min-w-0 rounded-xl border border-[var(--yn-border)] bg-[var(--yn-surface)] p-4", className)}>{children}</Tag>;
+  return <Tag className={cn("liquid-panel min-w-0 rounded-2xl p-4", className)}>{children}</Tag>;
 }
 
 export function WorkspaceFormSection({
@@ -211,7 +211,7 @@ export type WorkspaceTabGroup<T extends string> = {
 
 export function WorkspaceTabs<T extends string>({ groups, active }: { groups: WorkspaceTabGroup<T>[]; active: T }) {
   return (
-    <nav aria-label="画面セクション" className="flex min-w-0 flex-wrap gap-x-5 gap-y-3">
+    <nav aria-label="画面セクション" className="liquid-control flex min-w-0 flex-wrap gap-x-5 gap-y-3 rounded-2xl p-2.5">
       {groups.map((group) => (
         <div key={group.label} className="min-w-0">
           <p className="mb-1.5 text-[12px] font-medium tracking-[0.06em] text-[#7d837a]">{group.label}</p>
@@ -225,8 +225,8 @@ export function WorkspaceTabs<T extends string>({ groups, active }: { groups: Wo
                   href={item.href}
                   aria-current={selected ? "page" : undefined}
                   className={cn(
-                    "inline-flex min-h-9 items-center gap-2 rounded-lg px-3 text-[13px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--yn-focus)]",
-                    selected ? "bg-[#e6f0e3] text-[#386b46]" : "text-[#5f665c] hover:bg-[#f4f1eb] hover:text-[#34423a]",
+                    "liquid-lift inline-flex min-h-9 items-center gap-2 rounded-xl border px-3 text-[13px] font-semibold focus-visible:outline-none",
+                    selected ? "border-white/80 bg-[linear-gradient(145deg,#e6f0e3,rgba(255,255,255,.68))] text-[#386b46] shadow-sm" : "border-transparent text-[#5f665c] hover:border-white/70 hover:bg-white/38 hover:text-[#34423a]",
                   )}
                 >
                   {Icon ? <Icon className="h-4 w-4" aria-hidden="true" /> : null}
@@ -243,7 +243,7 @@ export function WorkspaceTabs<T extends string>({ groups, active }: { groups: Wo
 
 export function WorkspaceToolbar({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn("rounded-xl border border-[var(--yn-border)] bg-white/78 p-3 shadow-[0_2px_9px_rgba(91,76,53,0.03)]", className)}>
+    <div className={cn("liquid-glass rounded-2xl p-3", className)}>
       {children}
     </div>
   );
@@ -276,15 +276,15 @@ export function WorkspaceSummaryCard({
     </>
   );
   const className = cn(
-    "min-w-0 rounded-xl border border-[var(--yn-border)] bg-white/78 px-3.5 py-3 text-left",
-    href && "transition hover:border-[#bdcfb9] hover:bg-[#f7faf5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--yn-focus)]",
+    "min-w-0 rounded-2xl border border-white/72 bg-white/58 px-3.5 py-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,.94),0_6px_18px_rgba(68,78,70,.05)]",
+    href && "liquid-lift hover:border-white hover:bg-white/76 focus-visible:outline-none",
   );
   return href ? <Link href={href} className={className}>{content}</Link> : <div className={className}>{content}</div>;
 }
 
 export function WorkspaceTableContainer({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn("min-w-0 overflow-hidden rounded-xl border border-[var(--yn-border)] bg-white/82", className)}>
+    <div className={cn("min-w-0 overflow-hidden rounded-2xl border border-[#dfe4dc] bg-[#fffefa]/96 shadow-[0_10px_28px_rgba(61,72,65,.06)]", className)}>
       <div className="max-w-full overflow-x-auto">{children}</div>
     </div>
   );
@@ -319,7 +319,7 @@ export function WorkspaceSection({
 
 export function WorkspaceEmptyState({ title, description, action }: { title: string; description: string; action?: ReactNode }) {
   return (
-    <div className="rounded-xl border border-dashed border-[#cfd9ca] bg-[#f7faf5] px-5 py-8 text-center">
+    <div className="liquid-panel rounded-2xl border-dashed border-[#cfd9ca] bg-[#f7faf5]/88 px-5 py-8 text-center">
       <p className="text-[15px] font-semibold text-[#384338]">{title}</p>
       <p className="mx-auto mt-1 max-w-[620px] text-[13px] leading-6 text-[#6c756a]">{description}</p>
       {action ? <div className="mt-4 flex justify-center">{action}</div> : null}

@@ -35,6 +35,16 @@ export type BriefItem = {
   actionLabel: string;
 };
 
+export type ContinueItem = {
+  id: string;
+  kind: "plan" | "record" | "block";
+  kindLabel: string;
+  title: string;
+  detail: string;
+  dateLabel: string;
+  href: string;
+};
+
 export type RadarItem = {
   id: string;
   title: string;
@@ -76,6 +86,7 @@ export type DashboardData = {
     unrecordedCount: number;
   };
   insights: TeachingInsight[];
+  continueItems: ContinueItem[];
   radar: {
     status: RadarStatus;
     message: string;
@@ -120,13 +131,22 @@ type RawBlock = {
   name: string;
   purpose: string | null;
   cautions: string | null;
+  updated_at: string;
   category?: { name: string | null } | Array<{ name: string | null }> | null;
   block_template_tags?: Array<{ tag?: { name: string } | Array<{ name: string }> | null }>;
 };
 
-type RawPlan = { id: string; name: string; theme: string | null };
+type RawPlan = { id: string; name: string; theme: string | null; format: string | null; updated_at: string };
 type RawKnowledge = { id: string; title: string; tags: string[] | null; status: string };
 type RawStudent = { id: string; name: string; caution: string | null };
+type RawRecentRecord = {
+  id: string;
+  schedule_id: string | null;
+  lesson_name: string;
+  record_date: string;
+  overall_memo: string | null;
+  updated_at: string;
+};
 
 type RawRadarItem = {
   id: string;
@@ -201,6 +221,7 @@ async function fetchDashboardData(now: Date): Promise<DashboardData> {
     plansResult,
     knowledgeResult,
     studentsResult,
+    recentRecordsResult,
   ] = await Promise.all([
     getReportData({ period: "3months", format: "all", plan: "all", place: "all", now }),
     supabase
@@ -226,11 +247,16 @@ async function fetchDashboardData(now: Date): Promise<DashboardData> {
       .limit(20),
     supabase
       .from("block_templates")
-      .select("id,name,purpose,cautions,category:block_categories(name),block_template_tags(tag:block_tags(name))")
+      .select("id,name,purpose,cautions,updated_at,category:block_categories(name),block_template_tags(tag:block_tags(name))")
       .eq("archived", false),
-    supabase.from("lesson_plans").select("id,name,theme").neq("status", "archived"),
+    supabase.from("lesson_plans").select("id,name,theme,format,updated_at").neq("status", "archived"),
     supabase.from("knowledge_documents").select("id,title,tags,status").neq("status", "archived"),
     supabase.from("students").select("id,name,caution").eq("archived", false),
+    supabase
+      .from("lesson_records")
+      .select("id,schedule_id,lesson_name,record_date,overall_memo,updated_at")
+      .order("updated_at", { ascending: false })
+      .limit(3),
   ]);
 
   assertQuery(nextScheduleResult.error, "次回予定");
@@ -241,6 +267,7 @@ async function fetchDashboardData(now: Date): Promise<DashboardData> {
   assertQuery(plansResult.error, "プラン");
   assertQuery(knowledgeResult.error, "Knowledge");
   assertQuery(studentsResult.error, "生徒");
+  assertQuery(recentRecordsResult.error, "最近の実施後記録");
 
   const nextSchedule = first((nextScheduleResult.data ?? []) as unknown as RawSchedule[]);
   const recentSchedules = (recentSchedulesResult.data ?? []) as unknown as RawSchedule[];
@@ -250,20 +277,108 @@ async function fetchDashboardData(now: Date): Promise<DashboardData> {
   const plans = (plansResult.data ?? []) as RawPlan[];
   const knowledge = (knowledgeResult.data ?? []) as RawKnowledge[];
   const students = (studentsResult.data ?? []) as RawStudent[];
+  const recentRecords = (recentRecordsResult.data ?? []) as RawRecentRecord[];
 
   const generatedTopics = buildTopics({ blocks, plans, knowledge, students, report });
-  const radar = await loadRadar({ supabase, userId, generatedTopics, now });
+  const radar = process.env.RADAR_EXTERNAL_FETCH_ENABLED === "true"
+    ? await loadRadar({ supabase, userId, generatedTopics, now })
+    : pausedRadar(generatedTopics);
   const brief = buildBrief({ nextSchedule, recentSchedules, recordedScheduleIds, followups });
   const insights = buildInsights(report, generatedTopics, knowledge.length);
+  const continueItems = buildContinueItems({ blocks, plans, recentRecords });
 
   return {
     greeting: greeting(now),
     todayLabel: formatJapaneseDate(now),
     brief,
     insights,
+    continueItems,
     radar,
     nextActions: buildNextActions({ brief, insights, report }),
   };
+}
+
+function pausedRadar(generatedTopics: GeneratedRadarTopic[]): DashboardData["radar"] {
+  return {
+    status: "disabled",
+    message: "外部レーダーは休止中です。",
+    lastUpdatedLabel: "休止中",
+    items: [],
+    topics: generatedTopics.map((topic) => ({
+      key: topic.topicKey,
+      labelJa: topic.labelJa,
+      labelEn: topic.labelEn,
+      sourceKind: topic.sourceKind,
+    })),
+    monthlyEstimatedCostUsd: 0,
+  };
+}
+
+function buildContinueItems({
+  blocks,
+  plans,
+  recentRecords,
+}: {
+  blocks: RawBlock[];
+  plans: RawPlan[];
+  recentRecords: RawRecentRecord[];
+}): ContinueItem[] {
+  const recentPlan = [...plans].sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))[0];
+  const recentBlock = [...blocks].sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))[0];
+  const recentRecord = recentRecords[0];
+  const candidates: Array<ContinueItem & { sortAt: string }> = [];
+
+  if (recentPlan) {
+    candidates.push({
+      id: `plan-${recentPlan.id}`,
+      kind: "plan",
+      kindLabel: "レッスンプラン",
+      title: recentPlan.name,
+      detail: recentPlan.theme?.trim() || recentPlan.format?.trim() || "流れとブロック構成を確認",
+      dateLabel: formatDateTime(recentPlan.updated_at),
+      href: `/lessons/${recentPlan.id}`,
+      sortAt: recentPlan.updated_at,
+    });
+  }
+
+  if (recentRecord) {
+    candidates.push({
+      id: `record-${recentRecord.id}`,
+      kind: "record",
+      kindLabel: "実施後記録",
+      title: recentRecord.lesson_name,
+      detail: truncateText(recentRecord.overall_memo, "現場で残した気づきを確認"),
+      dateLabel: formatDateValue(recentRecord.record_date),
+      href: recentRecord.schedule_id ? `/lessons/${recentRecord.schedule_id}/record` : "/lessons?tab=records",
+      sortAt: recentRecord.updated_at,
+    });
+  }
+
+  if (recentBlock) {
+    candidates.push({
+      id: `block-${recentBlock.id}`,
+      kind: "block",
+      kindLabel: "ブロック",
+      title: recentBlock.name,
+      detail: truncateText(recentBlock.purpose, firstRelation(recentBlock.category)?.name || "指導ブロックを確認"),
+      dateLabel: formatDateTime(recentBlock.updated_at),
+      href: `/blocks/${recentBlock.id}`,
+      sortAt: recentBlock.updated_at,
+    });
+  }
+
+  return candidates
+    .sort((a, b) => Date.parse(b.sortAt) - Date.parse(a.sortAt))
+    .slice(0, 3)
+    .map((item) => ({
+      id: item.id,
+      kind: item.kind,
+      kindLabel: item.kindLabel,
+      title: item.title,
+      detail: item.detail,
+      dateLabel: item.dateLabel,
+      href: item.href,
+    }));
 }
 
 function buildBrief({
@@ -638,6 +753,12 @@ function firstRelation<T>(value: T | T[] | null | undefined): T | null {
   return value ?? null;
 }
 
+function truncateText(value: string | null | undefined, fallback: string): string {
+  const normalized = value?.trim().replace(/\s+/g, " ");
+  if (!normalized) return fallback;
+  return normalized.length > 52 ? `${normalized.slice(0, 52)}…` : normalized;
+}
+
 function emptyDashboard(now: Date, error: string): DashboardData {
   return {
     greeting: greeting(now),
@@ -652,6 +773,7 @@ function emptyDashboard(now: Date, error: string): DashboardData {
       dataQuality: { recordedLessons: 0, totalLessons: 0, unevaluatedBlocks: 0, missingActualMinutes: 0, legacyUnclassifiedItems: 0 },
       changes: { confirmedPlanned: 0, adjusted: 0, skipped: 0, replaced: 0, added: 0 },
     }),
+    continueItems: [],
     radar: { status: "failed", message: "ホームの一部を読み込めませんでした。主要機能への操作は利用できます。", lastUpdatedLabel: "未取得", items: [], topics: [], monthlyEstimatedCostUsd: 0 },
     nextActions: [{ id: "schedule", title: "次のレッスンを置く", detail: "予定を登録して準備を始められます。", href: "/schedules/new", label: "予定を登録" }],
     error,

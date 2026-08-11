@@ -244,15 +244,15 @@ export function CommandPalette({ open, onOpenChange }: Props) {
       }}
     >
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-[90] bg-[#1d251f]/52 backdrop-blur-[3px] transition-opacity data-ending-style:opacity-0 data-starting-style:opacity-0" />
+        <Dialog.Backdrop className="liquid-dialog-backdrop fixed inset-0 z-[90] transition-opacity data-ending-style:opacity-0 data-starting-style:opacity-0" />
         <Dialog.Viewport className="fixed inset-0 z-[91] flex items-start justify-center overflow-hidden p-3 pt-[7vh] md:p-6 md:pt-[10vh]">
           <Dialog.Popup
             aria-label="全体検索とコマンド"
             initialFocus={inputRef}
             onKeyDown={handleKeyDown}
-            className="flex max-h-[min(780px,82dvh)] w-full min-w-0 max-w-[820px] flex-col overflow-hidden rounded-2xl border border-[#d8ddd3] bg-[#fbfaf6] shadow-[0_34px_100px_rgba(23,36,28,0.34)] outline-none transition-[transform,opacity] data-ending-style:-translate-y-2 data-ending-style:opacity-0 data-starting-style:-translate-y-2 data-starting-style:opacity-0"
+            className="liquid-dialog-surface flex max-h-[min(780px,82dvh)] w-full min-w-0 max-w-[820px] flex-col overflow-hidden rounded-[28px] outline-none transition-[transform,opacity] data-ending-style:-translate-y-2 data-ending-style:opacity-0 data-starting-style:-translate-y-2 data-starting-style:opacity-0"
           >
-            <header className="shrink-0 border-b border-[#e3e2d9] bg-[#f8f7f2]">
+            <header className="shrink-0 border-b border-white/72 bg-[linear-gradient(135deg,rgba(236,246,233,.74),rgba(244,239,252,.62),rgba(255,250,241,.68))]">
               <div className="flex items-start justify-between gap-4 px-5 pb-3 pt-4 md:px-6">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 text-[#4c8056]">
@@ -269,7 +269,7 @@ export function CommandPalette({ open, onOpenChange }: Props) {
                 <button
                   type="button"
                   onClick={closePalette}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[#dedbd2] bg-white text-[#596258] transition hover:bg-[#f0f3ed] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6f9a76] focus-visible:ring-offset-2"
+                  className="liquid-control liquid-lift flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#596258] focus-visible:outline-none"
                   aria-label="コマンドパレットを閉じる"
                 >
                   <X className="h-5 w-5" aria-hidden="true" />
@@ -277,7 +277,7 @@ export function CommandPalette({ open, onOpenChange }: Props) {
               </div>
 
               <div className="px-4 pb-4 md:px-5">
-                <div className="flex min-w-0 items-center gap-3 rounded-xl border border-[#cfd8ca] bg-white px-4 shadow-[0_4px_16px_rgba(63,83,66,0.07)] focus-within:border-[#85a989] focus-within:ring-2 focus-within:ring-[#8eb799]/24">
+                <div className="liquid-control flex min-w-0 items-center gap-3 rounded-2xl bg-white/72 px-4 shadow-[inset_0_1px_0_rgba(255,255,255,.95),0_8px_24px_rgba(63,83,66,.08)] focus-within:border-[#85a989] focus-within:ring-2 focus-within:ring-[#8eb799]/24">
                   <Search className="h-5 w-5 shrink-0 text-[#5d8f68]" aria-hidden="true" />
                   <input
                     ref={inputRef}
@@ -356,7 +356,7 @@ export function CommandPalette({ open, onOpenChange }: Props) {
               )}
             </div>
 
-            <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-[#e3e2d9] bg-[#f6f5f0] px-4 py-2.5 text-[11px] font-medium text-[#70776f] md:px-5">
+            <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-white/72 bg-white/44 px-4 py-2.5 text-[11px] font-medium text-[#70776f] md:px-5">
               <span>検索結果はログイン中の所有データのみ</span>
               <span className="flex items-center gap-3" aria-label="キーボード操作">
                 <span><kbd className="rounded border border-[#d9d6ce] bg-white px-1.5 py-0.5">↑↓</kbd> 選択</span>
@@ -429,7 +429,7 @@ function PaletteResultGroup({
         {group.label}
         <span className="font-normal text-[#90958e]">{group.entries.filter((entry) => !entry.seeAll).length}件</span>
       </div>
-      <div className="overflow-hidden rounded-xl border border-[#e5e2da] bg-white/76 divide-y divide-[#ece9e2]">
+      <div className="overflow-hidden rounded-2xl border border-white/76 bg-white/62 shadow-[inset_0_1px_0_rgba(255,255,255,.95),0_6px_20px_rgba(60,73,64,.05)] divide-y divide-[#e7ebe5]">
         {group.entries.map((entry) => {
           const Icon = entry.icon;
           const selected = entry.index === selectedIndex;
@@ -446,7 +446,7 @@ function PaletteResultGroup({
               onClick={() => onOpen(entry)}
               className={cn(
                 "group/row flex w-full min-w-0 items-start gap-3 px-3 py-3 text-left transition focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#6f9a76] md:px-4",
-                selected ? "bg-[#eaf1e6]" : "bg-transparent hover:bg-[#f3f6f0]",
+                selected ? "bg-[linear-gradient(90deg,rgba(226,241,223,.9),rgba(245,241,252,.64))]" : "bg-transparent hover:bg-white/64",
               )}
             >
               <span className={cn("mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border", entry.seeAll ? "border-[#ded7e8] bg-[#f4f1f8] text-[#7465a0]" : "border-[#d8e2d3] bg-[#f5f8f2] text-[#4e8059]")}>
