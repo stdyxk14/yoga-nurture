@@ -228,7 +228,8 @@ async function fetchDashboardData(now: Date): Promise<DashboardData> {
     supabase
       .from("block_templates")
       .select("id,name,purpose,cautions,category:block_categories(name),block_template_tags(tag:block_tags(name))")
-      .eq("archived", false),
+      .eq("archived", false)
+      .eq("is_draft", false),
     supabase.from("lesson_plans").select("id,name,theme").neq("status", "archived"),
     supabase.from("knowledge_documents").select("id,title,tags,status").neq("status", "archived"),
     supabase.from("students").select("id,name,caution").eq("archived", false),

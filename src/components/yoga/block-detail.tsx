@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { BarChart3, FileText, History, MessageSquareText, Pencil, Sparkles } from "lucide-react";
+import { BarChart3, CheckCircle2, FileText, History, MessageSquareText, Pencil, Sparkles } from "lucide-react";
+import { publishAiBlockDraftAction } from "@/app/blocks/actions";
 import { BlockAiSuggestionPanel } from "@/components/yoga/block-ai-suggestion-panel";
 import { Pill, SectionTitle, SoftCard } from "@/components/yoga/page-kit";
 import { RichScriptText } from "@/components/yoga/rich-script-text";
@@ -38,14 +39,17 @@ export function BlockDetail({
         title={block.name}
         description="誘導セリフ、利用実績、実施後記録からの改善履歴をまとめて確認できます。"
         backLink={{ href: "/lessons?tab=blocks", label: "ブロック一覧へ戻る" }}
-        meta={<><WorkspaceStatus tone="green">{block.majorCategory}</WorkspaceStatus><WorkspaceStatus tone="sand">{block.minorCategory}</WorkspaceStatus><WorkspaceStatus tone="purple">{block.duration}</WorkspaceStatus></>}
+        meta={<><WorkspaceStatus tone="green">{block.majorCategory}</WorkspaceStatus><WorkspaceStatus tone="sand">{block.minorCategory}</WorkspaceStatus><WorkspaceStatus tone="purple">{block.duration}</WorkspaceStatus>{block.isDraft ? <WorkspaceStatus tone="coral">AI下書き</WorkspaceStatus> : null}</>}
       />
 
       <WorkspaceActionBar className="my-4">
         <WorkspaceAction href="#history" icon={History}>関連する記録</WorkspaceAction>
         <WorkspaceAction href="/lessons?tab=plans">レッスンプラン一覧</WorkspaceAction>
         <WorkspaceAction href={`/blocks/${block.id}/edit`} icon={Pencil} variant="primary">編集</WorkspaceAction>
+        {block.isDraft ? <form action={publishAiBlockDraftAction.bind(null, block.id)}><button className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#5d8f68] px-3.5 text-[13px] font-semibold text-white"><CheckCircle2 className="h-4 w-4" />ブロックとして確定</button></form> : null}
       </WorkspaceActionBar>
+
+      {block.isDraft ? <div className="mb-4 rounded-xl border border-[#ead9b8] bg-[#fffaf0] p-3 text-[13px] font-medium leading-6 text-[#735f3e]">AI提案から保存した下書きです。内容を確認・編集し「ブロックとして確定」するまで、プラン作成と実施後記録のブロックライブラリには表示されません。</div> : null}
 
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px] xl:grid-cols-[minmax(0,1fr)_330px]">
         <SoftCard className="p-4">
@@ -173,6 +177,7 @@ function MobileBlockDetail({
         <div className="mt-3 flex flex-wrap gap-1.5">
           {block.tags.slice(0, 5).map((tag) => <Pill key={tag}>{tag}</Pill>)}
         </div>
+        {block.isDraft ? <form action={publishAiBlockDraftAction.bind(null, block.id)} className="mt-3"><button className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#5d8f68] px-3 text-[12px] font-bold text-white"><CheckCircle2 className="h-4 w-4" />ブロックとして確定</button></form> : null}
         <div className="mt-3 grid grid-cols-3 gap-2 text-center">
           <SummaryStat label="使用回数" value={`${usageCount}回`} />
           <SummaryStat label="良かった率" value={goodRate} />

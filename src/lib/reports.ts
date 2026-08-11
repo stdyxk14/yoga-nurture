@@ -392,7 +392,7 @@ async function fetchReportData(query: ReportQuery, period: ReportPeriod): Promis
       .lte("record_date", period.endDate)
       .order("record_date", { ascending: true }),
     supabase.from("lesson_plans").select("id,name,duration_minutes").neq("status", "archived").order("name", { ascending: true }),
-    supabase.from("block_templates").select("id,name,category:block_categories(name)").eq("archived", false).order("name", { ascending: true }),
+    supabase.from("block_templates").select("id,name,category:block_categories(name)").eq("archived", false).eq("is_draft", false).order("name", { ascending: true }),
     supabase.from("schedules").select("lesson_plan_id,place,format,lesson_plan:lesson_plans(id,name)").order("starts_at", { ascending: false }),
   ]);
 

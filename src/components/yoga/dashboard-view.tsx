@@ -21,12 +21,16 @@ import {
   UsersRound,
 } from "lucide-react";
 import type { DashboardData } from "@/lib/dashboard";
+import type { DailySuggestionState } from "@/lib/daily-suggestions/queries";
+import { TodayAiSuggestionPanel } from "@/components/yoga/daily-suggestion-panel";
 import { cn } from "@/lib/utils";
 
-export function DashboardView({ data }: { data: DashboardData }) {
+export function DashboardView({ data, dailySuggestionState }: { data: DashboardData; dailySuggestionState: DailySuggestionState }) {
   return (
     <main className="space-y-6 pb-10">
       <CompactHomeHeader data={data} />
+
+      <TodayAiSuggestionPanel state={dailySuggestionState} />
 
       {data.error ? (
         <div className="flex items-start gap-3 rounded-2xl border border-[#edc9bd] bg-[#fff7f3] p-4 text-[13px] font-semibold leading-5 text-[#875347]">

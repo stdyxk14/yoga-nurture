@@ -32,6 +32,7 @@ export type DbBlockTemplate = BlockTemplate & {
   durationMinutes: number;
   archived: boolean;
   favorite: boolean;
+  isDraft?: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -61,6 +62,7 @@ type RawBlock = {
   memo: string | null;
   favorite: boolean;
   archived: boolean;
+  is_draft: boolean;
   created_at: string;
   updated_at: string;
   category?: { id: string; name: string | null } | null;
@@ -135,6 +137,7 @@ export function mapBlock(row: RawBlock, stats?: BlockUsageStats): DbBlockTemplat
     lastUsedAt: stats?.latestDate ?? "",
     archived: row.archived,
     favorite: row.favorite,
+    isDraft: row.is_draft,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -214,6 +217,7 @@ export async function getLessonRecordBlockLibrary(requestClient?: RequestSupabas
       memo,
       favorite,
       archived,
+      is_draft,
       created_at,
       updated_at,
       category:block_categories(id,name),
@@ -221,15 +225,16 @@ export async function getLessonRecordBlockLibrary(requestClient?: RequestSupabas
       block_template_tags(tag:block_tags(id,name))
     `)
     .eq("archived", false)
+    .eq("is_draft", false)
     .order("name", { ascending: true });
 
   if (error) throw new Error(`追加用ブロック一覧を取得できませんでした: ${error.message}`);
   return ((data ?? []) as unknown as RawBlock[]).map((row) => mapBlock(row));
 }
 
-export async function getBlocks(filters: BlockListFilters = {}) {
+export async function getBlocks(filters: BlockListFilters = {}, options: { includeDrafts?: boolean } = {}) {
   const { supabase } = await requireUserId();
-  const { data, error } = await supabase
+  let query = supabase
     .from("block_templates")
     .select(`
       id,
@@ -244,14 +249,16 @@ export async function getBlocks(filters: BlockListFilters = {}) {
       memo,
       favorite,
       archived,
+      is_draft,
       created_at,
       updated_at,
       category:block_categories(id,name),
       subcategory:block_subcategories(id,name),
       block_template_tags(tag:block_tags(id,name))
     `)
-    .eq("archived", false)
-    .order("updated_at", { ascending: false });
+    .eq("archived", false);
+  if (!options.includeDrafts) query = query.eq("is_draft", false);
+  const { data, error } = await query.order("updated_at", { ascending: false });
 
   if (error) throw new Error(`ブロックテンプレートを取得できませんでした: ${error.message}`);
 
@@ -301,12 +308,14 @@ export async function getBlockAnalysis() {
       duration_minutes,
       favorite,
       archived,
+      is_draft,
       created_at,
       updated_at,
       category:block_categories(id,name),
       subcategory:block_subcategories(id,name)
     `)
     .eq("archived", false)
+    .eq("is_draft", false)
     .order("updated_at", { ascending: false });
 
   if (error) throw new Error(`ブロック分析データを取得できませんでした: ${error.message}`);
@@ -379,6 +388,7 @@ export async function getBlockById(id: string, requestClient?: RequestSupabaseCl
       memo,
       favorite,
       archived,
+      is_draft,
       created_at,
       updated_at,
       category:block_categories(id,name),

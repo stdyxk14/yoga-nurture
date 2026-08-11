@@ -1,0 +1,150 @@
+import "server-only";
+
+import { isOpenAIConfigured } from "@/lib/openai/server";
+import type { AiReviewReference, AiReviewReferenceIndex } from "@/lib/ai-review/types";
+import type { DailyConfidence, DailyDraftPayload, DailySuggestionType } from "@/lib/daily-suggestions/types";
+import { requireUserId } from "@/lib/students";
+
+export type DailySuggestionItem = {
+  id: string;
+  rank: number;
+  suggestionDate: string;
+  type: DailySuggestionType;
+  title: string;
+  summary: string;
+  rationale: string;
+  confidence: DailyConfidence;
+  includesInference: boolean;
+  evidenceCount: number;
+  evidenceRefs: AiReviewReference[];
+  draftPayload: DailyDraftPayload;
+  status: "pending" | "accepted" | "held" | "dismissed" | "saved";
+  savedPlanId: string | null;
+  savedBlockTemplateId: string | null;
+  savedAt: string | null;
+  createdAt: string;
+};
+
+export type DailySuggestionState = {
+  isConfigured: boolean;
+  run: {
+    id: string;
+    suggestionDate: string;
+    model: string;
+    reviewPeriodDays: number | null;
+    generatedAt: string;
+    references: AiReviewReferenceIndex;
+  } | null;
+  suggestions: DailySuggestionItem[];
+  history: DailySuggestionItem[];
+  latestRun: {
+    status: "running" | "succeeded" | "failed" | "skipped";
+    errorCode: string | null;
+    startedAt: string;
+    completedAt: string | null;
+  } | null;
+};
+
+export async function getDailySuggestionState(): Promise<DailySuggestionState> {
+  const { supabase, userId } = await requireUserId();
+  const [successfulRunResult, latestRunResult, historyResult] = await Promise.all([
+    supabase
+      .from("ai_daily_runs")
+      .select("id,suggestion_date,response_model,reference_index,evidence_summary,completed_at")
+      .eq("user_id", userId)
+      .eq("status", "succeeded")
+      .order("completed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("ai_daily_runs")
+      .select("status,error_code,started_at,completed_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("ai_daily_suggestions")
+      .select("id,run_id,suggestion_date,rank,suggestion_type,title,summary,rationale,confidence,includes_inference,evidence_count,evidence_refs,draft_payload,status,saved_plan_id,saved_block_template_id,saved_at,created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .order("rank", { ascending: true })
+      .limit(30),
+  ]);
+  if (successfulRunResult.error) throw new Error(`今日のAI提案を取得できませんでした: ${successfulRunResult.error.message}`);
+  if (latestRunResult.error) throw new Error(`AI提案の実行状態を取得できませんでした: ${latestRunResult.error.message}`);
+  if (historyResult.error) throw new Error(`AI提案履歴を取得できませんでした: ${historyResult.error.message}`);
+
+  const run = successfulRunResult.data;
+  const historyRows = (historyResult.data ?? []) as unknown as SuggestionRow[];
+  const currentRows = run ? historyRows.filter((row) => row.run_id === run.id) : [];
+  const latestRun = latestRunResult.data;
+  const evidenceSummary = run?.evidence_summary as Record<string, unknown> | null;
+  return {
+    isConfigured: isOpenAIConfigured(),
+    run: run ? {
+      id: run.id,
+      suggestionDate: run.suggestion_date,
+      model: run.response_model ?? "",
+      reviewPeriodDays: finiteNumber(evidenceSummary?.review_period_days),
+      generatedAt: run.completed_at ?? `${run.suggestion_date}T00:00:00Z`,
+      references: run.reference_index as AiReviewReferenceIndex,
+    } : null,
+    suggestions: currentRows.sort((a, b) => a.rank - b.rank).map(mapSuggestion),
+    history: historyRows.map(mapSuggestion),
+    latestRun: latestRun ? {
+      status: latestRun.status as "running" | "succeeded" | "failed" | "skipped",
+      errorCode: latestRun.error_code,
+      startedAt: latestRun.started_at,
+      completedAt: latestRun.completed_at,
+    } : null,
+  };
+}
+
+type SuggestionRow = {
+  id: string;
+  run_id: string;
+  suggestion_date: string;
+  rank: number;
+  suggestion_type: DailySuggestionType;
+  title: string;
+  summary: string;
+  rationale: string;
+  confidence: DailyConfidence;
+  includes_inference: boolean;
+  evidence_count: number;
+  evidence_refs: AiReviewReference[];
+  draft_payload: DailyDraftPayload;
+  status: DailySuggestionItem["status"];
+  saved_plan_id: string | null;
+  saved_block_template_id: string | null;
+  saved_at: string | null;
+  created_at: string;
+};
+
+function mapSuggestion(row: SuggestionRow): DailySuggestionItem {
+  return {
+    id: row.id,
+    rank: row.rank,
+    suggestionDate: row.suggestion_date,
+    type: row.suggestion_type,
+    title: row.title,
+    summary: row.summary,
+    rationale: row.rationale,
+    confidence: row.confidence,
+    includesInference: row.includes_inference,
+    evidenceCount: row.evidence_count,
+    evidenceRefs: row.evidence_refs ?? [],
+    draftPayload: row.draft_payload ?? { kind: "none" },
+    status: row.status,
+    savedPlanId: row.saved_plan_id,
+    savedBlockTemplateId: row.saved_block_template_id,
+    savedAt: row.saved_at,
+    createdAt: row.created_at,
+  };
+}
+
+function finiteNumber(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
