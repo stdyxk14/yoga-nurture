@@ -1,91 +1,88 @@
-import { formatJapaneseDate, formatJapaneseMonth } from "@/lib/date-format";
-import { requireUserId } from "@/lib/students";
+import { formatJapaneseDate } from "@/lib/date-format";
+import {
+  buildTeachingInsights,
+  extractAnonymizedSafetySignals,
+  generateRadarTopics,
+  type GeneratedRadarTopic,
+  type RadarTopicSignal,
+  type TeachingInsight,
+} from "@/lib/discovery-home";
 import { measurePerformance } from "@/lib/performance";
+import { getReportData, type ReportData } from "@/lib/reports";
+import { requireUserId } from "@/lib/students";
 
-export type DashboardScheduleStatus = "scheduled" | "preparing" | "prepared" | "record_pending" | "recorded";
-
-export type DashboardSchedule = {
+export type DiscoverySchedule = {
   id: string;
-  dateKey: string;
-  day: number;
-  startTime: string;
-  endTime: string;
   lessonName: string;
   lessonPlanId: string | null;
   lessonPlanName: string;
-  lessonPlanStatus: string | null;
+  startsAt: string;
+  endsAt: string;
+  dateLabel: string;
+  timeLabel: string;
   place: string;
-  status: DashboardScheduleStatus;
-  statusLabel: string;
   participantCount: number;
-  participantIds: string[];
+  safetyNotes: Array<{ id: string; label: string; detail: string; href: string }>;
 };
 
-export type DashboardTask = {
+export type BriefItem = {
   id: string;
-  kind: "today" | "record_pending" | "prepare" | "follow";
-  time: string;
   title: string;
-  note: string;
-  statusLabel: string;
-  tone: "gray" | "beige" | "green" | "orange" | "pink";
+  detail: string;
+  meta: string;
   href: string;
   actionLabel: string;
 };
 
-export type DashboardAttentionStudent = {
+export type RadarItem = {
   id: string;
-  name: string;
-  ageGroup: string;
-  gender: string;
-  caution: string;
-  memo: string;
-  followUpId?: string;
-  nextFollow: string;
-  followLessonName?: string;
-  followDate?: string;
-  followScheduleId?: string | null;
+  title: string;
+  sourceName: string;
+  author: string;
+  publishedLabel: string;
+  retrievedLabel: string;
+  itemType: RadarItemType;
+  itemTypeLabel: string;
+  summary: string;
+  relevanceReason: string;
+  sourceUrl: string;
+  isAiSummary: boolean;
+  relevanceScore: number;
+  trustLabel: string;
+  feedback: string[];
 };
 
-export type DashboardInsight = {
-  id: string;
-  dateKey: string;
-  lessonName: string;
-  studentName: string;
-  todayNote: string;
-  personalMemo: string;
-  nextFollow: string;
-  href: string;
-};
+export type RadarItemType =
+  | "public_research"
+  | "medical_health"
+  | "yoga_organization"
+  | "yoga_expert"
+  | "general_article"
+  | "video"
+  | "social_signal";
+
+export type RadarStatus = "ready" | "setting_up" | "disabled" | "failed" | "budget" | "empty";
 
 export type DashboardData = {
   greeting: string;
   todayLabel: string;
-  monthLabel: string;
-  totals: {
-    students: number;
-    blocks: number;
-    lessonPlans: number;
-    schedules: number;
-    records: number;
-    knowledgeDocuments: number;
-    aiSuggestions: number;
+  brief: {
+    nextLesson: DiscoverySchedule | null;
+    pendingFollowups: BriefItem[];
+    unrecordedLessons: BriefItem[];
+    pendingFollowupCount: number;
+    unrecordedCount: number;
   };
-  todayKey: string;
-  calendarDays: Array<{
-    key: string;
-    day: number | null;
-    inMonth: boolean;
-    isToday: boolean;
-    schedules: DashboardSchedule[];
-  }>;
-  schedulesByDate: Record<string, DashboardSchedule[]>;
-  upcomingSchedules: DashboardSchedule[];
-  recordPendingSchedules: DashboardSchedule[];
-  tasks: DashboardTask[];
-  suggestions: string[];
-  attentionStudents: DashboardAttentionStudent[];
-  recentInsights: DashboardInsight[];
+  insights: TeachingInsight[];
+  radar: {
+    status: RadarStatus;
+    message: string;
+    lastUpdatedLabel: string;
+    items: RadarItem[];
+    topics: Array<{ key: string; labelJa: string; labelEn: string; sourceKind: string }>;
+    monthlyEstimatedCostUsd: number;
+  };
+  nextActions: Array<{ id: string; title: string; detail: string; href: string; label: string }>;
   error?: string;
 };
 
@@ -96,487 +93,561 @@ type RawSchedule = {
   starts_at: string;
   ends_at: string;
   place: string | null;
-  status: DashboardScheduleStatus;
-  lesson_plan?: { id: string; name: string | null; status: string | null } | null;
-  schedule_participants?: Array<{ id: string; student_id: string }>;
-};
-
-type RawRecord = {
-  id: string;
-  schedule_id: string | null;
-  lesson_name: string;
-  record_date: string;
-  schedule?: { id: string; starts_at: string | null } | null;
-  lesson_record_students?: Array<{
+  schedule_caution: string | null;
+  status: string;
+  lesson_plan?: { id: string; name: string | null } | Array<{ id: string; name: string | null }> | null;
+  schedule_participants?: Array<{
     id: string;
     student_id: string;
-    attendance_status: "present" | "cancelled" | "no_show";
-    condition: string | null;
-    memo: string | null;
-    next_follow: string | null;
-    follow_up_status?: "none" | "pending" | "completed" | "dismissed" | null;
-    student?: RawStudent | null;
+    attendance_status: string;
+    student?: { id: string; name: string; caution: string | null } | Array<{ id: string; name: string; caution: string | null }> | null;
   }>;
 };
 
-type RawStudent = {
+type RawFollowup = {
+  id: string;
+  student_id: string;
+  next_follow: string | null;
+  follow_up_status: string | null;
+  student?: { id: string; name: string } | Array<{ id: string; name: string }> | null;
+  record?: { id: string; schedule_id: string | null; lesson_name: string; record_date: string } | Array<{ id: string; schedule_id: string | null; lesson_name: string; record_date: string }> | null;
+};
+
+type RawBlock = {
   id: string;
   name: string;
-  age_group: string | null;
-  gender: string | null;
-  caution: string | null;
-  memo: string | null;
+  purpose: string | null;
+  cautions: string | null;
+  category?: { name: string | null } | Array<{ name: string | null }> | null;
+  block_template_tags?: Array<{ tag?: { name: string } | Array<{ name: string }> | null }>;
 };
 
-const statusLabels: Record<DashboardScheduleStatus, string> = {
-  scheduled: "予定",
-  preparing: "準備中",
-  prepared: "準備済み",
-  record_pending: "記録待ち",
-  recorded: "記録済み",
+type RawPlan = { id: string; name: string; theme: string | null };
+type RawKnowledge = { id: string; title: string; tags: string[] | null; status: string };
+type RawStudent = { id: string; name: string; caution: string | null };
+
+type RawRadarItem = {
+  id: string;
+  source_url: string;
+  original_title: string;
+  source_name: string;
+  author: string | null;
+  published_on: string | null;
+  retrieved_at: string;
+  item_type: RadarItemType;
+  ai_summary: string;
+  relevance_reason: string;
+  relevance_score: number;
+  trust_score: number;
+  is_ai_summary: boolean;
+  source?: { status: string } | Array<{ status: string }> | null;
 };
 
-const genderLabels: Record<string, string> = {
-  female: "女性",
-  male: "男性",
-  other: "その他",
-  prefer_not_to_say: "回答しない",
+type RawRadarTopic = {
+  topic_key: string;
+  label_ja: string;
+  label_en: string;
+  source_kind: string;
+  status: string;
+  priority: number;
+};
+
+type RawRadarSettings = {
+  radar_enabled: boolean;
+  last_success_at: string | null;
+  last_error_at: string | null;
+  last_error_code: string | null;
+  external_paused_reason: string | null;
+  hard_budget_usd: number;
+};
+
+const radarTypeLabels: Record<RadarItemType, string> = {
+  public_research: "公的・研究",
+  medical_health: "医療・健康",
+  yoga_organization: "ヨガ団体",
+  yoga_expert: "専門家の解説",
+  general_article: "一般記事",
+  video: "動画",
+  social_signal: "SNSの話題",
 };
 
 export async function getDashboardData(): Promise<DashboardData> {
+  const now = new Date();
   try {
     return await measurePerformance(
-      { operation: "data.dashboard", route: "/dashboard" },
-      () => fetchDashboardData(),
-      (data) => data.upcomingSchedules.length,
+      { operation: "data.discovery-home", route: "/dashboard" },
+      () => fetchDashboardData(now),
+      (data) => data.insights.length + data.radar.items.length,
     );
   } catch (error) {
-    const now = new Date();
-    const todayKey = dateKeyInTokyo(now);
-    return {
-      greeting: getGreetingJa(now),
-      todayLabel: formatDateJa(now),
-      monthLabel: formatMonthJa(now),
-      totals: { students: 0, blocks: 0, lessonPlans: 0, schedules: 0, records: 0, knowledgeDocuments: 0, aiSuggestions: 0 },
-      todayKey,
-      calendarDays: buildCalendarDays(now, {}),
-      schedulesByDate: {},
-      upcomingSchedules: [],
-      recordPendingSchedules: [],
-      tasks: [],
-      suggestions: [],
-      attentionStudents: [],
-      recentInsights: [],
-      error: error instanceof Error ? error.message : "ダッシュボードデータを取得できませんでした。",
-    };
+    return emptyDashboard(now, error instanceof Error ? error.message : "ホームのデータを取得できませんでした。");
   }
 }
 
-async function fetchDashboardData(): Promise<DashboardData> {
-  const { supabase } = await requireUserId();
-  const now = new Date();
-  const todayKey = dateKeyInTokyo(now);
-  const monthStart = getTokyoMonthStart(now);
-  const monthEnd = getTokyoMonthEnd(now);
-  const queryStart = addDays(monthStart, -30).toISOString();
-  const queryEnd = addDays(monthEnd, 30).toISOString();
+async function fetchDashboardData(now: Date): Promise<DashboardData> {
+  const { supabase, userId } = await requireUserId();
+  const threeMonthsAgo = new Date(now.getTime() - 93 * 86_400_000).toISOString();
 
-  const [schedulesResult, recordsResult, studentsResult, blocksCountResult, plansCountResult, schedulesCountResult, recordsCountResult, knowledgeCountResult, aiSuggestionsCountResult] = await Promise.all([
+  const [
+    report,
+    nextScheduleResult,
+    recentSchedulesResult,
+    recordIdsResult,
+    followupsResult,
+    blocksResult,
+    plansResult,
+    knowledgeResult,
+    studentsResult,
+  ] = await Promise.all([
+    getReportData({ period: "3months", format: "all", plan: "all", place: "all", now }),
     supabase
       .from("schedules")
-      .select(`
-        id,
-        lesson_plan_id,
-        lesson_name,
-        starts_at,
-        ends_at,
-        place,
-        status,
-        lesson_plan:lesson_plans(id,name,status),
-        schedule_participants(id,student_id)
-      `)
-      .gte("starts_at", queryStart)
-      .lte("starts_at", queryEnd)
-      .order("starts_at", { ascending: true }),
+      .select("id,lesson_plan_id,lesson_name,starts_at,ends_at,place,schedule_caution,status,lesson_plan:lesson_plans(id,name),schedule_participants(id,student_id,attendance_status,student:students(id,name,caution))")
+      .gte("ends_at", now.toISOString())
+      .order("starts_at", { ascending: true })
+      .limit(1),
     supabase
-      .from("lesson_records")
-      .select(`
-        id,
-        schedule_id,
-        lesson_name,
-        record_date,
-        schedule:schedules(id,starts_at),
-        lesson_record_students(
-          id,
-          student_id,
-          attendance_status,
-          condition,
-          memo,
-          next_follow,
-          follow_up_status,
-          student:students(id,name,age_group,gender,caution,memo)
-        )
-      `)
-      .order("updated_at", { ascending: false })
-      .limit(80),
+      .from("schedules")
+      .select("id,lesson_plan_id,lesson_name,starts_at,ends_at,place,schedule_caution,status,lesson_plan:lesson_plans(id,name)")
+      .gte("starts_at", threeMonthsAgo)
+      .lt("starts_at", now.toISOString())
+      .order("starts_at", { ascending: false })
+      .limit(50),
+    supabase.from("lesson_records").select("schedule_id").not("schedule_id", "is", null),
     supabase
-      .from("students")
-      .select("id,name,age_group,gender,caution,memo")
-      .eq("archived", false)
-      .order("updated_at", { ascending: false })
-      .limit(80),
-    supabase.from("block_templates").select("id", { count: "exact", head: true }).eq("archived", false),
-    supabase.from("lesson_plans").select("id", { count: "exact", head: true }).neq("status", "archived"),
-    supabase.from("schedules").select("id", { count: "exact", head: true }),
-    supabase.from("lesson_records").select("id", { count: "exact", head: true }),
-    supabase.from("knowledge_documents").select("id", { count: "exact", head: true }).neq("status", "archived"),
-    supabase.from("ai_suggestions").select("id", { count: "exact", head: true }),
+      .from("lesson_record_students")
+      .select("id,student_id,next_follow,follow_up_status,student:students(id,name),record:lesson_records(id,schedule_id,lesson_name,record_date)")
+      .eq("follow_up_status", "pending")
+      .not("next_follow", "is", null)
+      .order("follow_up_updated_at", { ascending: false })
+      .limit(20),
+    supabase
+      .from("block_templates")
+      .select("id,name,purpose,cautions,category:block_categories(name),block_template_tags(tag:block_tags(name))")
+      .eq("archived", false),
+    supabase.from("lesson_plans").select("id,name,theme").neq("status", "archived"),
+    supabase.from("knowledge_documents").select("id,title,tags,status").neq("status", "archived"),
+    supabase.from("students").select("id,name,caution").eq("archived", false),
   ]);
 
-  if (schedulesResult.error) throw new Error(`予定を取得できませんでした: ${schedulesResult.error.message}`);
-  if (recordsResult.error) throw new Error(`実施後記録を取得できませんでした: ${recordsResult.error.message}`);
-  if (studentsResult.error) throw new Error(`生徒情報を取得できませんでした: ${studentsResult.error.message}`);
-  if (blocksCountResult.error) throw new Error(`ブロック数を取得できませんでした: ${blocksCountResult.error.message}`);
-  if (plansCountResult.error) throw new Error(`レッスンプラン数を取得できませんでした: ${plansCountResult.error.message}`);
+  assertQuery(nextScheduleResult.error, "次回予定");
+  assertQuery(recentSchedulesResult.error, "未記録レッスン");
+  assertQuery(recordIdsResult.error, "実施後記録");
+  assertQuery(followupsResult.error, "フォロー");
+  assertQuery(blocksResult.error, "ブロック");
+  assertQuery(plansResult.error, "プラン");
+  assertQuery(knowledgeResult.error, "Knowledge");
+  assertQuery(studentsResult.error, "生徒");
 
-  const schedules = ((schedulesResult.data ?? []) as unknown as RawSchedule[]).map(mapSchedule);
-  const records = (recordsResult.data ?? []) as unknown as RawRecord[];
+  const nextSchedule = first((nextScheduleResult.data ?? []) as unknown as RawSchedule[]);
+  const recentSchedules = (recentSchedulesResult.data ?? []) as unknown as RawSchedule[];
+  const recordedScheduleIds = new Set((recordIdsResult.data ?? []).map((row) => row.schedule_id).filter((id): id is string => Boolean(id)));
+  const followups = (followupsResult.data ?? []) as unknown as RawFollowup[];
+  const blocks = (blocksResult.data ?? []) as unknown as RawBlock[];
+  const plans = (plansResult.data ?? []) as RawPlan[];
+  const knowledge = (knowledgeResult.data ?? []) as RawKnowledge[];
   const students = (studentsResult.data ?? []) as RawStudent[];
-  const schedulesByDate = groupSchedulesByDate(schedules.filter((schedule) => isWithinMonth(schedule.dateKey, monthStart)));
-  const completedScheduleIds = new Set(records.filter((record) => record.schedule_id).map((record) => record.schedule_id as string));
-  const recordPendingSchedules = buildRecordPendingSchedules(schedules, todayKey, completedScheduleIds);
-  const upcomingSchedules = schedules.filter((schedule) => schedule.dateKey >= todayKey).slice(0, 8);
-  const tasks = buildTasks({ schedules, records, students, todayKey, completedScheduleIds });
-  const suggestions = buildSuggestions({ tasks, todaySchedules: schedules.filter((schedule) => schedule.dateKey === todayKey), records, schedules });
-  const attentionStudents = buildAttentionStudents(students, records, schedules, todayKey);
-  const recentInsights = buildRecentInsights(records);
+
+  const generatedTopics = buildTopics({ blocks, plans, knowledge, students, report });
+  const radar = await loadRadar({ supabase, userId, generatedTopics, now });
+  const brief = buildBrief({ nextSchedule, recentSchedules, recordedScheduleIds, followups });
+  const insights = buildInsights(report, generatedTopics, knowledge.length);
 
   return {
-    greeting: getGreetingJa(now),
-    todayLabel: formatDateJa(now),
-    monthLabel: formatMonthJa(now),
-    totals: {
-      students: students.length,
-      blocks: blocksCountResult.count ?? 0,
-      lessonPlans: plansCountResult.count ?? 0,
-      schedules: schedulesCountResult.error ? 0 : schedulesCountResult.count ?? 0,
-      records: recordsCountResult.error ? 0 : recordsCountResult.count ?? 0,
-      knowledgeDocuments: knowledgeCountResult.error ? 0 : knowledgeCountResult.count ?? 0,
-      aiSuggestions: aiSuggestionsCountResult.error ? 0 : aiSuggestionsCountResult.count ?? 0,
-    },
-    todayKey,
-    calendarDays: buildCalendarDays(now, schedulesByDate),
-    schedulesByDate,
-    upcomingSchedules,
-    recordPendingSchedules,
-    tasks,
-    suggestions,
-    attentionStudents,
-    recentInsights,
+    greeting: greeting(now),
+    todayLabel: formatJapaneseDate(now),
+    brief,
+    insights,
+    radar,
+    nextActions: buildNextActions({ brief, insights, report }),
   };
 }
 
-function mapSchedule(row: RawSchedule): DashboardSchedule {
-  const start = new Date(row.starts_at);
+function buildBrief({
+  nextSchedule,
+  recentSchedules,
+  recordedScheduleIds,
+  followups,
+}: {
+  nextSchedule: RawSchedule | null;
+  recentSchedules: RawSchedule[];
+  recordedScheduleIds: Set<string>;
+  followups: RawFollowup[];
+}): DashboardData["brief"] {
+  const unrecorded = recentSchedules.filter((schedule) => !recordedScheduleIds.has(schedule.id));
   return {
-    id: row.id,
-    dateKey: dateKeyInTokyo(start),
-    day: Number(dateKeyInTokyo(start).slice(-2)),
-    startTime: formatTimeJa(row.starts_at),
-    endTime: formatTimeJa(row.ends_at),
-    lessonName: row.lesson_name,
-    lessonPlanId: row.lesson_plan_id,
-    lessonPlanName: row.lesson_plan?.name ?? "未設定",
-    lessonPlanStatus: row.lesson_plan?.status ?? null,
-    place: row.place ?? "未設定",
-    status: row.status,
-    statusLabel: statusLabels[row.status] ?? "予定",
-    participantCount: row.schedule_participants?.length ?? 0,
-    participantIds: (row.schedule_participants ?? []).map((participant) => participant.student_id),
-  };
-}
-
-function buildTasks({
-  schedules,
-  records,
-  students,
-  todayKey,
-  completedScheduleIds,
-}: {
-  schedules: DashboardSchedule[];
-  records: RawRecord[];
-  students: RawStudent[];
-  todayKey: string;
-  completedScheduleIds: Set<string>;
-}) {
-  const tasks: DashboardTask[] = [];
-  const todaySchedules = schedules.filter((schedule) => schedule.dateKey === todayKey);
-
-  for (const schedule of todaySchedules) {
-    tasks.push({
-      id: `today-${schedule.id}`,
-      kind: "today",
-      time: schedule.startTime,
-      title: displayScheduleName(schedule),
-      note: `${schedule.place} / 参加予定 ${schedule.participantCount}名`,
-      statusLabel: schedule.statusLabel,
-      tone: schedule.status === "prepared" || schedule.status === "recorded" ? "green" : "gray",
-      href: schedule.lessonPlanId ? `/lessons/${schedule.lessonPlanId}` : `/schedules/${schedule.id}`,
-      actionLabel: schedule.lessonPlanId ? "プランを見る" : "予定を見る",
-    });
-  }
-
-  const pending = schedules
-    .filter((schedule) => schedule.dateKey < todayKey && schedule.status !== "recorded" && !completedScheduleIds.has(schedule.id))
-    .slice(0, 3);
-  for (const schedule of pending) {
-    tasks.push({
-      id: `pending-${schedule.id}`,
-      kind: "record_pending",
-      time: schedule.dateKey,
-      title: displayScheduleName(schedule),
-      note: "レッスン後の記録がまだ保存されていません。",
-      statusLabel: "記録待ち",
-      tone: "orange",
-      href: `/lessons/${schedule.id}/record`,
-      actionLabel: "記録を書く",
-    });
-  }
-
-  const prepare = schedules
-    .filter((schedule) => schedule.dateKey >= todayKey && (!schedule.lessonPlanId || schedule.lessonPlanStatus === "draft"))
-    .slice(0, 3);
-  for (const schedule of prepare) {
-    tasks.push({
-      id: `prepare-${schedule.id}`,
-      kind: "prepare",
-      time: schedule.dateKey,
-      title: schedule.lessonName,
-      note: schedule.lessonPlanId ? "レッスンプランが下書きです。" : "レッスンプランが未設定です。",
-      statusLabel: "準備が必要",
-      tone: "beige",
-      href: schedule.lessonPlanId ? `/lessons/${schedule.lessonPlanId}/edit` : "/lessons/new",
-      actionLabel: "プランを準備",
-    });
-  }
-
-  const studentById = new Map(students.map((student) => [student.id, student]));
-  for (const follow of getFollowItems(records).slice(0, 3)) {
-    const student = follow.student ?? studentById.get(follow.student_id);
-    if (!student) continue;
-    tasks.push({
-      id: `follow-${follow.id}`,
-      kind: "follow",
-      time: "フォロー",
-      title: student.name,
-      note: follow.next_follow ?? "",
-      statusLabel: "要フォロー",
-      tone: "pink",
-      href: `/students/${student.id}#next-follow`,
-      actionLabel: "生徒カルテを見る",
-    });
-  }
-
-  return tasks.slice(0, 6);
-}
-
-function buildRecordPendingSchedules(schedules: DashboardSchedule[], todayKey: string, completedScheduleIds: Set<string>) {
-  return schedules
-    .filter((schedule) => schedule.dateKey < todayKey && schedule.status !== "recorded" && !completedScheduleIds.has(schedule.id))
-    .slice(0, 5);
-}
-
-function buildSuggestions({
-  tasks,
-  todaySchedules,
-  records,
-  schedules,
-}: {
-  tasks: DashboardTask[];
-  todaySchedules: DashboardSchedule[];
-  records: RawRecord[];
-  schedules: DashboardSchedule[];
-}) {
-  const suggestions: string[] = [];
-  const pendingCount = tasks.filter((task) => task.kind === "record_pending").length;
-  const followCount = getFollowItems(records).length;
-  const todayParticipantCount = todaySchedules.reduce((sum, schedule) => sum + schedule.participantCount, 0);
-  const planCount = new Set(schedules.map((schedule) => schedule.lessonPlanId).filter(Boolean)).size;
-
-  if (pendingCount > 0) suggestions.push(`記録待ちのレッスンが${pendingCount}件あります。記憶が新しいうちに記録しましょう。`);
-  if (todaySchedules.length > 0) suggestions.push(`今日の予定は${todaySchedules.length}件、参加予定生徒は${todayParticipantCount}名です。注意点を事前に確認しましょう。`);
-  if (followCount > 0) suggestions.push(`次回フォローが残っている生徒が${followCount}名います。生徒カルテで確認しましょう。`);
-  if (planCount < 3) suggestions.push("レッスンプランがまだ少なめです。ブロックテンプレートを組み合わせて準備を増やしましょう。");
-
-  return suggestions.slice(0, 4);
-}
-
-function buildAttentionStudents(students: RawStudent[], records: RawRecord[], schedules: DashboardSchedule[], todayKey: string) {
-  const followRows = getFollowItems(records);
-  const followByStudent = new Map<string, { id: string; text: string; lessonName: string; date: string; scheduleId: string | null }>();
-  for (const row of followRows) {
-    if (!followByStudent.has(row.student_id) && row.next_follow) {
-      followByStudent.set(row.student_id, {
+    nextLesson: nextSchedule ? mapDiscoverySchedule(nextSchedule) : null,
+    pendingFollowups: followups.slice(0, 3).map((row) => {
+      const student = firstRelation(row.student);
+      const record = firstRelation(row.record);
+      return {
         id: row.id,
-        text: row.next_follow,
-        lessonName: row.record.lesson_name,
-        date: row.record.record_date,
-        scheduleId: row.record.schedule_id,
-      });
-    }
+        title: `${student?.name ?? "生徒"}さんへのフォロー`,
+        detail: row.next_follow?.trim() || "次回フォローを確認してください。",
+        meta: record ? `${formatDateValue(record.record_date)}・${record.lesson_name}` : "実施後記録から",
+        href: student?.id ? `/students/${student.id}#next-follow` : "/students?filter=followup",
+        actionLabel: "生徒カルテを開く",
+      };
+    }),
+    unrecordedLessons: unrecorded.slice(0, 3).map((schedule) => ({
+      id: schedule.id,
+      title: schedule.lesson_name,
+      detail: "実施後の気づきを、分かる範囲だけ残せます。",
+      meta: `${formatDateTime(schedule.starts_at)}・${schedule.place?.trim() || "場所未設定"}`,
+      href: `/lessons/${schedule.id}/record`,
+      actionLabel: "実施後記録を書く",
+    })),
+    pendingFollowupCount: followups.length,
+    unrecordedCount: unrecorded.length,
+  };
+}
+
+function mapDiscoverySchedule(schedule: RawSchedule): DiscoverySchedule {
+  const plan = firstRelation(schedule.lesson_plan);
+  const participants = (schedule.schedule_participants ?? []).filter((row) => row.attendance_status === "present");
+  const notes: DiscoverySchedule["safetyNotes"] = [];
+  if (schedule.schedule_caution?.trim()) {
+    notes.push({
+      id: `schedule-${schedule.id}`,
+      label: "クラス全体の注意",
+      detail: schedule.schedule_caution.trim(),
+      href: `/schedules/${schedule.id}`,
+    });
   }
-
-  const upcomingParticipantIds = new Set<string>();
-  const upcomingLimit = addDays(new Date(`${todayKey}T00:00:00+09:00`), 14);
-  for (const schedule of schedules) {
-    const scheduleDate = new Date(`${schedule.dateKey}T00:00:00+09:00`);
-    if (scheduleDate <= upcomingLimit) {
-      for (const studentId of schedule.participantIds) upcomingParticipantIds.add(studentId);
-    }
+  for (const participant of participants) {
+    const student = firstRelation(participant.student);
+    if (!student?.caution?.trim()) continue;
+    notes.push({
+      id: participant.id,
+      label: `${student.name}さん`,
+      detail: student.caution.trim(),
+      href: `/students/${student.id}`,
+    });
   }
-
-  return students
-    .filter((student) => Boolean(student.caution?.trim() || student.memo?.trim() || followByStudent.get(student.id) || upcomingParticipantIds.has(student.id)))
-    .map((student) => ({
-      id: student.id,
-      name: student.name,
-      ageGroup: student.age_group || "未設定",
-      gender: genderLabels[student.gender ?? ""] ?? "未設定",
-      caution: student.caution ?? "",
-      memo: student.memo ?? "",
-      followUpId: followByStudent.get(student.id)?.id,
-      nextFollow: followByStudent.get(student.id)?.text ?? "",
-      followLessonName: followByStudent.get(student.id)?.lessonName,
-      followDate: followByStudent.get(student.id)?.date,
-      followScheduleId: followByStudent.get(student.id)?.scheduleId,
-    }))
-    .slice(0, 4);
+  return {
+    id: schedule.id,
+    lessonName: schedule.lesson_name,
+    lessonPlanId: schedule.lesson_plan_id,
+    lessonPlanName: plan?.name?.trim() || "プラン未設定",
+    startsAt: schedule.starts_at,
+    endsAt: schedule.ends_at,
+    dateLabel: formatDateValue(schedule.starts_at),
+    timeLabel: formatTimeRange(schedule.starts_at, schedule.ends_at),
+    place: schedule.place?.trim() || "場所未設定",
+    participantCount: participants.length,
+    safetyNotes: notes.slice(0, 5),
+  };
 }
 
-function getFollowItems(records: RawRecord[]) {
-  return records
-    .flatMap((record) => (record.lesson_record_students ?? []).map((row) => ({ ...row, record })))
-    .filter((row) => Boolean(row.next_follow?.trim()) && (row.follow_up_status ?? "pending") === "pending");
+function buildTopics({
+  blocks,
+  plans,
+  knowledge,
+  students,
+  report,
+}: {
+  blocks: RawBlock[];
+  plans: RawPlan[];
+  knowledge: RawKnowledge[];
+  students: RawStudent[];
+  report: ReportData;
+}): GeneratedRadarTopic[] {
+  const usageByBlock = new Map(report.blocks.mostUsed.map((row) => [row.id, row.usedCount]));
+  const signals: RadarTopicSignal[] = [];
+  for (const block of blocks) {
+    const category = firstRelation(block.category)?.name ?? "";
+    const tags = (block.block_template_tags ?? []).map((entry) => firstRelation(entry.tag)?.name ?? "").filter(Boolean);
+    signals.push({
+      text: [block.name, category, block.purpose ?? "", ...tags].join(" "),
+      kind: "practice",
+      weight: usageByBlock.has(block.id) ? 1.8 : 0.7,
+      recentUseCount: usageByBlock.get(block.id) ?? 0,
+    });
+  }
+  for (const plan of plans) {
+    const recent = report.plans.find((row) => row.id === plan.id)?.lessonCount ?? 0;
+    signals.push({ text: `${plan.name} ${plan.theme ?? ""}`, kind: "practice", weight: recent ? 1.6 : 0.6, recentUseCount: recent });
+  }
+  for (const document of knowledge) {
+    signals.push({ text: [document.title, ...(document.tags ?? [])].join(" "), kind: "knowledge", weight: 1.2 });
+  }
+  for (const reason of report.execution.reasons) {
+    signals.push({ text: reason.label, kind: "practice", weight: Math.min(2, 0.5 + reason.count * 0.2) });
+  }
+  signals.push(...extractAnonymizedSafetySignals(students.map((student) => student.caution ?? "").filter(Boolean)));
+  return generateRadarTopics(signals, 4);
 }
 
-function buildRecentInsights(records: RawRecord[]): DashboardInsight[] {
-  return records
-    .flatMap((record) => (record.lesson_record_students ?? []).map((row) => ({ record, row })))
-    .filter(({ row }) => Boolean(row.condition?.trim() || row.memo?.trim() || row.next_follow?.trim()))
-    .slice(0, 4)
-    .map(({ record, row }) => ({
-      id: row.id,
-      dateKey: record.record_date.slice(0, 10),
-      lessonName: record.lesson_name,
-      studentName: row.student?.name ?? "生徒",
-      todayNote: row.condition ?? "",
-      personalMemo: row.memo ?? "",
-      nextFollow: row.next_follow ?? "",
-      href: record.schedule_id ? `/lessons/${record.schedule_id}/record` : "/lessons?tab=records",
-    }));
-}
-
-function buildCalendarDays(date: Date, schedulesByDate: Record<string, DashboardSchedule[]>) {
-  const [year, month] = dateKeyInTokyo(date).split("-").map(Number);
-  const firstDay = new Date(Date.UTC(year, month - 1, 1));
-  const firstWeekday = firstDay.getUTCDay();
-  const startOffset = firstWeekday === 0 ? 6 : firstWeekday - 1;
-  const gridStart = new Date(Date.UTC(year, month - 1, 1 - startOffset));
-  const todayKey = dateKeyInTokyo(date);
-
-  return Array.from({ length: 42 }, (_, index) => {
-    const current = new Date(gridStart);
-    current.setUTCDate(gridStart.getUTCDate() + index);
-    const key = `${current.getUTCFullYear()}-${String(current.getUTCMonth() + 1).padStart(2, "0")}-${String(current.getUTCDate()).padStart(2, "0")}`;
-    const inMonth = current.getUTCMonth() === month - 1;
-    return {
-      key,
-      day: inMonth ? current.getUTCDate() : null,
-      inMonth,
-      isToday: key === todayKey,
-      schedules: schedulesByDate[key] ?? [],
-    };
+function buildInsights(report: ReportData, topics: GeneratedRadarTopic[], knowledgeCount: number): TeachingInsight[] {
+  const confirmedPlanned = report.execution.asPlanned + report.execution.adjusted + report.execution.skipped + report.execution.replaced;
+  return buildTeachingInsights({
+    topBlocks: report.blocks.mostUsed.map((row) => ({ id: row.id, name: row.name, usedCount: row.usedCount })),
+    topPlans: report.plans.map((row) => ({ id: row.id, name: row.name, lessonCount: row.lessonCount })),
+    duration: {
+      averageDifferenceMinutes: report.execution.averageMinuteDifference,
+      samples: report.execution.minuteDifferenceSamples,
+    },
+    evaluatedBlocks: report.blocks.goodReaction.map((row) => ({ id: row.id, name: row.name, evaluatedCount: row.evaluatedCount, goodRate: row.goodRate })),
+    unusedBlocks: report.blocks.unused.map((row) => ({ id: row.id, name: row.name })),
+    dataQuality: {
+      recordedLessons: report.dataQuality.recordedLessons,
+      totalLessons: report.dataQuality.lessons,
+      unevaluatedBlocks: report.dataQuality.unevaluatedBlocks,
+      missingActualMinutes: report.dataQuality.missingActualMinutes,
+      legacyUnclassifiedItems: report.dataQuality.legacyUnclassifiedItems,
+    },
+    changes: {
+      confirmedPlanned,
+      adjusted: report.execution.adjusted,
+      skipped: report.execution.skipped,
+      replaced: report.execution.replaced,
+      added: report.execution.libraryAdded + report.execution.improvisedAdded,
+    },
+    knowledgeTopic: topics.find((topic) => topic.evidence.knowledgeSignals > 0)
+      ? { label: topics.find((topic) => topic.evidence.knowledgeSignals > 0)!.labelJa, documentCount: knowledgeCount }
+      : null,
   });
 }
 
-function groupSchedulesByDate(schedules: DashboardSchedule[]) {
-  return schedules.reduce<Record<string, DashboardSchedule[]>>((acc, schedule) => {
-    acc[schedule.dateKey] ??= [];
-    acc[schedule.dateKey].push(schedule);
-    return acc;
-  }, {});
-}
+async function loadRadar({
+  supabase,
+  userId,
+  generatedTopics,
+  now,
+}: {
+  supabase: Awaited<ReturnType<typeof requireUserId>>["supabase"];
+  userId: string;
+  generatedTopics: GeneratedRadarTopic[];
+  now: Date;
+}): Promise<DashboardData["radar"]> {
+  try {
+    const existingTopicsResult = await supabase
+      .from("radar_topics")
+      .select("topic_key,label_ja,label_en,source_kind,status,priority");
+    if (existingTopicsResult.error) throw existingTopicsResult.error;
+    const existingTopics = (existingTopicsResult.data ?? []) as RawRadarTopic[];
 
-function isWithinMonth(dateKey: string, monthStart: Date) {
-  const month = dateKey.slice(0, 7);
-  return month === dateKeyInTokyo(monthStart).slice(0, 7);
-}
+    const settingsUpsert = await supabase
+      .from("radar_settings")
+      .upsert({ user_id: userId }, { onConflict: "user_id", ignoreDuplicates: true });
+    if (settingsUpsert.error) throw settingsUpsert.error;
 
-function getTokyoMonthStart(date: Date) {
-  const [year, month] = dateKeyInTokyo(date).split("-").map(Number);
-  return new Date(`${year}-${String(month).padStart(2, "0")}-01T00:00:00+09:00`);
-}
+    if (generatedTopics.length) {
+      const topicUpsert = await supabase.from("radar_topics").upsert(
+        generatedTopics.map((topic) => ({
+          user_id: userId,
+          topic_key: topic.topicKey,
+          label_ja: topic.labelJa,
+          label_en: topic.labelEn,
+          search_queries: topic.searchQueries,
+          source_kind: topic.sourceKind,
+          evidence: topic.evidence,
+          priority: Math.max(topic.priority, existingTopics.find((row) => row.topic_key === topic.topicKey)?.priority ?? 0),
+          status: "active",
+          last_generated_at: now.toISOString(),
+        })),
+        { onConflict: "user_id,topic_key" },
+      );
+      if (topicUpsert.error) throw topicUpsert.error;
+    }
 
-function getTokyoMonthEnd(date: Date) {
-  const start = getTokyoMonthStart(date);
-  const end = new Date(start);
-  end.setMonth(end.getMonth() + 1);
-  end.setMilliseconds(end.getMilliseconds() - 1);
-  return end;
-}
+    const selectedKeys = new Set(generatedTopics.map((topic) => topic.topicKey));
+    const staleKeys = existingTopics.filter((topic) => topic.status === "active" && !selectedKeys.has(topic.topic_key)).map((topic) => topic.topic_key);
+    if (staleKeys.length) {
+      const staleResult = await supabase.from("radar_topics").update({ status: "blocked" }).in("topic_key", staleKeys);
+      if (staleResult.error) throw staleResult.error;
+    }
 
-function addDays(date: Date, days: number) {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
-  return next;
-}
+    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+    const [settingsResult, topicsResult, itemsResult, runsResult] = await Promise.all([
+      supabase.from("radar_settings").select("radar_enabled,last_success_at,last_error_at,last_error_code,external_paused_reason,hard_budget_usd").maybeSingle(),
+      supabase.from("radar_topics").select("topic_key,label_ja,label_en,source_kind,status,priority").eq("status", "active").order("priority", { ascending: false }).limit(4),
+      supabase
+        .from("radar_items")
+        .select("id,source_url,original_title,source_name,author,published_on,retrieved_at,item_type,ai_summary,relevance_reason,relevance_score,trust_score,is_ai_summary,source:radar_sources(status)")
+        .eq("processing_status", "ready")
+        .eq("visibility_status", "visible")
+        .order("relevance_score", { ascending: false })
+        .order("retrieved_at", { ascending: false })
+        .limit(12),
+      supabase.from("radar_runs").select("estimated_cost_usd").gte("started_at", monthStart),
+    ]);
+    if (settingsResult.error) throw settingsResult.error;
+    if (topicsResult.error) throw topicsResult.error;
+    if (itemsResult.error) throw itemsResult.error;
+    if (runsResult.error) throw runsResult.error;
 
-function dateKeyInTokyo(date: Date) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    timeZone: "Asia/Tokyo",
-  }).formatToParts(date);
-  const year = parts.find((part) => part.type === "year")?.value ?? "1970";
-  const month = parts.find((part) => part.type === "month")?.value ?? "01";
-  const day = parts.find((part) => part.type === "day")?.value ?? "01";
-  return `${year}-${month}-${day}`;
-}
+    const settings = settingsResult.data as RawRadarSettings | null;
+    const rawItems = ((itemsResult.data ?? []) as unknown as RawRadarItem[])
+      .filter((item) => firstRelation(item.source)?.status !== "blocked")
+      .slice(0, 4);
+    const itemIds = rawItems.map((item) => item.id);
+    const feedbackResult = itemIds.length
+      ? await supabase.from("radar_feedback").select("item_id,action").in("item_id", itemIds)
+      : { data: [], error: null };
+    if (feedbackResult.error) throw feedbackResult.error;
+    const feedbackByItem = new Map<string, string[]>();
+    for (const row of feedbackResult.data ?? []) feedbackByItem.set(row.item_id, [...(feedbackByItem.get(row.item_id) ?? []), row.action]);
 
-function formatTimeJa(value: string) {
-  return new Intl.DateTimeFormat("ja-JP", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Tokyo" }).format(new Date(value));
-}
+    const monthlyEstimatedCostUsd = Math.round((runsResult.data ?? []).reduce((sum, row) => sum + Number(row.estimated_cost_usd ?? 0), 0) * 1_000_000) / 1_000_000;
+    const globalEnabled = process.env.RADAR_EXTERNAL_FETCH_ENABLED === "true";
+    const status = resolveRadarStatus({ globalEnabled, settings, itemCount: rawItems.length, monthlyEstimatedCostUsd });
+    const lastUpdated = settings?.last_success_at ?? rawItems[0]?.retrieved_at ?? null;
 
-function formatDateJa(date: Date) {
-  return formatJapaneseDate(date);
-}
-
-function formatMonthJa(date: Date) {
-  return formatJapaneseMonth(date);
-}
-
-function getGreetingJa(date: Date) {
-  const hourPart = new Intl.DateTimeFormat("en-US", {
-    hour: "numeric",
-    hour12: false,
-    timeZone: "Asia/Tokyo",
-  })
-    .formatToParts(date)
-    .find((part) => part.type === "hour")?.value;
-  const hour = Number(hourPart ?? "0") % 24;
-
-  if (hour >= 5 && hour <= 10) {
-    return "おはようございます";
+    return {
+      status,
+      message: radarStatusMessage(status, Boolean(rawItems.length), settings?.last_error_code ?? null),
+      lastUpdatedLabel: lastUpdated ? formatDateTime(lastUpdated) : "まだ取得していません",
+      items: rawItems.map((item) => ({
+        id: item.id,
+        title: item.original_title,
+        sourceName: item.source_name,
+        author: item.author?.trim() || "著者情報なし",
+        publishedLabel: item.published_on ? formatDateValue(item.published_on) : "公開日不明",
+        retrievedLabel: formatDateTime(item.retrieved_at),
+        itemType: item.item_type,
+        itemTypeLabel: radarTypeLabels[item.item_type],
+        summary: item.ai_summary,
+        relevanceReason: item.relevance_reason,
+        sourceUrl: item.source_url,
+        isAiSummary: item.is_ai_summary,
+        relevanceScore: Number(item.relevance_score),
+        trustLabel: trustLabel(item.item_type, Number(item.trust_score)),
+        feedback: feedbackByItem.get(item.id) ?? [],
+      })),
+      topics: ((topicsResult.data ?? []) as RawRadarTopic[]).map((topic) => ({ key: topic.topic_key, labelJa: topic.label_ja, labelEn: topic.label_en, sourceKind: topic.source_kind })),
+      monthlyEstimatedCostUsd,
+    };
+  } catch (error) {
+    const missingTable = typeof error === "object" && error && "code" in error && (error as { code?: string }).code === "42P01";
+    return {
+      status: process.env.RADAR_EXTERNAL_FETCH_ENABLED === "true" && !missingTable ? "failed" : "setting_up",
+      message: missingTable ? "ナレッジレーダーを準備しています。今日のブリーフと自分の発見は利用できます。" : "外部情報の読み込みに失敗しました。前回の情報があれば、そのまま維持されます。",
+      lastUpdatedLabel: "未取得",
+      items: [],
+      topics: generatedTopics.map((topic) => ({ key: topic.topicKey, labelJa: topic.labelJa, labelEn: topic.labelEn, sourceKind: topic.sourceKind })),
+      monthlyEstimatedCostUsd: 0,
+    };
   }
+}
 
-  if (hour >= 11 && hour <= 16) {
-    return "こんにちは";
+function resolveRadarStatus({
+  globalEnabled,
+  settings,
+  itemCount,
+  monthlyEstimatedCostUsd,
+}: {
+  globalEnabled: boolean;
+  settings: RawRadarSettings | null;
+  itemCount: number;
+  monthlyEstimatedCostUsd: number;
+}): RadarStatus {
+  if (!globalEnabled || settings?.radar_enabled === false) return "disabled";
+  if (settings?.external_paused_reason === "hard_budget" || (settings && monthlyEstimatedCostUsd >= Number(settings.hard_budget_usd))) return "budget";
+  if (itemCount > 0) return "ready";
+  if (settings?.last_error_at) return "failed";
+  if (!settings?.last_success_at) return "setting_up";
+  return "empty";
+}
+
+function radarStatusMessage(status: RadarStatus, hasItems: boolean, errorCode: string | null): string {
+  if (status === "ready") return hasItems ? "外の知識と、今の指導テーマをつないでいます。" : "関連度の高い新着を探しています。";
+  if (status === "disabled") return "外部検索は準備中（安全にOFF）です。今日のブリーフと自分の発見は通常どおり利用できます。";
+  if (status === "budget") return "今月の上限に達したため外部取得を停止中です。保存済み情報は引き続き読めます。";
+  if (status === "failed") return `前回の外部取得に失敗しました${errorCode ? `（${errorCode}）` : ""}。既存情報は削除していません。`;
+  if (status === "empty") return "今回は表示条件を満たす情報がありませんでした。次回の定期更新で再確認します。";
+  return "既存データから追跡テーマを作成中です。ほかのホーム機能はすぐに使えます。";
+}
+
+function buildNextActions({
+  brief,
+  insights,
+  report,
+}: {
+  brief: DashboardData["brief"];
+  insights: TeachingInsight[];
+  report: ReportData;
+}): DashboardData["nextActions"] {
+  const actions: DashboardData["nextActions"] = [];
+  if (!brief.nextLesson) {
+    actions.push({ id: "schedule", title: "次のレッスンを置く", detail: "予定をひとつ登録すると、安全確認と準備の導線がホームに現れます。", href: "/schedules/new", label: "予定を登録" });
+  } else if (brief.nextLesson.lessonPlanId) {
+    actions.push({ id: "review-plan", title: "次回プランを30秒だけ見直す", detail: "最近の発見をひとつ選び、必要なら代替ブロックを準備できます。", href: `/lessons/${brief.nextLesson.lessonPlanId}`, label: "プランを見る" });
   }
+  if (brief.unrecordedCount > 0) {
+    actions.push({ id: "record", title: "新しい記録から気づきを残す", detail: `${brief.unrecordedCount}件の未記録レッスンがあります。分かる項目だけで構いません。`, href: brief.unrecordedLessons[0]?.href ?? "/lessons?tab=records", label: "記録を書く" });
+  }
+  if (report.dataQuality.unevaluatedBlocks > 0 || report.dataQuality.missingActualMinutes > 0) {
+    actions.push({ id: "quality", title: "次の1件だけ評価を足す", detail: "未入力を推測せず、入力された分だけで発見の精度を育てます。", href: "/lessons?tab=records", label: "記録を確認" });
+  }
+  if (actions.length < 3) {
+    const reusable = insights.find((insight) => insight.kind === "reuse");
+    if (reusable) actions.push({ id: "reuse", title: "久しぶりのブロックを候補に戻す", detail: reusable.title, href: reusable.href, label: "内容を見る" });
+  }
+  return actions.slice(0, 3);
+}
 
+function trustLabel(type: RadarItemType, score: number): string {
+  if (type === "social_signal") return "話題のシグナル（根拠用途外）";
+  if (type === "public_research") return "公的・研究情報";
+  if (type === "medical_health") return "医療・健康専門情報";
+  if (score >= 0.75) return "出典を確認して活用";
+  return "経験知・一般情報として参照";
+}
+
+function greeting(now: Date): string {
+  const hour = Number(new Intl.DateTimeFormat("ja-JP", { hour: "2-digit", hour12: false, timeZone: "Asia/Tokyo" }).format(now));
+  if (hour < 11) return "おはようございます";
+  if (hour < 17) return "こんにちは";
   return "こんばんは";
 }
 
-function displayScheduleName(schedule: DashboardSchedule) {
-  return schedule.lessonPlanId ? schedule.lessonPlanName : schedule.lessonName;
+function formatDateTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "日時不明";
+  return new Intl.DateTimeFormat("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tokyo" }).format(date);
+}
+
+function formatDateValue(value: string): string {
+  const date = value.length === 10 ? new Date(`${value}T00:00:00+09:00`) : new Date(value);
+  if (Number.isNaN(date.getTime())) return "日付不明";
+  return new Intl.DateTimeFormat("ja-JP", { month: "long", day: "numeric", weekday: "short", timeZone: "Asia/Tokyo" }).format(date);
+}
+
+function formatTimeRange(start: string, end: string): string {
+  const formatter = new Intl.DateTimeFormat("ja-JP", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tokyo" });
+  return `${formatter.format(new Date(start))}–${formatter.format(new Date(end))}`;
+}
+
+function assertQuery(error: { message: string } | null, label: string): void {
+  if (error) throw new Error(`${label}を取得できませんでした: ${error.message}`);
+}
+
+function first<T>(rows: T[]): T | null {
+  return rows[0] ?? null;
+}
+
+function firstRelation<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value ?? null;
+}
+
+function emptyDashboard(now: Date, error: string): DashboardData {
+  return {
+    greeting: greeting(now),
+    todayLabel: formatJapaneseDate(now),
+    brief: { nextLesson: null, pendingFollowups: [], unrecordedLessons: [], pendingFollowupCount: 0, unrecordedCount: 0 },
+    insights: buildTeachingInsights({
+      topBlocks: [],
+      topPlans: [],
+      duration: { averageDifferenceMinutes: null, samples: 0 },
+      evaluatedBlocks: [],
+      unusedBlocks: [],
+      dataQuality: { recordedLessons: 0, totalLessons: 0, unevaluatedBlocks: 0, missingActualMinutes: 0, legacyUnclassifiedItems: 0 },
+      changes: { confirmedPlanned: 0, adjusted: 0, skipped: 0, replaced: 0, added: 0 },
+    }),
+    radar: { status: "failed", message: "ホームの一部を読み込めませんでした。主要機能への操作は利用できます。", lastUpdatedLabel: "未取得", items: [], topics: [], monthlyEstimatedCostUsd: 0 },
+    nextActions: [{ id: "schedule", title: "次のレッスンを置く", detail: "予定を登録して準備を始められます。", href: "/schedules/new", label: "予定を登録" }],
+    error,
+  };
 }

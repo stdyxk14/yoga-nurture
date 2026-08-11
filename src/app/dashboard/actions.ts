@@ -1,51 +1,31 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { replaceBlockTags } from "@/lib/blocks";
+import { refreshRadarForUser } from "@/lib/radar/server";
 import { createMutationContext } from "@/lib/supabase/server";
 
-export async function importStarterBlockAction(formData: FormData) {
-  const name = String(formData.get("name") ?? "").trim();
-  const durationMinutes = Number.parseInt(String(formData.get("duration_minutes") ?? "5"), 10);
-  const purpose = String(formData.get("purpose") ?? "").trim();
-  const cautions = String(formData.get("cautions") ?? "").trim();
-  const script = String(formData.get("script") ?? "").trim();
-  const memo = String(formData.get("memo") ?? "").trim();
-  const tags = formData.getAll("tags").map((tag) => String(tag)).filter(Boolean);
+const feedbackActions = new Set(["helpful", "not_now", "read_later", "block_source"]);
 
-  if (!name || !Number.isFinite(durationMinutes) || durationMinutes <= 0) {
-    redirect("/dashboard?starter_error=invalid");
-  }
-
-  const { supabase, userId } = await createMutationContext();
-  const { data, error } = await supabase
-    .from("block_templates")
-    .insert({
-      user_id: userId,
-      name,
-      duration_minutes: durationMinutes,
-      purpose,
-      level: "全レベル",
-      cautions,
-      script,
-      memo,
-    })
-    .select("id")
-    .single();
-
-  if (error || !data) {
-    redirect("/dashboard?starter_error=save");
-  }
-
-  try {
-    await replaceBlockTags({ supabase, userId }, data.id, tags);
-  } catch {
-    redirect(`/blocks/${data.id}`);
-  }
-
+export async function refreshRadarAction(): Promise<void> {
+  const { userId } = await createMutationContext();
+  await refreshRadarForUser({ userId, triggerType: "manual" });
   revalidatePath("/dashboard");
-  revalidatePath("/lessons");
-  revalidatePath("/blocks");
-  redirect(`/blocks/${data.id}`);
+}
+
+export async function submitRadarFeedbackAction(formData: FormData): Promise<void> {
+  const itemId = String(formData.get("item_id") ?? "").trim();
+  const action = String(formData.get("action") ?? "").trim();
+  if (!isUuid(itemId) || !feedbackActions.has(action)) return;
+
+  const { supabase } = await createMutationContext();
+  const { error } = await supabase.rpc("apply_radar_feedback", {
+    p_item_id: itemId,
+    p_action: action,
+  });
+  if (error) throw new Error(`レーダーのフィードバックを保存できませんでした: ${error.message}`);
+  revalidatePath("/dashboard");
+}
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
