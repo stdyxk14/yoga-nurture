@@ -2,11 +2,12 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { emptyReferenceIndex, sourceFingerprint, type AiReviewReference, type AiReviewReferenceIndex } from "@/lib/ai-review/types";
+import { emptyReferenceIndex, type AiReviewReference, type AiReviewReferenceIndex } from "@/lib/ai-review/types";
 import {
   candidateId,
   candidateIdentity,
   dailySuggestionEvidenceVersion,
+  dailyRunSourceFingerprint,
   type DailyCandidate,
   type DailyConfidence,
   type DailyDraftPayload,
@@ -102,7 +103,7 @@ export async function buildDailySuggestionEvidence({
   const prior = (priorResult.data ?? []) as unknown as JsonRow[];
   const referenceIndex = buildReferenceIndex({ userId, schedules, records, plans, blocks });
   const priorDedupe = new Set(prior.map((row) => text(row.dedupe_key)).filter(Boolean));
-  const candidates = buildCandidates({
+  const candidatePool = dedupeCandidateIds(buildCandidates({
     userId,
     schedules,
     records,
@@ -111,9 +112,9 @@ export async function buildDailySuggestionEvidence({
     knowledge,
     referenceIndex,
     now,
-  })
+  })).sort(compareCandidates);
+  const candidates = candidatePool
     .filter((candidate) => !priorDedupe.has(candidate.dedupeKey))
-    .sort(compareCandidates)
     .slice(0, 24);
 
   if (!candidates.length) {
@@ -186,7 +187,12 @@ export async function buildDailySuggestionEvidence({
   return {
     suggestionDate,
     reviewSnapshotId: text(review.id),
-    fingerprint: sourceFingerprint({ suggestionDate, review_fingerprint: text(review.source_fingerprint), evidence, prior_feedback: prior.map((row) => ({ dedupe_key: row.dedupe_key, status: row.status })) }),
+    fingerprint: dailyRunSourceFingerprint({
+      suggestionDate,
+      reviewFingerprint: text(review.source_fingerprint),
+      candidates: candidatePool,
+      priorFeedback: prior.map((row) => ({ dedupeKey: text(row.dedupe_key), status: text(row.status) })),
+    }),
     evidence,
     evidenceSummary,
     referenceIndex,

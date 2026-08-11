@@ -182,6 +182,36 @@ export function candidateId(value: unknown) {
   return `candidate-${candidateIdentity(value).slice(0, 20)}`;
 }
 
+export function dailyRunSourceFingerprint({
+  suggestionDate,
+  reviewFingerprint,
+  candidates,
+  priorFeedback,
+}: {
+  suggestionDate: string;
+  reviewFingerprint: string;
+  candidates: DailyCandidate[];
+  priorFeedback: Array<{ dedupeKey: string; status: string }>;
+}) {
+  return sourceFingerprint({
+    suggestion_date: suggestionDate,
+    review_fingerprint: reviewFingerprint,
+    candidate_pool: candidates
+      .map((candidate) => ({
+        candidate_id: candidate.id,
+        dedupe_key: candidate.dedupeKey,
+        priority: candidate.priority,
+        confidence: candidate.confidence,
+        evidence_count: candidate.evidenceCount,
+      }))
+      .sort((a, b) => a.candidate_id.localeCompare(b.candidate_id)),
+    prior_feedback: priorFeedback
+      .filter((item) => item.status !== "pending")
+      .map((item) => ({ dedupe_key: item.dedupeKey, status: item.status }))
+      .sort((a, b) => a.dedupe_key.localeCompare(b.dedupe_key) || a.status.localeCompare(b.status)),
+  });
+}
+
 export function parseAndValidateDailyOutput(outputText: string, candidates: DailyCandidate[]): ModelDailyOutput {
   const parsed = JSON.parse(outputText) as ModelDailyOutput;
   if (!parsed || !Array.isArray(parsed.suggestions) || parsed.suggestions.length < 1 || parsed.suggestions.length > 3) {

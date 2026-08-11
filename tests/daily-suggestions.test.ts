@@ -5,6 +5,7 @@ import { emptyReferenceIndex } from "../src/lib/ai-review/types";
 import {
   buildStoredDailySuggestions,
   dailySuggestionOutputSchema,
+  dailyRunSourceFingerprint,
   estimateDailyCost,
   getConfiguredDailyModel,
   parseAndValidateDailyOutput,
@@ -94,6 +95,26 @@ test("daily model selection and cost use only the explicit price allowlist", () 
   assert.equal(estimateDailyCost("gpt-5.6-luna", { inputTokens: 10_000, cachedInputTokens: 0, outputTokens: 2_000 }), 0.022);
   assert.equal(dailySuggestionOutputSchema.additionalProperties, false);
   assert.equal(dailySuggestionOutputSchema.properties.suggestions.maxItems, 3);
+});
+
+test("daily source fingerprint ignores newly saved pending suggestions but changes after feedback", () => {
+  const candidates = [candidate("stable", 1)];
+  const base = {
+    suggestionDate: "2026-08-12",
+    reviewFingerprint: "f".repeat(64),
+    candidates,
+  };
+  const before = dailyRunSourceFingerprint({ ...base, priorFeedback: [] });
+  const afterPendingSave = dailyRunSourceFingerprint({
+    ...base,
+    priorFeedback: [{ dedupeKey: candidates[0].dedupeKey, status: "pending" }],
+  });
+  const afterFeedback = dailyRunSourceFingerprint({
+    ...base,
+    priorFeedback: [{ dedupeKey: candidates[0].dedupeKey, status: "dismissed" }],
+  });
+  assert.equal(afterPendingSave, before);
+  assert.notEqual(afterFeedback, before);
 });
 
 test("daily migration locks suggestions and atomically records one saved draft", () => {
