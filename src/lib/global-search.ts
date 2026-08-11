@@ -30,6 +30,7 @@ type ScheduleRow = {
   status: string;
   lesson_plan_name_snapshot: string | null;
   lesson_plan?: { name: string | null } | Array<{ name: string | null }> | null;
+  schedule_closures?: Array<{ revoked_at: string | null }>;
 };
 
 type LessonPlanRow = {
@@ -211,7 +212,7 @@ async function searchSchedules(
   query: string,
   filterTerm: string,
 ): Promise<GlobalSearchGroup> {
-  const select = "id,lesson_name,starts_at,ends_at,place,status,lesson_plan_name_snapshot,lesson_plan:lesson_plans(name)";
+  const select = "id,lesson_name,starts_at,ends_at,place,status,lesson_plan_name_snapshot,lesson_plan:lesson_plans(name),schedule_closures(revoked_at)";
   const range = parseDateRange(query);
   const textRequest = supabase
     .from("schedules")
@@ -253,7 +254,7 @@ async function searchSchedules(
         title: row.lesson_name,
         description: planName,
         meta: [dateTime, row.place?.trim() || "場所未設定"],
-        status: scheduleStatusLabel(row.status),
+        status: row.schedule_closures?.some((closure) => closure.revoked_at === null) ? "クローズ済み" : scheduleStatusLabel(row.status),
         matchContext: dateMatchIds.has(row.id)
           ? `日付: ${dateTime}`
           : findMatchContext(query, [

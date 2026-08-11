@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { duplicateLessonPlanAction } from "@/app/lessons/lesson-plan-actions";
 import { Input } from "@/components/ui/input";
+import { ScheduleClosureDialog } from "@/components/yoga/schedule-closure-dialog";
 import {
   WorkspaceAction,
   WorkspaceEmptyState,
@@ -152,7 +153,9 @@ function ScheduleWorkspace({ schedules, params, now }: { schedules: DbSchedule[]
     if (params.status && params.status !== "all") {
       if (params.status === "record_pending") {
         if (!isRecordPending(schedule, now)) return false;
-      } else if (schedule.status !== params.status) return false;
+      } else if (params.status === "closed") {
+        if (!schedule.activeClosure) return false;
+      } else if (schedule.status !== params.status || schedule.activeClosure) return false;
     }
     if (params.format && params.format !== "all" && schedule.format !== params.format) return false;
     if (params.place && params.place !== "all" && schedule.place !== params.place) return false;
@@ -161,8 +164,9 @@ function ScheduleWorkspace({ schedules, params, now }: { schedules: DbSchedule[]
   });
 
   const waiting = filtered.filter((schedule) => isRecordPending(schedule, now)).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
-  const future = filtered.filter((schedule) => !isRecordPending(schedule, now) && Date.parse(schedule.startsAt) >= now).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
-  const past = filtered.filter((schedule) => !isRecordPending(schedule, now) && Date.parse(schedule.startsAt) < now).sort((a, b) => b.startsAt.localeCompare(a.startsAt));
+  const closed = filtered.filter((schedule) => Boolean(schedule.activeClosure)).sort((a, b) => b.startsAt.localeCompare(a.startsAt));
+  const future = filtered.filter((schedule) => !schedule.activeClosure && !isRecordPending(schedule, now) && Date.parse(schedule.startsAt) >= now).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+  const past = filtered.filter((schedule) => !schedule.activeClosure && !isRecordPending(schedule, now) && Date.parse(schedule.startsAt) < now).sort((a, b) => b.startsAt.localeCompare(a.startsAt));
   const places = unique(schedules.map((schedule) => schedule.place).filter(Boolean));
   const plans = uniqueBy(schedules.filter((schedule) => schedule.lessonPlanId), (schedule) => schedule.lessonPlanId!);
 
@@ -176,7 +180,7 @@ function ScheduleWorkspace({ schedules, params, now }: { schedules: DbSchedule[]
               <Input name="q" defaultValue={params.q ?? ""} placeholder="レッスン・プラン・場所" className="h-8 border-0 px-0 text-[14px] shadow-none focus-visible:ring-0" />
             </div>
           </FilterField>
-          <FilterSelect label="状態" name="status" value={params.status} options={[["all", "すべて"], ["record_pending", "記録待ち"], ["scheduled", "予定"], ["preparing", "準備中"], ["prepared", "準備済み"], ["recorded", "記録済み"]]} />
+          <FilterSelect label="状態" name="status" value={params.status} options={[["all", "すべて"], ["record_pending", "記録待ち"], ["closed", "クローズ済み"], ["scheduled", "予定"], ["preparing", "準備中"], ["prepared", "準備済み"], ["recorded", "記録済み"]]} />
           <FilterSelect label="期間" name="period" value={params.period} options={periodOptions} />
           <FilterSelect label="形式" name="format" value={params.format} options={[["all", "すべて"], ["group", "グループ"], ["personal", "パーソナル"], ["online", "オンライン"]]} />
           <FilterSelect label="場所" name="place" value={params.place} options={[["all", "すべて"], ...places.map((place) => [place, place] as const)]} />
@@ -186,20 +190,24 @@ function ScheduleWorkspace({ schedules, params, now }: { schedules: DbSchedule[]
         </form>
       </WorkspaceToolbar>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <WorkspaceSummaryCard label="表示中" value={`${filtered.length}件`} detail="現在の検索・フィルター結果" />
         <WorkspaceSummaryCard label="記録待ち" value={`${waiting.length}件`} detail="古い予定から表示" tone="coral" href="/lessons?status=record_pending" />
         <WorkspaceSummaryCard label="今後の予定" value={`${future.length}件`} detail="近い予定から表示" tone="purple" href="/lessons?period=future" />
+        <WorkspaceSummaryCard label="クローズ済み" value={`${closed.length}件`} detail="通常の出席集計から除外" tone="sand" href="/lessons?status=closed" />
       </div>
 
       <ScheduleGroup title="記録待ち" description="実施後記録が未完了のレッスン。古い順です。" schedules={waiting} kind="waiting" />
       <ScheduleGroup title="今後の予定" description="これから実施するレッスン。近い順です。" schedules={future} kind="future" />
+      <ScheduleGroup title="クローズ済み" description="レッスン全体が実施されなかった予定。理由と決定日時は詳細で確認できます。" schedules={closed} kind="closed" />
       <ScheduleGroup title="過去の予定" description="記録済みの過去レッスン。新しい順です。" schedules={past} kind="past" />
     </div>
   );
 }
 
-function ScheduleGroup({ title, description, schedules, kind }: { title: string; description: string; schedules: DbSchedule[]; kind: "waiting" | "future" | "past" }) {
+type ScheduleGroupKind = "waiting" | "future" | "closed" | "past";
+
+function ScheduleGroup({ title, description, schedules, kind }: { title: string; description: string; schedules: DbSchedule[]; kind: ScheduleGroupKind }) {
   return (
     <WorkspaceSection title={title} description={description}>
       {schedules.length ? (
@@ -227,7 +235,7 @@ function ScheduleGroup({ title, description, schedules, kind }: { title: string;
   );
 }
 
-function ScheduleRow({ schedule, kind }: { schedule: DbSchedule; kind: "waiting" | "future" | "past" }) {
+function ScheduleRow({ schedule, kind }: { schedule: DbSchedule; kind: ScheduleGroupKind }) {
   return (
     <tr className="transition hover:bg-[#fafcf8] focus-within:bg-[#fafcf8]">
       <TableCell className="whitespace-nowrap font-medium">{schedule.dateLabel}</TableCell>
@@ -242,7 +250,7 @@ function ScheduleRow({ schedule, kind }: { schedule: DbSchedule; kind: "waiting"
   );
 }
 
-function ScheduleCard({ schedule, kind }: { schedule: DbSchedule; kind: "waiting" | "future" | "past" }) {
+function ScheduleCard({ schedule, kind }: { schedule: DbSchedule; kind: ScheduleGroupKind }) {
   return (
     <article className="rounded-xl border border-[#e6ded3] bg-white/82 p-4">
       <div className="flex items-start justify-between gap-3"><div className="min-w-0"><h3 className="text-[15px] font-semibold">{schedule.lessonName}</h3><p className="mt-1 text-[13px] text-[#5d765f]">{schedule.dateLabel} {schedule.startTimeLabel}–{schedule.endTimeLabel}</p></div><ScheduleStatus schedule={schedule} kind={kind} /></div>
@@ -252,7 +260,8 @@ function ScheduleCard({ schedule, kind }: { schedule: DbSchedule; kind: "waiting
   );
 }
 
-function ScheduleStatus({ schedule, kind }: { schedule: DbSchedule; kind: "waiting" | "future" | "past" }) {
+function ScheduleStatus({ schedule, kind }: { schedule: DbSchedule; kind: ScheduleGroupKind }) {
+  if (kind === "closed" || schedule.activeClosure) return <WorkspaceStatus tone="coral">クローズ済み</WorkspaceStatus>;
   if (kind === "waiting") return <WorkspaceStatus tone="coral">記録待ち</WorkspaceStatus>;
   if (schedule.status === "recorded") return <WorkspaceStatus tone="green">記録済み</WorkspaceStatus>;
   if (schedule.status === "prepared") return <WorkspaceStatus tone="purple">準備済み</WorkspaceStatus>;
@@ -260,7 +269,7 @@ function ScheduleStatus({ schedule, kind }: { schedule: DbSchedule; kind: "waiti
   return <WorkspaceStatus>{schedule.statusLabel}</WorkspaceStatus>;
 }
 
-function ScheduleActions({ schedule, kind }: { schedule: DbSchedule; kind: "waiting" | "future" | "past" }) {
+function ScheduleActions({ schedule, kind }: { schedule: DbSchedule; kind: ScheduleGroupKind }) {
   const primaryHref = kind === "waiting" ? `/lessons/${schedule.id}/record` : `/schedules/${schedule.id}`;
   const primaryLabel = kind === "waiting" ? "記録を書く" : "詳細";
   return (
@@ -271,8 +280,9 @@ function ScheduleActions({ schedule, kind }: { schedule: DbSchedule; kind: "wait
         <div className="mt-2 flex flex-wrap justify-end gap-1.5 rounded-lg border border-[#e2dbd1] bg-[#fbfaf7] p-2">
           <Link href={`/schedules/${schedule.id}`} className="secondary-row-action">詳細</Link>
           {schedule.lessonPlanId ? <Link href={`/schedules/${schedule.id}/script`} className="secondary-row-action">原稿</Link> : <span className="secondary-row-action opacity-50">原稿なし</span>}
-          <Link href={`/lessons/${schedule.id}/record`} className="secondary-row-action">実施後記録</Link>
+          {!schedule.activeClosure ? <Link href={`/lessons/${schedule.id}/record`} className="secondary-row-action">実施後記録</Link> : null}
           <Link href={`/schedules/${schedule.id}/edit`} className="secondary-row-action">編集</Link>
+          {!schedule.activeClosure && !schedule.hasCompletedRecord ? <ScheduleClosureDialog scheduleId={schedule.id} activeClosure={null} hasDraftRecord={schedule.hasDraftRecord} disabled={false} /> : null}
         </div>
       </details>
     </div>
@@ -509,7 +519,7 @@ function ViewLink({ label, view, active, params }: { label: string; view: string
 }
 
 function normalizeTab(value?: string): LessonTab { return value === "plans" || value === "blocks" || value === "records" || value === "analysis" ? value : "schedule"; }
-function isRecordPending(schedule: DbSchedule, now: number) { return schedule.status === "record_pending" || (Date.parse(schedule.startsAt) < now && schedule.status !== "recorded"); }
+function isRecordPending(schedule: DbSchedule, now: number) { return !schedule.activeClosure && (schedule.status === "record_pending" || (Date.parse(schedule.startsAt) < now && schedule.status !== "recorded")); }
 function matchesPeriod(value: string, period: string | undefined, now: number) {
   const timestamp = Date.parse(value);
   if (!Number.isFinite(timestamp) || !period || period === "all") return true;

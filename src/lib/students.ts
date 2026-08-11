@@ -89,10 +89,12 @@ type RawScheduleParticipant = {
     id: string;
     starts_at: string | null;
     status: string | null;
+    schedule_closures?: Array<{ revoked_at: string | null }>;
   } | Array<{
     id: string;
     starts_at: string | null;
     status: string | null;
+    schedule_closures?: Array<{ revoked_at: string | null }>;
   }> | null;
 };
 
@@ -156,7 +158,7 @@ export async function getStudentWorkspace({
               .in("student_id", studentIds),
             supabase
               .from("schedule_participants")
-              .select("student_id,attendance_status,schedule:schedules(id,starts_at,status)")
+              .select("student_id,attendance_status,schedule:schedules(id,starts_at,status,schedule_closures(revoked_at))")
               .in("student_id", studentIds),
           ])
         : [{ data: [], error: null }, { data: [], error: null }];
@@ -217,7 +219,7 @@ function buildWorkspaceRow(studentRow: StudentRow, recordRows: RawRecordStudent[
   const nextScheduledAt = participantRows
     .filter((row) => row.attendance_status === "present")
     .map((row) => firstRelation(row.schedule))
-    .filter((schedule): schedule is NonNullable<typeof schedule> => Boolean(schedule?.starts_at) && schedule!.status !== "recorded" && Date.parse(schedule!.starts_at!) >= nowTime)
+    .filter((schedule): schedule is NonNullable<typeof schedule> => Boolean(schedule?.starts_at) && schedule!.status !== "recorded" && !schedule!.schedule_closures?.some((closure) => closure.revoked_at === null) && Date.parse(schedule!.starts_at!) >= nowTime)
     .map((schedule) => schedule.starts_at!)
     .sort()[0] ?? null;
   const base = mapStudentRow(studentRow);

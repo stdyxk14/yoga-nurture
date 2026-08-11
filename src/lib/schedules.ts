@@ -5,6 +5,13 @@ import { getFormatLabel, type DbLessonPlan } from "@/lib/lesson-plans";
 import { toGenderCode, toGenderLabel } from "@/lib/student-fields";
 import type { StudentRecord } from "@/components/yoga/records";
 import type { RequestSupabaseClient } from "@/lib/supabase/server";
+import {
+  getScheduleClosureReasonLabel,
+  type ScheduleClosure,
+  type ScheduleClosureReasonCode,
+} from "@/lib/schedule-closures";
+
+export type { ScheduleClosure, ScheduleClosureReasonCode } from "@/lib/schedule-closures";
 
 export type ScheduleStatus = "scheduled" | "preparing" | "prepared" | "record_pending" | "recorded";
 
@@ -44,6 +51,10 @@ export type DbSchedule = {
   lessonPlanName: string;
   participantCount: number;
   participants: ScheduleParticipant[];
+  activeClosure: ScheduleClosure | null;
+  closureHistory: ScheduleClosure[];
+  hasDraftRecord: boolean;
+  hasCompletedRecord: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -72,6 +83,18 @@ type RawSchedule = {
   updated_at: string;
   lesson_plan?: { id: string; name: string | null } | null;
   schedule_participants?: RawParticipant[];
+  schedule_closures?: RawScheduleClosure[];
+  lesson_records?: Array<{ id: string }>;
+};
+
+type RawScheduleClosure = {
+  id: string;
+  reason_code: ScheduleClosureReasonCode;
+  decided_at: string;
+  note: string | null;
+  handoff_note: string | null;
+  created_at: string;
+  revoked_at: string | null;
 };
 
 type RawParticipant = {
@@ -146,6 +169,9 @@ function mapSchedule(row: RawSchedule): DbSchedule {
   const start = formatDateTime(row.starts_at);
   const end = formatDateTime(row.ends_at);
   const participants = (row.schedule_participants ?? []).map(mapParticipant).filter((item): item is ScheduleParticipant => Boolean(item));
+  const closureHistory = (row.schedule_closures ?? []).map(mapClosure).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const activeClosure = closureHistory.find((closure) => closure.revokedAt === null) ?? null;
+  const hasRecord = Boolean(row.lesson_records?.length);
 
   return {
     id: row.id,
@@ -171,6 +197,10 @@ function mapSchedule(row: RawSchedule): DbSchedule {
     lessonPlanName: row.lesson_plan_name_snapshot || row.lesson_plan?.name || "未設定",
     participantCount: participants.length,
     participants,
+    activeClosure,
+    closureHistory,
+    hasDraftRecord: hasRecord && row.status !== "recorded",
+    hasCompletedRecord: row.status === "recorded",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -214,7 +244,9 @@ export async function getScheduleSummaries() {
       created_at,
       updated_at,
       lesson_plan:lesson_plans(id,name),
-      schedule_participants(id)
+      schedule_participants(id),
+      schedule_closures(id,reason_code,decided_at,note,handoff_note,created_at,revoked_at),
+      lesson_records(id)
     `)
     .order("starts_at", { ascending: true });
 
@@ -247,6 +279,10 @@ export async function getScheduleSummaries() {
       lessonPlanName: row.lesson_plan?.name ?? "未設定",
       participantCount: row.schedule_participants?.length ?? 0,
       participants: [],
+      activeClosure: (row.schedule_closures ?? []).filter((closure) => closure.revoked_at === null).map(mapClosure)[0] ?? null,
+      closureHistory: (row.schedule_closures ?? []).map(mapClosure).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+      hasDraftRecord: Boolean(row.lesson_records?.length) && row.status !== "recorded",
+      hasCompletedRecord: row.status === "recorded",
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     } satisfies DbSchedule;
@@ -364,8 +400,32 @@ function scheduleSelect(includeNotes: boolean) {
         id,
         attendance_status,
         student:students(id,name,kana,age_group,gender,experience,caution,memo)
-      )
+      ),
+      schedule_closures(id,reason_code,decided_at,note,handoff_note,created_at,revoked_at),
+      lesson_records(id)
     `;
+}
+
+function mapClosure(row: RawScheduleClosure): ScheduleClosure {
+  return {
+    id: row.id,
+    reasonCode: row.reason_code,
+    reasonLabel: getScheduleClosureReasonLabel(row.reason_code),
+    decidedAt: row.decided_at,
+    decidedAtLabel: new Intl.DateTimeFormat("ja-JP", {
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone: "Asia/Tokyo",
+    }).format(new Date(row.decided_at)),
+    note: row.note ?? "",
+    handoffNote: row.handoff_note ?? "",
+    createdAt: row.created_at,
+    revokedAt: row.revoked_at,
+  };
 }
 
 function isMissingScheduleNotesError(message: string) {

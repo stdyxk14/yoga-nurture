@@ -3,9 +3,15 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getLessonPlans } from "@/lib/lesson-plans";
-import { getSchedulePayload, type ScheduleFormState } from "@/lib/schedules";
+import {
+  getSchedulePayload,
+  type ScheduleFormState,
+} from "@/lib/schedules";
+import { scheduleClosureReasonOptions } from "@/lib/schedule-closures";
 import { createMutationContext } from "@/lib/supabase/server";
 import { formatRpcError } from "@/lib/supabase/rpc-errors";
+
+export type ScheduleClosureFormState = { error?: string; success?: string };
 
 function scheduleRpcPayload(scheduleId: string | null, parsed: ReturnType<typeof getSchedulePayload>) {
   if ("error" in parsed) throw new Error(parsed.error);
@@ -91,4 +97,65 @@ export async function deleteScheduleAction(id: string, formData?: FormData): Pro
   revalidatePath("/lessons");
   revalidatePath("/schedules");
   redirect("/lessons?tab=schedule");
+}
+
+export async function saveScheduleClosureAction(
+  scheduleId: string,
+  _prevState: ScheduleClosureFormState,
+  formData: FormData,
+): Promise<ScheduleClosureFormState> {
+  const reasonCode = String(formData.get("reason_code") ?? "");
+  const decidedAtValue = String(formData.get("decided_at") ?? "").trim();
+  const note = String(formData.get("note") ?? "").trim();
+  const handoffNote = String(formData.get("handoff_note") ?? "").trim();
+  const confirmDraft = formData.get("confirm_draft") === "on";
+
+  if (!scheduleClosureReasonOptions.some((option) => option.value === reasonCode)) {
+    return { error: "クローズ理由を選択してください。" };
+  }
+  const decidedAt = parseJstDateTime(decidedAtValue);
+  if (!decidedAt) return { error: "クローズ決定日時を入力してください。" };
+
+  try {
+    const { supabase } = await createMutationContext();
+    const { error } = await supabase.rpc("save_schedule_closure", {
+      p_schedule_id: scheduleId,
+      p_reason_code: reasonCode,
+      p_decided_at: decidedAt,
+      p_note: note,
+      p_handoff_note: handoffNote,
+      p_confirm_draft: confirmDraft,
+    });
+    if (error) return { error: formatRpcError(error, "レッスンをクローズできませんでした") };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "レッスンをクローズできませんでした。" };
+  }
+
+  revalidateClosurePaths(scheduleId);
+  return { success: "クローズ内容を保存しました。" };
+}
+
+export async function reopenScheduleClosureAction(scheduleId: string, formData?: FormData): Promise<void> {
+  void formData;
+  const { supabase } = await createMutationContext();
+  const { error } = await supabase.rpc("reopen_schedule_closure", { p_schedule_id: scheduleId });
+  if (error) {
+    redirect(`/schedules/${scheduleId}?error=${encodeURIComponent(formatRpcError(error, "クローズを解除できませんでした"))}`);
+  }
+  revalidateClosurePaths(scheduleId);
+  redirect(`/schedules/${scheduleId}`);
+}
+
+function parseJstDateTime(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}:00+09:00`);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function revalidateClosurePaths(scheduleId: string) {
+  revalidatePath("/dashboard");
+  revalidatePath("/lessons");
+  revalidatePath("/reports");
+  revalidatePath(`/schedules/${scheduleId}`);
+  revalidatePath(`/lessons/${scheduleId}/record`);
 }

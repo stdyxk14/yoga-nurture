@@ -2,7 +2,7 @@ import { requireUserId } from "@/lib/students";
 import { measurePerformance } from "@/lib/performance";
 
 export type ReportPeriodKey = "week" | "month" | "3months" | "half" | "year" | "custom";
-export type ReportViewKey = "overview" | "attendance" | "students" | "plans" | "blocks" | "execution";
+export type ReportViewKey = "overview" | "attendance" | "students" | "plans" | "blocks" | "execution" | "closures";
 
 export type ReportQuery = {
   period: ReportPeriodKey;
@@ -107,6 +107,39 @@ export type ExecutionSummary = {
   templatedImprovisedItems: RankedTextRow[];
 };
 
+export type ClosureReport = {
+  closedCount: number;
+  heldCount: number;
+  closeRate: number | null;
+  unclassifiedPastCount: number;
+  futureClosedCount: number;
+  comparisons: {
+    closedCount: ComparisonValue;
+    heldCount: ComparisonValue;
+    closeRate: ComparisonValue;
+    unclassifiedPastCount: ComparisonValue;
+  };
+  byReason: RankedTextRow[];
+  byWeekday: RankedTextRow[];
+  byTimeBand: RankedTextRow[];
+  byPlace: RankedTextRow[];
+  byPlan: RankedTextRow[];
+  byFormat: RankedTextRow[];
+  byDecisionTiming: RankedTextRow[];
+  items: Array<{
+    scheduleId: string;
+    lessonName: string;
+    startsAt: string;
+    reason: string;
+    decisionTiming: string;
+    place: string;
+    planId: string | null;
+    planName: string;
+    format: string;
+    isFuture: boolean;
+  }>;
+};
+
 export type ReportData = {
   period: ReportPeriod;
   error?: string;
@@ -145,6 +178,7 @@ export type ReportData = {
     unused: BlockReportRow[];
   };
   execution: ExecutionSummary;
+  closures: ClosureReport;
   hints: string[];
   dataQuality: {
     lessons: number;
@@ -163,6 +197,7 @@ type ItemSource = "planned" | "library" | "improvised";
 
 type RawStudent = { id: string; age_group: string | null; gender: string | null; created_at: string };
 type RawParticipant = { student_id: string; attendance_status: AttendanceStatus };
+type RawClosure = { id: string; reason_code: string; decided_at: string; revoked_at: string | null };
 type RawSchedule = {
   id: string;
   lesson_plan_id: string | null;
@@ -176,6 +211,7 @@ type RawSchedule = {
   lesson_plan_duration_minutes_snapshot: number | null;
   lesson_plan?: { id: string; name: string | null; duration_minutes?: number | null } | null;
   schedule_participants?: RawParticipant[];
+  schedule_closures?: RawClosure[];
 };
 type RawRecordStudent = { student_id: string; attendance_status: AttendanceStatus };
 type RawRecordItem = {
@@ -213,6 +249,7 @@ type RawRecord = {
     lesson_plan_name_snapshot: string | null;
     lesson_plan_duration_minutes_snapshot: number | null;
     lesson_plan?: { id: string; name: string | null; duration_minutes?: number | null } | null;
+    schedule_closures?: RawClosure[];
   } | null;
   lesson_record_students?: RawRecordStudent[];
   lesson_record_blocks?: RawRecordItem[];
@@ -253,13 +290,22 @@ const reasonLabels: Record<string, string> = {
   space_equipment: "会場・設備",
   other: "その他",
 };
+const closureReasonLabels: Record<string, string> = {
+  all_participants_cancelled: "参加者全員がキャンセル",
+  minimum_participants_not_met: "最少開催人数に満たなかった",
+  instructor_unavailable: "講師都合",
+  weather_disaster_transport: "天候・災害・交通事情",
+  venue_unavailable: "会場都合",
+  operational: "運営上の都合",
+  other: "その他",
+};
 
 export function normalizeReportPeriod(value?: string | null): ReportPeriodKey {
   return value === "week" || value === "month" || value === "3months" || value === "half" || value === "year" || value === "custom" ? value : "3months";
 }
 
 export function normalizeReportView(value?: string | null): ReportViewKey {
-  return value === "attendance" || value === "students" || value === "plans" || value === "blocks" || value === "execution" ? value : "overview";
+  return value === "attendance" || value === "students" || value === "plans" || value === "blocks" || value === "execution" || value === "closures" ? value : "overview";
 }
 
 export function resolveReportPeriod({ period, from, to, now = new Date() }: Pick<ReportQuery, "period" | "from" | "to" | "now">): { period: ReportPeriod | null; error?: string } {
@@ -335,13 +381,13 @@ async function fetchReportData(query: ReportQuery, period: ReportPeriod): Promis
     supabase.from("students").select("id,age_group,gender,created_at").eq("archived", false),
     supabase
       .from("schedules")
-      .select("id,lesson_plan_id,lesson_name,starts_at,ends_at,place,format,status,lesson_plan_name_snapshot,lesson_plan_duration_minutes_snapshot,lesson_plan:lesson_plans(id,name,duration_minutes),schedule_participants(student_id,attendance_status)")
+      .select("id,lesson_plan_id,lesson_name,starts_at,ends_at,place,format,status,lesson_plan_name_snapshot,lesson_plan_duration_minutes_snapshot,lesson_plan:lesson_plans(id,name,duration_minutes),schedule_participants(student_id,attendance_status),schedule_closures(id,reason_code,decided_at,revoked_at)")
       .gte("starts_at", period.previousStartIso)
       .lt("starts_at", period.endExclusiveIso)
       .order("starts_at", { ascending: true }),
     supabase
       .from("lesson_records")
-      .select("id,schedule_id,lesson_plan_id,lesson_name,record_date,schedule:schedules(id,starts_at,ends_at,place,format,lesson_plan_id,lesson_plan_name_snapshot,lesson_plan_duration_minutes_snapshot,lesson_plan:lesson_plans(id,name,duration_minutes)),lesson_record_students(student_id,attendance_status),lesson_record_blocks(id,block_template_id,schedule_plan_item_id,item_source,display_name_snapshot,category_name_snapshot,planned_duration_minutes,done,actual_duration_minutes,reaction,improvement_memo,change_type,change_reason_codes,change_reason_note,actual_content_note,replaces_schedule_plan_item_id,block:block_templates(id,name,category:block_categories(name)))")
+      .select("id,schedule_id,lesson_plan_id,lesson_name,record_date,schedule:schedules(id,starts_at,ends_at,place,format,lesson_plan_id,lesson_plan_name_snapshot,lesson_plan_duration_minutes_snapshot,lesson_plan:lesson_plans(id,name,duration_minutes),schedule_closures(id,reason_code,decided_at,revoked_at)),lesson_record_students(student_id,attendance_status),lesson_record_blocks(id,block_template_id,schedule_plan_item_id,item_source,display_name_snapshot,category_name_snapshot,planned_duration_minutes,done,actual_duration_minutes,reaction,improvement_memo,change_type,change_reason_codes,change_reason_note,actual_content_note,replaces_schedule_plan_item_id,block:block_templates(id,name,category:block_categories(name)))")
       .gte("record_date", period.previousStartDate)
       .lte("record_date", period.endDate)
       .order("record_date", { ascending: true }),
@@ -379,6 +425,7 @@ async function fetchReportData(query: ReportQuery, period: ReportPeriod): Promis
   const execution = buildExecutionSummary(current);
   const planRows = buildPlanRows(current, plans);
   const attendance = buildAttendanceReport(current.attendance, period);
+  const closures = buildClosureReport(allSchedules, period, commonFilter, query.now ?? new Date());
   const allGender = buildRatioRows(students.map((student) => normalizeGender(student.gender)));
   const allAge = buildRatioRows(students.map((student) => normalizeAge(student.age_group)));
   const participantGender = buildRatioRows(periodStudents.map((student) => normalizeGender(student.gender)));
@@ -427,6 +474,7 @@ async function fetchReportData(query: ReportQuery, period: ReportPeriod): Promis
       unused: [...blockRows].filter((row) => row.usedCount === 0).sort((a, b) => a.latestDate.localeCompare(b.latestDate)).slice(0, 10),
     },
     execution,
+    closures,
     hints: [],
     dataQuality,
   };
@@ -447,12 +495,12 @@ function buildPeriodDataset(
     const timestamp = Date.parse(value);
     return Number.isFinite(timestamp) && timestamp >= startTime && timestamp < endExclusiveTime;
   };
-  const scheduleRows = schedules.filter((schedule) => isWithinPeriod(schedule.starts_at) && filter({ format: schedule.format ?? "", planId: schedule.lesson_plan_id, place: schedule.place ?? "" }));
+  const scheduleRows = schedules.filter((schedule) => !hasActiveClosure(schedule) && isWithinPeriod(schedule.starts_at) && filter({ format: schedule.format ?? "", planId: schedule.lesson_plan_id, place: schedule.place ?? "" }));
   const scheduleById = new Map(scheduleRows.map((schedule) => [schedule.id, schedule]));
   const recordRows = records.filter((record) => {
     const dateIso = recordDateIso(record);
     const planId = record.lesson_plan_id ?? record.schedule?.lesson_plan_id ?? null;
-    return isWithinPeriod(dateIso) && filter({ format: record.schedule?.format ?? "", planId, place: record.schedule?.place ?? "" });
+    return !hasActiveClosure(record.schedule) && isWithinPeriod(dateIso) && filter({ format: record.schedule?.format ?? "", planId, place: record.schedule?.place ?? "" });
   });
   const recordBySchedule = new Map(recordRows.filter((record) => record.schedule_id).map((record) => [record.schedule_id!, record]));
   const lessons: PeriodDataset["lessons"] = scheduleRows.map((schedule) => {
@@ -515,6 +563,118 @@ function aggregateCore(dataset: PeriodDataset) {
     changed: plannedChanges.numerator,
     added: dataset.items.filter(isExecutedAdded).length,
   };
+}
+
+export function calculateClosureMetrics(rows: Array<{ startsAt: string; status: string; closed: boolean }>, now: Date) {
+  const nowTime = now.getTime();
+  const past = rows.filter((row) => Date.parse(row.startsAt) < nowTime);
+  const closedCount = past.filter((row) => row.closed).length;
+  const heldCount = past.filter((row) => !row.closed && row.status === "recorded").length;
+  const unclassifiedPastCount = past.filter((row) => !row.closed && row.status !== "recorded").length;
+  const denominator = closedCount + heldCount;
+  return {
+    closedCount,
+    heldCount,
+    closeRate: denominator ? percent(closedCount, denominator) : null,
+    unclassifiedPastCount,
+    futureClosedCount: rows.filter((row) => Date.parse(row.startsAt) >= nowTime && row.closed).length,
+  };
+}
+
+function buildClosureReport(
+  schedules: RawSchedule[],
+  period: ReportPeriod,
+  filter: (item: { format: string; planId: string | null; place: string }) => boolean,
+  now: Date,
+): ClosureReport {
+  const rowsFor = (startIso: string, endExclusiveIso: string) => schedules.filter((schedule) => {
+    const timestamp = Date.parse(schedule.starts_at);
+    return timestamp >= Date.parse(startIso)
+      && timestamp < Date.parse(endExclusiveIso)
+      && filter({ format: schedule.format ?? "", planId: schedule.lesson_plan_id, place: schedule.place ?? "" });
+  });
+  const currentRows = rowsFor(period.startIso, period.endExclusiveIso);
+  const previousRows = rowsFor(period.previousStartIso, period.previousEndExclusiveIso);
+  const currentMetrics = calculateClosureMetrics(currentRows.map(toClosureMetricRow), now);
+  const previousMetrics = calculateClosureMetrics(previousRows.map(toClosureMetricRow), now);
+  const activeClosed = currentRows.filter((schedule) => Boolean(activeClosure(schedule)));
+  const eligibleClosed = activeClosed.filter((schedule) => Date.parse(schedule.starts_at) < now.getTime());
+
+  return {
+    ...currentMetrics,
+    comparisons: {
+      closedCount: compare(currentMetrics.closedCount, previousMetrics.closedCount, true),
+      heldCount: compare(currentMetrics.heldCount, previousMetrics.heldCount, true),
+      closeRate: compare(currentMetrics.closeRate, previousMetrics.closeRate, true),
+      unclassifiedPastCount: compare(currentMetrics.unclassifiedPastCount, previousMetrics.unclassifiedPastCount, true),
+    },
+    byReason: countClosureRows(eligibleClosed, (schedule) => closureReasonLabels[activeClosure(schedule)?.reason_code ?? "other"] ?? "その他"),
+    byWeekday: countClosureRows(eligibleClosed, (schedule) => new Intl.DateTimeFormat("ja-JP", { weekday: "short", timeZone: "Asia/Tokyo" }).format(new Date(schedule.starts_at))),
+    byTimeBand: countClosureRows(eligibleClosed, (schedule) => scheduleTimeBand(schedule.starts_at)),
+    byPlace: countClosureRows(eligibleClosed, (schedule) => schedule.place?.trim() || "未設定"),
+    byPlan: countClosureRows(eligibleClosed, (schedule) => schedule.lesson_plan_name_snapshot || schedule.lesson_plan?.name || "未設定", (schedule) => schedule.lesson_plan_id ?? undefined),
+    byFormat: countClosureRows(eligibleClosed, (schedule) => formatLabels[schedule.format ?? ""] ?? "未設定"),
+    byDecisionTiming: countClosureRows(eligibleClosed, (schedule) => closureDecisionTiming(schedule.starts_at, activeClosure(schedule)!.decided_at)),
+    items: activeClosed
+      .sort((a, b) => b.starts_at.localeCompare(a.starts_at))
+      .map((schedule) => ({
+        scheduleId: schedule.id,
+        lessonName: schedule.lesson_name,
+        startsAt: schedule.starts_at,
+        reason: closureReasonLabels[activeClosure(schedule)!.reason_code] ?? "その他",
+        decisionTiming: closureDecisionTiming(schedule.starts_at, activeClosure(schedule)!.decided_at),
+        place: schedule.place?.trim() || "未設定",
+        planId: schedule.lesson_plan_id,
+        planName: schedule.lesson_plan_name_snapshot || schedule.lesson_plan?.name || "未設定",
+        format: formatLabels[schedule.format ?? ""] ?? "未設定",
+        isFuture: Date.parse(schedule.starts_at) >= now.getTime(),
+      })),
+  };
+}
+
+function toClosureMetricRow(schedule: RawSchedule) {
+  return { startsAt: schedule.starts_at, status: schedule.status, closed: Boolean(activeClosure(schedule)) };
+}
+
+function activeClosure(value: { schedule_closures?: RawClosure[] } | null | undefined) {
+  return value?.schedule_closures?.find((closure) => closure.revoked_at === null) ?? null;
+}
+
+function hasActiveClosure(value: { schedule_closures?: RawClosure[] } | null | undefined) {
+  return Boolean(activeClosure(value));
+}
+
+function countClosureRows(
+  schedules: RawSchedule[],
+  label: (schedule: RawSchedule) => string,
+  id: (schedule: RawSchedule) => string | undefined = () => undefined,
+) {
+  const counts = new Map<string, { id?: string; count: number }>();
+  for (const schedule of schedules) {
+    const key = label(schedule);
+    const current = counts.get(key);
+    counts.set(key, { id: current?.id ?? id(schedule), count: (current?.count ?? 0) + 1 });
+  }
+  return Array.from(counts, ([labelValue, value]) => ({ label: labelValue, count: value.count, id: value.id }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "ja"));
+}
+
+function closureDecisionTiming(startsAt: string, decidedAt: string) {
+  if (Date.parse(decidedAt) >= Date.parse(startsAt)) return "開始後／事後登録";
+  const startDate = tokyoDateString(new Date(startsAt));
+  const decidedDate = tokyoDateString(new Date(decidedAt));
+  const days = dateDiffDays(decidedDate, startDate);
+  if (days <= 0) return "当日";
+  if (days === 1) return "前日";
+  return "2日以上前";
+}
+
+function scheduleTimeBand(startsAt: string) {
+  const parts = new Intl.DateTimeFormat("en-US", { hour: "2-digit", hour12: false, hourCycle: "h23", timeZone: "Asia/Tokyo" }).formatToParts(new Date(startsAt));
+  const hour = Number(parts.find((part) => part.type === "hour")?.value ?? 0);
+  if (hour < 12) return "午前";
+  if (hour < 17) return "午後";
+  return "夜";
 }
 
 export function calculatePlannedChangeRate(items: Array<{ item_source: string; change_type: string | null; done: boolean | null }>) {
@@ -737,6 +897,22 @@ function emptyReport(query: ReportQuery, error: string, resolved?: ReportPeriod)
     plans: [],
     blocks: { mostUsed: [], goodReaction: [], mostSkipped: [], mostAdjusted: [], mostReplaced: [], improvementHeavy: [], unused: [] },
     execution: { plannedItems: 0, asPlanned: 0, adjusted: 0, skipped: 0, replaced: 0, libraryAdded: 0, improvisedAdded: 0, legacyUnclassified: 0, plannedMinutes: 0, actualMinutes: 0, averageMinuteDifference: null, minuteDifferenceSamples: 0, reasons: [], changedPlans: [], skippedItems: [], libraryAdditions: [], improvisedItems: [], templatedImprovisedItems: [] },
+    closures: {
+      closedCount: 0,
+      heldCount: 0,
+      closeRate: null,
+      unclassifiedPastCount: 0,
+      futureClosedCount: 0,
+      comparisons: { closedCount: emptyComparison, heldCount: emptyComparison, closeRate: emptyComparison, unclassifiedPastCount: emptyComparison },
+      byReason: [],
+      byWeekday: [],
+      byTimeBand: [],
+      byPlace: [],
+      byPlan: [],
+      byFormat: [],
+      byDecisionTiming: [],
+      items: [],
+    },
     hints: [],
     dataQuality: { lessons: 0, recordedLessons: 0, recordRate: 0, unevaluatedBlocks: 0, legacyUnclassifiedItems: 0, missingActualMinutes: 0 },
   };

@@ -790,7 +790,7 @@ export async function getStudentRecordInsights(studentId: string) {
       .order("created_at", { ascending: false }),
     supabase
       .from("schedule_participants")
-      .select("attendance_status,schedule:schedules(starts_at,status)")
+      .select("attendance_status,schedule:schedules(starts_at,status,schedule_closures(revoked_at))")
       .eq("student_id", studentId),
   ]);
 
@@ -870,11 +870,11 @@ export async function getStudentRecordInsights(studentId: string) {
   const now = Date.now();
   const nextScheduledAt = ((futureScheduleResult.data ?? []) as unknown as Array<{
     attendance_status: StudentAttendanceCode;
-    schedule?: { starts_at: string | null; status: string | null } | Array<{ starts_at: string | null; status: string | null }> | null;
+    schedule?: { starts_at: string | null; status: string | null; schedule_closures?: Array<{ revoked_at: string | null }> } | Array<{ starts_at: string | null; status: string | null; schedule_closures?: Array<{ revoked_at: string | null }> }> | null;
   }>)
     .filter((row) => row.attendance_status === "present")
     .map((row) => Array.isArray(row.schedule) ? row.schedule[0] ?? null : row.schedule ?? null)
-    .filter((schedule) => Boolean(schedule?.starts_at) && schedule?.status !== "recorded" && Date.parse(schedule!.starts_at!) >= now)
+    .filter((schedule) => Boolean(schedule?.starts_at) && schedule?.status !== "recorded" && !schedule?.schedule_closures?.some((closure) => closure.revoked_at === null) && Date.parse(schedule!.starts_at!) >= now)
     .map((schedule) => schedule!.starts_at!)
     .sort()[0];
   const stats: StudentAttendanceStats = {

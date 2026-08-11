@@ -104,6 +104,7 @@ type RawSchedule = {
     attendance_status: string;
     student?: { id: string; name: string; caution: string | null } | Array<{ id: string; name: string; caution: string | null }> | null;
   }>;
+  schedule_closures?: Array<{ revoked_at: string | null }>;
 };
 
 type RawFollowup = {
@@ -205,13 +206,13 @@ async function fetchDashboardData(now: Date): Promise<DashboardData> {
     getReportData({ period: "3months", format: "all", plan: "all", place: "all", now }),
     supabase
       .from("schedules")
-      .select("id,lesson_plan_id,lesson_name,starts_at,ends_at,place,schedule_caution,status,lesson_plan:lesson_plans(id,name),schedule_participants(id,student_id,attendance_status,student:students(id,name,caution))")
+      .select("id,lesson_plan_id,lesson_name,starts_at,ends_at,place,schedule_caution,status,lesson_plan:lesson_plans(id,name),schedule_participants(id,student_id,attendance_status,student:students(id,name,caution)),schedule_closures(revoked_at)")
       .gte("ends_at", now.toISOString())
       .order("starts_at", { ascending: true })
-      .limit(1),
+      .limit(20),
     supabase
       .from("schedules")
-      .select("id,lesson_plan_id,lesson_name,starts_at,ends_at,place,schedule_caution,status,lesson_plan:lesson_plans(id,name)")
+      .select("id,lesson_plan_id,lesson_name,starts_at,ends_at,place,schedule_caution,status,lesson_plan:lesson_plans(id,name),schedule_closures(revoked_at)")
       .gte("starts_at", threeMonthsAgo)
       .lt("starts_at", now.toISOString())
       .order("starts_at", { ascending: false })
@@ -242,7 +243,7 @@ async function fetchDashboardData(now: Date): Promise<DashboardData> {
   assertQuery(knowledgeResult.error, "Knowledge");
   assertQuery(studentsResult.error, "生徒");
 
-  const nextSchedule = first((nextScheduleResult.data ?? []) as unknown as RawSchedule[]);
+  const nextSchedule = ((nextScheduleResult.data ?? []) as unknown as RawSchedule[]).find((schedule) => !hasActiveScheduleClosure(schedule)) ?? null;
   const recentSchedules = (recentSchedulesResult.data ?? []) as unknown as RawSchedule[];
   const recordedScheduleIds = new Set((recordIdsResult.data ?? []).map((row) => row.schedule_id).filter((id): id is string => Boolean(id)));
   const followups = (followupsResult.data ?? []) as unknown as RawFollowup[];
@@ -277,7 +278,7 @@ function buildBrief({
   recordedScheduleIds: Set<string>;
   followups: RawFollowup[];
 }): DashboardData["brief"] {
-  const unrecorded = recentSchedules.filter((schedule) => !recordedScheduleIds.has(schedule.id));
+  const unrecorded = recentSchedules.filter((schedule) => !hasActiveScheduleClosure(schedule) && !recordedScheduleIds.has(schedule.id));
   return {
     nextLesson: nextSchedule ? mapDiscoverySchedule(nextSchedule) : null,
     pendingFollowups: followups.slice(0, 3).map((row) => {
@@ -303,6 +304,10 @@ function buildBrief({
     pendingFollowupCount: followups.length,
     unrecordedCount: unrecorded.length,
   };
+}
+
+function hasActiveScheduleClosure(schedule: RawSchedule) {
+  return Boolean(schedule.schedule_closures?.some((closure) => closure.revoked_at === null));
 }
 
 function mapDiscoverySchedule(schedule: RawSchedule): DiscoverySchedule {
@@ -627,10 +632,6 @@ function formatTimeRange(start: string, end: string): string {
 
 function assertQuery(error: { message: string } | null, label: string): void {
   if (error) throw new Error(`${label}を取得できませんでした: ${error.message}`);
-}
-
-function first<T>(rows: T[]): T | null {
-  return rows[0] ?? null;
 }
 
 function firstRelation<T>(value: T | T[] | null | undefined): T | null {

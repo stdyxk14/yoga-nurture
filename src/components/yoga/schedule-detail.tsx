@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { FileText, Pencil, Printer, Trash2, UsersRound } from "lucide-react";
+import { Ban, FileText, Pencil, Printer, RotateCcw, Trash2, UsersRound } from "lucide-react";
 
-import { deleteScheduleAction } from "@/app/schedules/actions";
+import { deleteScheduleAction, reopenScheduleClosureAction } from "@/app/schedules/actions";
 import { ConfirmSubmitButton } from "@/components/yoga/confirm-submit-button";
+import { ScheduleClosureDialog } from "@/components/yoga/schedule-closure-dialog";
 import {
   WorkspaceAction,
   WorkspaceActionBar,
@@ -25,7 +26,7 @@ export function ScheduleDetail({ schedule, error }: { schedule: DbSchedule; erro
         backLink={{ href: "/lessons", label: "レッスンカルテへ戻る" }}
         meta={(
           <>
-            <WorkspaceStatus tone="green">{schedule.statusLabel}</WorkspaceStatus>
+            <WorkspaceStatus tone={schedule.activeClosure ? "coral" : "green"}>{schedule.activeClosure ? "クローズ済み" : schedule.statusLabel}</WorkspaceStatus>
             <WorkspaceStatus tone="sand">{schedule.dateLabel}</WorkspaceStatus>
             <WorkspaceStatus tone="purple">{schedule.startTimeLabel}–{schedule.endTimeLabel}</WorkspaceStatus>
           </>
@@ -48,11 +49,62 @@ export function ScheduleDetail({ schedule, error }: { schedule: DbSchedule; erro
         )}
       >
         {schedule.lessonPlanId ? <WorkspaceAction href={`/schedules/${schedule.id}/script`} icon={Printer}>原稿</WorkspaceAction> : null}
-        <WorkspaceAction href={`/lessons/${schedule.id}/record`} icon={FileText} variant="primary">実施後記録</WorkspaceAction>
+        {schedule.activeClosure ? (
+          <WorkspaceAction icon={FileText} disabled title="クローズを解除すると実施後記録を編集できます">実施後記録（解除が必要）</WorkspaceAction>
+        ) : (
+          <WorkspaceAction href={`/lessons/${schedule.id}/record`} icon={FileText} variant="primary">実施後記録</WorkspaceAction>
+        )}
         <WorkspaceAction href={`/schedules/${schedule.id}/edit`} icon={Pencil}>編集</WorkspaceAction>
+        <ScheduleClosureDialog
+          scheduleId={schedule.id}
+          activeClosure={schedule.activeClosure}
+          hasDraftRecord={schedule.hasDraftRecord}
+          disabled={schedule.hasCompletedRecord}
+        />
       </WorkspaceActionBar>
 
       {error ? <WorkspaceFeedback tone="error">{error}</WorkspaceFeedback> : null}
+
+      {schedule.hasCompletedRecord ? <WorkspaceFeedback tone="info">完了済みの実施後記録があるため、この予定はクローズできません。</WorkspaceFeedback> : null}
+
+      {schedule.activeClosure ? (
+        <WorkspacePanel className="border-[#e8cfc7] bg-[#fff9f6]">
+          <WorkspaceSection title="クローズ済み" description="参加者個人の出欠とは分けて、レッスン全体が実施されなかった記録として保持しています。">
+            <dl className="grid gap-x-6 gap-y-4 md:grid-cols-2 xl:grid-cols-4">
+              <Info label="理由" value={schedule.activeClosure.reasonLabel} />
+              <Info label="決定日時" value={schedule.activeClosure.decidedAtLabel} />
+              <Info label="補足メモ" value={schedule.activeClosure.note || "なし"} />
+              <Info label="次回への引き継ぎ" value={schedule.activeClosure.handoffNote || "なし"} />
+            </dl>
+            <form action={reopenScheduleClosureAction.bind(null, schedule.id)} className="mt-4">
+              <ConfirmSubmitButton
+                title="クローズを解除しますか？"
+                message="現在のクローズ記録は履歴として残ります。解除後は実施後記録を作成・編集できます。"
+                confirmLabel="クローズを解除"
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[#d4ddd0] bg-white px-3.5 text-[13px] font-semibold text-[#456d4c]"
+              >
+                <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                クローズを解除
+              </ConfirmSubmitButton>
+            </form>
+          </WorkspaceSection>
+        </WorkspacePanel>
+      ) : null}
+
+      {schedule.closureHistory.some((closure) => closure.revokedAt) ? (
+        <WorkspacePanel>
+          <WorkspaceSection title="過去のクローズ履歴" description="解除済みの記録は削除せず保持します。">
+            <div className="space-y-2">
+              {schedule.closureHistory.filter((closure) => closure.revokedAt).map((closure) => (
+                <div key={closure.id} className="flex flex-col gap-1 rounded-lg border border-[#e6ded3] bg-[#faf8f3] p-3 text-[13px] md:flex-row md:items-center md:justify-between">
+                  <span className="inline-flex items-center gap-2 font-semibold"><Ban className="h-4 w-4 text-[#a9584d]" aria-hidden="true" />{closure.reasonLabel}</span>
+                  <span className="text-[#6f766c]">決定 {closure.decidedAtLabel}／解除済み</span>
+                </div>
+              ))}
+            </div>
+          </WorkspaceSection>
+        </WorkspacePanel>
+      ) : null}
 
       <WorkspacePanel>
         <WorkspaceSection title="予定の要約" description="レッスン当日の基本情報です。">

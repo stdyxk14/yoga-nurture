@@ -41,6 +41,7 @@ const reportViews: Array<{ key: ReportViewKey; label: string }> = [
   { key: "plans", label: "プラン" },
   { key: "blocks", label: "ブロック" },
   { key: "execution", label: "予定と実際" },
+  { key: "closures", label: "クローズ" },
 ];
 const periods: Array<{ key: ReportPeriodKey; label: string }> = [
   { key: "week", label: "今週" },
@@ -128,6 +129,7 @@ function ReportView({ view, report }: { view: ReportViewKey; report: ReportData 
   if (view === "plans") return <PlansView report={report} />;
   if (view === "blocks") return <BlocksView report={report} />;
   if (view === "execution") return <ExecutionView report={report} />;
+  if (view === "closures") return <ClosuresView report={report} />;
   return <OverviewView report={report} />;
 }
 
@@ -206,6 +208,57 @@ function ExecutionView({ report }: { report: ReportData }) {
       <ExecutionTotals report={report} />
       <div className="grid gap-4 xl:grid-cols-2"><RankedList title="変更理由" rows={execution.reasons} /><RankedList title="よく変更されるプラン" rows={execution.changedPlans} linkType="plan" /></div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"><RankedList title="よくスキップされる予定項目" rows={execution.skippedItems} /><RankedList title="現場で追加されたライブラリブロック" rows={execution.libraryAdditions} linkType="block" /><RankedList title="即興追加された内容" rows={execution.improvisedItems} /><RankedList title="テンプレート化された即興項目" rows={execution.templatedImprovisedItems} linkType="block" /></div>
+    </div>
+  );
+}
+
+function ClosuresView({ report }: { report: ReportData }) {
+  const closures = report.closures;
+  return (
+    <div className="space-y-5">
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <WorkspaceSummaryCard label="開催件数" value={`${closures.heldCount}件`} detail={comparisonText(closures.comparisons.heldCount)} tone="green" />
+        <WorkspaceSummaryCard label="クローズ件数" value={`${closures.closedCount}件`} detail={comparisonText(closures.comparisons.closedCount)} tone="coral" />
+        <WorkspaceSummaryCard label="クローズ率" value={closures.closeRate == null ? "データ不足" : `${closures.closeRate}%`} detail={comparisonText(closures.comparisons.closeRate, true)} tone="sand" />
+        <WorkspaceSummaryCard label="未分類の過去予定" value={`${closures.unclassifiedPastCount}件`} detail={comparisonText(closures.comparisons.unclassifiedPastCount)} tone="purple" href="/lessons?status=record_pending" />
+        <WorkspaceSummaryCard label="未来のクローズ" value={`${closures.futureClosedCount}件`} detail="正式な率の分母・分子には含めません" />
+      </section>
+      <p className="rounded-lg border border-[#e5ded4] bg-[#faf8f3] px-3 py-2 text-[12px] leading-5 text-[#6d746a]">
+        正式なクローズ率 = クローズ件数 ÷（開催件数 + クローズ件数）。未来予定と、実施済みでもクローズ済みでもない過去予定は分母に含めません。クローズ済み予定の参加者statusは保持し、通常の出席集計から予定全体を除外します。
+      </p>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <RankedList title="理由別" rows={closures.byReason} />
+        <RankedList title="曜日別" rows={closures.byWeekday} />
+        <RankedList title="時間帯別" rows={closures.byTimeBand} />
+        <RankedList title="決定タイミング" rows={closures.byDecisionTiming} />
+        <RankedList title="場所別" rows={closures.byPlace} />
+        <RankedList title="レッスンプラン別" rows={closures.byPlan} linkType="plan" />
+        <RankedList title="形式別" rows={closures.byFormat} />
+      </div>
+
+      <WorkspaceSection title="元の予定" description="クローズ理由・決定タイミングから予定詳細へドリルダウンできます。">
+        {closures.items.length ? (
+          <WorkspaceTableContainer>
+            <table className="w-full min-w-[960px] border-collapse text-left text-[13px]">
+              <thead className="bg-[#f5f3ee] text-[12px] font-semibold text-[#666d63]"><tr><TableHead>予定日</TableHead><TableHead>レッスン</TableHead><TableHead>理由</TableHead><TableHead>決定タイミング</TableHead><TableHead>場所／形式</TableHead><TableHead>プラン</TableHead><TableHead>対象区分</TableHead></tr></thead>
+              <tbody className="divide-y divide-[#ece5db]">
+                {closures.items.map((item) => (
+                  <tr key={item.scheduleId}>
+                    <TableCell className="whitespace-nowrap">{formatDateFromIso(item.startsAt)}</TableCell>
+                    <TableCell><Link href={`/schedules/${item.scheduleId}`} className="font-semibold text-[#3f7048] hover:underline">{item.lessonName}</Link></TableCell>
+                    <TableCell>{item.reason}</TableCell>
+                    <TableCell>{item.decisionTiming}</TableCell>
+                    <TableCell>{item.place}／{item.format}</TableCell>
+                    <TableCell>{item.planId ? <Link href={`/lessons/${item.planId}`} className="font-medium text-[#3f7048] hover:underline">{item.planName}</Link> : item.planName}</TableCell>
+                    <TableCell><WorkspaceStatus tone={item.isFuture ? "purple" : "coral"}>{item.isFuture ? "未来（率から除外）" : "集計対象"}</WorkspaceStatus></TableCell>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </WorkspaceTableContainer>
+        ) : <WorkspaceEmptyState title="クローズ記録はありません" description="この期間・フィルター条件に該当する有効なクローズ記録はありません。" />}
+      </WorkspaceSection>
     </div>
   );
 }

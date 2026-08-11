@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { calculateGoodRate } from "../src/lib/blocks";
 import { summarizeLessonRecordDiff } from "../src/lib/lesson-records";
-import { calculatePlannedChangeRate, resolveReportPeriod } from "../src/lib/reports";
+import { calculateClosureMetrics, calculatePlannedChangeRate, resolveReportPeriod } from "../src/lib/reports";
 import { getStudentPayload, matchesStudentFilter } from "../src/lib/students";
 
 test("custom report periods use inclusive Tokyo dates and an equally long previous period", () => {
@@ -56,6 +56,33 @@ test("planned change rate excludes unconfirmed and legacy unclassified items", (
   ]);
 
   assert.deepEqual(result, { numerator: 3, denominator: 4, rate: 75 });
+});
+
+test("closure rate uses only held and closed past schedules", () => {
+  const now = new Date("2026-08-12T12:00:00+09:00");
+  const result = calculateClosureMetrics([
+    { startsAt: "2026-08-10T10:00:00+09:00", status: "recorded", closed: false },
+    { startsAt: "2026-08-09T10:00:00+09:00", status: "record_pending", closed: true },
+    { startsAt: "2026-08-08T10:00:00+09:00", status: "record_pending", closed: false },
+    { startsAt: "2026-08-20T10:00:00+09:00", status: "scheduled", closed: true },
+  ], now);
+
+  assert.deepEqual(result, {
+    closedCount: 1,
+    heldCount: 1,
+    closeRate: 50,
+    unclassifiedPastCount: 1,
+    futureClosedCount: 1,
+  });
+});
+
+test("a closed lesson is a lesson-level state and does not convert participant cancellations", () => {
+  const result = calculateClosureMetrics([
+    { startsAt: "2026-08-10T10:00:00+09:00", status: "record_pending", closed: true },
+  ], new Date("2026-08-12T12:00:00+09:00"));
+  assert.equal(result.closedCount, 1);
+  assert.equal(result.heldCount, 0);
+  assert.equal(result.closeRate, 100);
 });
 
 test("unconfirmed planned items are not also counted as skipped or adjusted", () => {
