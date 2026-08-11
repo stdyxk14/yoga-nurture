@@ -20,16 +20,13 @@ import {
   UserRoundCheck,
   UsersRound,
 } from "lucide-react";
-import { KnowledgeRadar } from "@/components/yoga/knowledge-radar";
 import type { DashboardData } from "@/lib/dashboard";
 import { cn } from "@/lib/utils";
 
 export function DashboardView({ data }: { data: DashboardData }) {
   return (
-    <main className="space-y-5 pb-10">
+    <main className="space-y-6 pb-10">
       <CompactHomeHeader data={data} />
-
-      <KnowledgeRadar radar={data.radar} />
 
       {data.error ? (
         <div className="flex items-start gap-3 rounded-2xl border border-[#edc9bd] bg-[#fff7f3] p-4 text-[13px] font-semibold leading-5 text-[#875347]">
@@ -38,7 +35,7 @@ export function DashboardView({ data }: { data: DashboardData }) {
         </div>
       ) : null}
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.48fr)_minmax(310px,0.72fr)]">
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.72fr)]">
         <TodayBrief data={data} />
         <QuickActions />
       </div>
@@ -58,7 +55,6 @@ function CompactHomeHeader({ data }: { data: DashboardData }) {
         <p className="mt-0.5 text-[12px] font-semibold text-[#727c74]">{data.todayLabel}</p>
       </div>
       <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-        <span className="hidden text-[12px] font-semibold text-[#737d75] lg:inline">レーダー最終更新 {data.radar.lastUpdatedLabel}</span>
         <button
           type="button"
           onClick={() => window.dispatchEvent(new Event("yoga:open-command-palette"))}

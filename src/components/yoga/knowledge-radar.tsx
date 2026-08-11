@@ -26,7 +26,6 @@ import {
 } from "lucide-react";
 import {
   useCallback,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -153,23 +152,6 @@ export function KnowledgeRadar({ radar }: { radar: DashboardData["radar"] }) {
     track.scrollLeft = Math.max(0, card.offsetLeft);
     setCurrentIndex(nextIndex);
   }, [featuredItems.length]);
-
-  useEffect(() => {
-    const track = trackRef.current;
-    if (!track) return;
-    const handleWheel = (event: WheelEvent) => {
-      if (track.scrollWidth <= track.clientWidth) return;
-      const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
-      if (!delta) return;
-      const atStart = track.scrollLeft <= 1;
-      const atEnd = track.scrollLeft + track.clientWidth >= track.scrollWidth - 1;
-      if ((delta < 0 && atStart) || (delta > 0 && atEnd)) return;
-      event.preventDefault();
-      track.scrollLeft += delta;
-    };
-    track.addEventListener("wheel", handleWheel, { passive: false });
-    return () => track.removeEventListener("wheel", handleWheel);
-  }, []);
 
   const handlePointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.pointerType !== "mouse" || event.button !== 0) return;
