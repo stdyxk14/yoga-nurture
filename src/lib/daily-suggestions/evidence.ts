@@ -55,7 +55,7 @@ export async function buildDailySuggestionEvidence({
       .limit(12),
     admin
       .from("lesson_records")
-      .select("id,schedule_id,lesson_plan_id,lesson_name,record_date,status,overall_memo,student_reaction,improvement,updated_at,schedule:schedules(id,starts_at,ends_at,lesson_plan_id,schedule_closures(revoked_at)),lesson_record_blocks(id,block_template_id,schedule_plan_item_id,sort_order,item_source,planned_duration_minutes,actual_duration_minutes,done,reaction,teacher_memo,improvement_memo,actual_content_note,change_type,change_reason_note,script_revision),lesson_record_students(id,student_id,attendance_status,condition,memo,next_follow,student:students(id,experience,caution,memo))")
+      .select("id,schedule_id,lesson_plan_id,lesson_name,record_date,overall_memo,student_reaction,improvement,updated_at,schedule:schedules(id,starts_at,ends_at,lesson_plan_id,schedule_closures(revoked_at)),lesson_record_blocks(id,block_template_id,schedule_plan_item_id,sort_order,item_source,planned_duration_minutes,actual_duration_minutes,done,reaction,teacher_memo,improvement_memo,actual_content_note,change_type,change_reason_note,script_revision),lesson_record_students(id,student_id,attendance_status,condition,memo,next_follow,student:students(id,experience,caution,memo))")
       .eq("user_id", userId)
       .gte("record_date", since)
       .order("record_date", { ascending: false }),
@@ -95,7 +95,7 @@ export async function buildDailySuggestionEvidence({
 
   const review = reviewResult.data as unknown as JsonRow;
   const schedules = ((schedulesResult.data ?? []) as unknown as JsonRow[]).filter((row) => !hasActiveClosure(row));
-  const records = ((recordsResult.data ?? []) as unknown as JsonRow[]).filter((row) => text(row.status) === "completed" && !hasActiveClosure(relation(row.schedule)));
+  const records = ((recordsResult.data ?? []) as unknown as JsonRow[]).filter((row) => !hasActiveClosure(relation(row.schedule)));
   const blocks = (blocksResult.data ?? []) as unknown as JsonRow[];
   const plans = (plansResult.data ?? []) as unknown as JsonRow[];
   const knowledge = (knowledgeResult.data ?? []) as unknown as JsonRow[];
