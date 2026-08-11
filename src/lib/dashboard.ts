@@ -503,7 +503,9 @@ async function loadRadar({
         title: item.original_title,
         sourceName: item.source_name,
         author: item.author?.trim() || "著者情報なし",
-        publishedLabel: item.published_on ? formatDateValue(item.published_on) : "公開日不明",
+        publishedLabel: item.published_on
+          ? `公開 ${formatDateValue(item.published_on)}`
+          : `取得 ${formatDateTime(item.retrieved_at)}`,
         retrievedLabel: formatDateTime(item.retrieved_at),
         itemType: item.item_type,
         itemTypeLabel: radarTypeLabels[item.item_type],
