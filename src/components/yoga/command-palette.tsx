@@ -236,6 +236,7 @@ export function CommandPalette({ open, onOpenChange }: Props) {
         <Dialog.Viewport className="fixed inset-0 z-[91] flex items-start justify-center overflow-hidden p-3 pt-[7vh] md:p-6 md:pt-[10vh]">
           <Dialog.Popup
             aria-label="全体検索とコマンド"
+            initialFocus={inputRef}
             onKeyDown={handleKeyDown}
             className="flex max-h-[min(780px,82dvh)] w-full min-w-0 max-w-[820px] flex-col overflow-hidden rounded-2xl border border-[#d8ddd3] bg-[#fbfaf6] shadow-[0_34px_100px_rgba(23,36,28,0.34)] outline-none transition-[transform,opacity] data-ending-style:-translate-y-2 data-ending-style:opacity-0 data-starting-style:-translate-y-2 data-starting-style:opacity-0"
           >
