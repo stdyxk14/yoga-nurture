@@ -92,3 +92,12 @@ test("existing atomic draft RPCs and duplicate guards remain unchanged", () => {
   assert.match(blockRpc, /status = 'saved'/i);
   assert.match(sql, /unique \(user_id, dedupe_key\)/i);
 });
+
+test("daily generation records safe validation categories without logging model output", () => {
+  const server = readFileSync("src/lib/daily-suggestions/server.ts", "utf8");
+  assert.match(server, /candidate_order_invalid/);
+  assert.match(server, /plan_draft_invalid/);
+  assert.match(server, /block_draft_invalid/);
+  assert.match(server, /student_draft_invalid/);
+  assert.doesNotMatch(server, /output_text[),}\]]*\s*\)/);
+});

@@ -355,7 +355,10 @@ async function failRun(admin: ReturnType<typeof createSupabaseAdminClient>, runI
 function classifyDailyError(error: unknown) {
   const message = error instanceof Error ? error.message : "";
   if (message.includes("candidate_not_allowed") || message.includes("reference_not_allowed")) return "reference_not_allowed";
-  if (message.includes("primary_priority")) return "priority_validation_failed";
+  if (message.includes("daily_candidate_order")) return "candidate_order_invalid";
+  if (message.includes("daily_plan_")) return "plan_draft_invalid";
+  if (message.includes("daily_new_block") || message.includes("daily_block_draft")) return "block_draft_invalid";
+  if (message.includes("daily_student_")) return "student_draft_invalid";
   if (message.includes("daily_output") || message.includes("candidate_duplicate") || error instanceof SyntaxError) return "structured_output_invalid";
   if (message.includes("content_duplicate")) return "duplicate_suggestion";
   if (message.includes("response_model")) return "response_model_not_allowlisted";
