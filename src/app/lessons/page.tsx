@@ -185,7 +185,7 @@ function ScheduleWorkspace({ schedules, params, now }: { schedules: DbSchedule[]
   return (
     <div className="space-y-5">
       <WorkspaceToolbar>
-        <form action="/lessons" className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(190px,1.6fr)_repeat(5,minmax(118px,0.75fr))_auto_auto] xl:items-end">
+        <form key={JSON.stringify([params.q, params.status, params.period, params.format, params.place, params.plan])} action="/lessons" className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(190px,1.6fr)_repeat(5,minmax(118px,0.75fr))_auto_auto] xl:items-end">
           <FilterField label="キーワード">
             <div className="flex h-10 items-center gap-2 rounded-lg border border-[#dcd6cc] bg-white px-3">
               <Search className="h-4 w-4 text-[#777e74]" />

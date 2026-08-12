@@ -57,7 +57,7 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
       {params.error ? <div className="rounded-xl border border-[#f0d0ca] bg-[#fff1ed] px-4 py-3 text-[13px] font-medium text-[#a65348]">{params.error}</div> : null}
 
       <WorkspaceToolbar>
-        <form action="/students" className="grid gap-3 md:grid-cols-[minmax(220px,1fr)_auto_auto] md:items-end">
+        <form key={JSON.stringify([query, filter, selected?.id])} action="/students" className="grid gap-3 md:grid-cols-[minmax(220px,1fr)_auto_auto] md:items-end">
           <input type="hidden" name="filter" value={filter} />
           {selected ? <input type="hidden" name="selected" value={selected.id} /> : null}
           <label className="block min-w-0">
