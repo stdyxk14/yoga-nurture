@@ -361,7 +361,8 @@ export function parseAndValidateAiReview(outputText: string, index: AiReviewRefe
   validateReviewReferences(value, index);
   for (const student of reviewStudents(value)) {
     const target = index.student[student.student_ref];
-    if (!target || target.label !== student.student_name) throw new Error("review_student_name_not_allowed");
+    if (!target) throw new Error("review_student_reference_not_allowed");
+    student.student_name = target.label;
   }
   return value;
 }

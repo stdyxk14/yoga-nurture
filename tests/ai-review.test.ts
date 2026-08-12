@@ -74,14 +74,14 @@ test("review fingerprint is key-order stable but selected occurrence-order sensi
   assert.notEqual(sourceFingerprint({ record_ids: ["first", "second"] }), sourceFingerprint({ record_ids: ["second", "first"] }));
 });
 
-test("flexible review accepts only allowlisted references and exact registered display names", () => {
+test("flexible review accepts only allowlisted references and normalizes registered display names", () => {
   const index = emptyReferenceIndex();
   index.record["record-1"] = { id: "record-1", label: "記録", href: "/lessons/example/record" };
   index.student["student-1"] = { id: "student-1", label: "みどりさん", href: "/students/student-1" };
   const fixture = reviewFixture();
   assert.equal(parseAndValidateAiReview(JSON.stringify(fixture), index, "lesson").review_kind, "lesson");
   fixture.single_lesson!.student_reviews[0].student_name = "S-xxxx";
-  assert.throws(() => parseAndValidateAiReview(JSON.stringify(fixture), index, "lesson"), /student_name_not_allowed/);
+  assert.equal(parseAndValidateAiReview(JSON.stringify(fixture), index, "lesson").single_lesson?.student_reviews[0].student_name, "みどりさん");
   fixture.single_lesson!.student_reviews[0].student_name = "みどりさん";
   fixture.key_strength.references = [{ type: "record", ref: "invented" }];
   assert.throws(() => parseAndValidateAiReview(JSON.stringify(fixture), index, "lesson"), /reference_not_allowed/);
