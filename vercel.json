@@ -3,10 +3,6 @@
   "regions": ["hnd1"],
   "crons": [
     {
-      "path": "/api/cron/ai-review",
-      "schedule": "0 19 * * *"
-    },
-    {
       "path": "/api/cron/ai-daily-suggestions",
       "schedule": "0 21 * * *"
     }

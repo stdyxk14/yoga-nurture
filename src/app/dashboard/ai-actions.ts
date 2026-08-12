@@ -13,13 +13,6 @@ export type DailyActionState = {
   error?: string;
   createdId?: string;
   createdHref?: string;
-  preflight?: {
-    model: string;
-    responseModel: string | null;
-    inputTokens: number;
-    outputTokens: number;
-    estimatedCostUsd: number;
-  };
 };
 
 export async function refreshDailySuggestionAction(_state: DailyActionState, _formData: FormData): Promise<DailyActionState> {
@@ -28,7 +21,7 @@ export async function refreshDailySuggestionAction(_state: DailyActionState, _fo
     const { userId } = await requireFreshUser();
     const result = await runDailySuggestionForUser({ userId, trigger: "manual" });
     revalidatePath("/dashboard");
-    if (result.status === "failed") return { error: `今日のAI提案を更新できませんでした（${result.decision}）。前回の成功結果は保持されています。` };
+    if (result.status === "failed") return { error: "今日のAI提案を更新できませんでした。前回の成功結果は保持されています。" };
     if (result.decision === "review_snapshot_missing") return { error: "先にAI総合指導レビューを生成してください。" };
     if (result.decision === "hard_budget" || result.decision === "soft_budget") return { error: "今月の内部AI予算に達したため生成を停止しました。前回結果を表示しています。" };
     if (result.decision === "running") return { message: "今日の提案を生成中です。現在の結果を表示し続けます。" };
@@ -43,20 +36,10 @@ export async function preflightDailySuggestionAction(_state: DailyActionState, _
   try {
     await requireFreshUser();
     const result = await preflightDailyRuntime();
-    if (!result.ok) return { error: `Dailyモデルの接続確認に失敗しました（${result.errorCode ?? "unknown"}）。` };
-    return {
-      ok: true,
-      message: "Responses API・strict Structured Outputs・reasoning・usage取得を確認しました。",
-      preflight: {
-        model: result.requestedModel,
-        responseModel: result.responseModel,
-        inputTokens: result.inputTokens,
-        outputTokens: result.outputTokens,
-        estimatedCostUsd: result.estimatedCostUsd,
-      },
-    };
+    if (!result.ok) return { error: "AIコーチ生成の接続確認に失敗しました。" };
+    return { ok: true, message: "AIコーチ生成の接続を確認しました。" };
   } catch {
-    return { error: "Dailyモデルの接続確認を実行できませんでした。" };
+    return { error: "AIコーチ生成の接続確認を実行できませんでした。" };
   }
 }
 
@@ -90,7 +73,12 @@ export async function saveDailySuggestionAsBlockDraftAction(_state: DailyActionS
     p_level: String(formData.get("level") ?? "").trim(),
     p_script: String(formData.get("script") ?? "").trim(),
     p_cautions: String(formData.get("cautions") ?? "").trim(),
-    p_memo: String(formData.get("memo") ?? "").trim(),
+    p_memo: joinDraftNotes([
+      ["実施内容", formData.get("content")],
+      ["対象", formData.get("target")],
+      ["使いやすいレッスン", formData.get("suitable_lessons")],
+      ["補足", formData.get("memo")],
+    ]),
     p_tags: Array.from(new Set(String(formData.get("tags") ?? "").split(/[\s,、]+/).map((tag) => tag.trim()).filter(Boolean))),
   });
   if (error || !blockId) return { error: formatRpcError(error, "ブロック下書きを保存できませんでした") };
@@ -113,13 +101,33 @@ export async function saveDailySuggestionAsPlanDraftAction(_state: DailyActionSt
   if (suggestionError || !suggestion) return { error: "提案の下書き内容を確認できませんでした。" };
   const payload = suggestion.draft_payload as DailyDraftPayload;
   if (payload.kind !== "plan" || !Array.isArray(payload.blocks) || payload.blocks.length === 0) return { error: "この提案には保存できるプラン構成がありません。" };
+  const submittedIds = formData.getAll("block_template_id").map((value) => String(value));
+  const submittedMinutes = formData.getAll("block_minutes").map((value) => Number.parseInt(String(value), 10));
+  let blocks = payload.blocks;
+  if (submittedIds.length || submittedMinutes.length) {
+    const allowedIds = new Set(payload.blocks.map((block) => block.block_template_id));
+    if (submittedIds.length !== submittedMinutes.length || submittedIds.length < 3 || submittedIds.length > 14 || submittedIds.some((id) => !isUuid(id) || !allowedIds.has(id)) || submittedMinutes.some((minutes) => !Number.isFinite(minutes) || minutes <= 0 || minutes > 180)) {
+      return { error: "ブロック構成と時間配分を確認してください。" };
+    }
+    blocks = submittedIds.map((blockTemplateId, index) => ({
+      block_template_id: blockTemplateId,
+      planned_duration_minutes: submittedMinutes[index],
+      script_override: payload.blocks?.[index]?.block_template_id === blockTemplateId ? payload.blocks[index].script_override ?? null : null,
+      cautions_override: payload.blocks?.[index]?.block_template_id === blockTemplateId ? payload.blocks[index].cautions_override ?? null : null,
+    }));
+  }
   const { data: planId, error } = await supabase.rpc("save_ai_daily_suggestion_as_plan_draft", {
     p_suggestion_id: suggestionId,
     p_name: name,
     p_theme: String(formData.get("theme") ?? "").trim(),
     p_format: normalizeFormat(formData.get("format"), payload.format),
-    p_memo: String(formData.get("memo") ?? "").trim(),
-    p_blocks: payload.blocks,
+    p_memo: joinDraftNotes([
+      ["対象", formData.get("target")],
+      ["全体の狙い", formData.get("overall_goal")],
+      ["強度の流れ", formData.get("intensity_flow")],
+      ["補足", formData.get("memo")],
+    ]),
+    p_blocks: blocks,
   });
   if (error || !planId) return { error: formatRpcError(error, "プラン下書きを保存できませんでした") };
   revalidatePath("/dashboard");
@@ -136,4 +144,11 @@ function optionalUuid(value: FormDataEntryValue | null): string | null | undefin
 function normalizeFormat(value: FormDataEntryValue | null, fallback: DailyDraftPayload["format"]) {
   const normalized = String(value ?? "");
   return normalized === "personal" || normalized === "group" || normalized === "online" ? normalized : fallback ?? null;
+}
+
+function joinDraftNotes(rows: Array<[string, FormDataEntryValue | null]>) {
+  return rows.map(([label, value]) => [label, String(value ?? "").trim()] as const)
+    .filter(([, value]) => value)
+    .map(([label, value]) => `${label}\n${value}`)
+    .join("\n\n");
 }

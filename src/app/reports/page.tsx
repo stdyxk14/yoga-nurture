@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BarChart3, CalendarDays, ClipboardCheck, FileBarChart, Layers3, UsersRound } from "lucide-react";
+import { CalendarDays } from "lucide-react";
 import { AiTeachingReviewView } from "@/components/yoga/ai-teaching-review-view";
 import {
   WorkspaceEmptyState,
@@ -25,6 +25,7 @@ import {
   type ReportViewKey,
 } from "@/lib/reports";
 import { getTeachingReviewState, type TeachingReviewState } from "@/lib/ai-review/queries";
+import type { ReviewScopeSelection } from "@/lib/ai-review/types";
 
 type ReportSearchParams = {
   view?: string;
@@ -34,7 +35,11 @@ type ReportSearchParams = {
   format?: string;
   plan?: string;
   place?: string;
-  ai_period?: string;
+  ai_mode?: string;
+  ai_record?: string;
+  ai_range?: string;
+  ai_from?: string;
+  ai_to?: string;
 };
 
 const reportViews: Array<{ key: ReportViewKey; label: string }> = [
@@ -57,15 +62,16 @@ const periods: Array<{ key: ReportPeriodKey; label: string }> = [
 ];
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 300;
 
 export default async function ReportsPage({ searchParams }: { searchParams: Promise<ReportSearchParams> }) {
   const params = await searchParams;
   const view = normalizeReportView(params.view);
   const period = normalizeReportPeriod(params.period);
-  const aiPeriodDays: 30 | 90 = params.ai_period === "30" ? 30 : 90;
+  const reviewSelection = parseReviewSelection(params);
   const [report, reviewState] = await Promise.all([
     getReportData({ period, from: params.from, to: params.to, format: params.format, plan: params.plan, place: params.place }),
-    view === "ai_review" ? getTeachingReviewState(aiPeriodDays) : Promise.resolve(null),
+    view === "ai_review" ? getTeachingReviewState(reviewSelection) : Promise.resolve(null),
   ]);
 
   return (
@@ -125,14 +131,14 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       {view !== "ai_review" && report.error ? <div className="rounded-xl border border-[#f0d0ca] bg-[#fff1ed] px-4 py-3 text-[13px] font-medium leading-6 text-[#a65348]">{report.error}</div> : null}
 
       {view !== "ai_review" && !report.error && !report.hasAnyData ? <WorkspaceEmptyState title="この条件で集計できるデータがありません" description="期間または共通フィルターを変更してください。全登録生徒の属性は生徒タブから確認できます。" /> : null}
-      {view === "ai_review" || !report.error ? <ReportView view={view} report={report} reviewState={reviewState} aiPeriodDays={aiPeriodDays} /> : null}
+      {view === "ai_review" || !report.error ? <ReportView view={view} report={report} reviewState={reviewState} /> : null}
       {view !== "ai_review" && !report.error ? <DataQuality report={report} /> : null}
     </div>
   );
 }
 
-function ReportView({ view, report, reviewState, aiPeriodDays }: { view: ReportViewKey; report: ReportData; reviewState: TeachingReviewState | null; aiPeriodDays: 30 | 90 }) {
-  if (view === "ai_review" && reviewState) return <AiTeachingReviewView state={reviewState} periodDays={aiPeriodDays} />;
+function ReportView({ view, report, reviewState }: { view: ReportViewKey; report: ReportData; reviewState: TeachingReviewState | null }) {
+  if (view === "ai_review" && reviewState) return <AiTeachingReviewView state={reviewState} />;
   if (view === "attendance") return <AttendanceView report={report} />;
   if (view === "students") return <StudentsView report={report} />;
   if (view === "plans") return <PlansView report={report} />;
@@ -336,8 +342,20 @@ function buildReportHref(current: ReportSearchParams, patch: Partial<ReportSearc
   if (values.format && values.format !== "all") query.set("format", values.format);
   if (values.plan && values.plan !== "all") query.set("plan", values.plan);
   if (values.place && values.place !== "all") query.set("place", values.place);
-  if (values.ai_period === "30" || values.ai_period === "90") query.set("ai_period", values.ai_period);
+  if (values.ai_mode === "lesson" || values.ai_mode === "period") query.set("ai_mode", values.ai_mode);
+  if (values.ai_record) query.set("ai_record", values.ai_record);
+  if (["recent3", "recent5", "month", "custom"].includes(values.ai_range ?? "")) query.set("ai_range", values.ai_range!);
+  if (values.ai_from) query.set("ai_from", values.ai_from);
+  if (values.ai_to) query.set("ai_to", values.ai_to);
   return `/reports?${query.toString()}`;
+}
+
+function parseReviewSelection(params: ReportSearchParams): ReviewScopeSelection {
+  if (params.ai_mode !== "period") return { mode: "lesson", recordId: params.ai_record };
+  if (params.ai_range === "recent5") return { mode: "period", range: "recent5" };
+  if (params.ai_range === "month") return { mode: "period", range: "month" };
+  if (params.ai_range === "custom") return { mode: "period", range: "custom", from: params.ai_from, to: params.ai_to };
+  return { mode: "period", range: "recent3" };
 }
 
 function comparisonText(value: ComparisonValue, points = false) { if (value.previous == null || value.delta == null) return "比較データなし"; const sign = value.delta > 0 ? "+" : ""; return `前期間比 ${sign}${value.delta}${points ? "pt" : ""}`; }

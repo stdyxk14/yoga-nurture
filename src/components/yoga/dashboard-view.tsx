@@ -30,8 +30,6 @@ export function DashboardView({ data, dailySuggestionState }: { data: DashboardD
     <main className="space-y-6 pb-10">
       <CompactHomeHeader data={data} />
 
-      <TodayAiSuggestionPanel state={dailySuggestionState} />
-
       {data.error ? (
         <div className="flex items-start gap-3 rounded-2xl border border-[#edc9bd] bg-[#fff7f3] p-4 text-[13px] font-semibold leading-5 text-[#875347]">
           <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
@@ -39,10 +37,12 @@ export function DashboardView({ data, dailySuggestionState }: { data: DashboardD
         </div>
       ) : null}
 
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.72fr)]">
-        <TodayBrief data={data} />
-        <QuickActions />
+      <div className="grid items-start gap-5 xl:grid-cols-12">
+        <div className="xl:col-span-8"><TodayAiSuggestionPanel state={dailySuggestionState} /></div>
+        <div className="xl:col-span-4"><TodayBrief data={data} /></div>
       </div>
+
+      <QuickActions />
 
       <TeachingInsights insights={data.insights} />
 
@@ -88,23 +88,9 @@ function TodayBrief({ data }: { data: DashboardData }) {
       <div className="p-4 pt-0 sm:p-5 sm:pt-0">
         {lesson ? <NextLesson lesson={lesson} /> : <NoNextLesson />}
 
-        <div className="mt-4 grid gap-3 lg:grid-cols-2">
-          <BriefList
-            icon={UserRoundCheck}
-            title="未完了フォロー"
-            count={data.brief.pendingFollowupCount}
-            items={data.brief.pendingFollowups}
-            empty="未完了のフォローはありません。"
-            allHref="/students?filter=followup"
-          />
-          <BriefList
-            icon={FilePenLine}
-            title="未記録レッスン"
-            count={data.brief.unrecordedCount}
-            items={data.brief.unrecordedLessons}
-            empty="未記録のレッスンはありません。"
-            allHref="/lessons?status=record_pending"
-          />
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <BriefCount icon={UserRoundCheck} label="未完了フォロー" count={data.brief.pendingFollowupCount} href="/students?filter=followup" />
+          <BriefCount icon={FilePenLine} label="未記録" count={data.brief.unrecordedCount} href="/lessons?status=record_pending" />
         </div>
       </div>
     </section>
@@ -113,47 +99,13 @@ function TodayBrief({ data }: { data: DashboardData }) {
 
 function NextLesson({ lesson }: { lesson: NonNullable<DashboardData["brief"]["nextLesson"]> }) {
   return (
-    <article className="overflow-hidden rounded-2xl border border-[#e5eadf] bg-[linear-gradient(135deg,#f7fbf5,#fffaf4)]">
-      <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_minmax(250px,0.62fr)]">
-        <div className="p-4 sm:p-5">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-[#4f7f5b] px-3 py-1 text-[10px] font-black tracking-[0.08em] text-white">NEXT LESSON</span>
-            <span className="text-[12px] font-bold text-[#667269]">参加予定 {lesson.participantCount}名</span>
-          </div>
-          <h3 className="mt-3 text-[21px] font-black tracking-[-0.025em] text-[#263b2c]">{lesson.lessonName}</h3>
-          <p className="mt-1 text-[13px] font-bold text-[#55725b]">{lesson.lessonPlanName}</p>
-          <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-[12px] font-semibold text-[#69736b]">
-            <span className="inline-flex items-center gap-1.5"><Clock3 className="h-4 w-4 text-[#709076]" />{lesson.dateLabel} {lesson.timeLabel}</span>
-            <span className="inline-flex items-center gap-1.5"><MapPin className="h-4 w-4 text-[#709076]" />{lesson.place}</span>
-          </div>
-          <div className="mt-5 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-            {lesson.lessonPlanId ? <BriefAction href={`/schedules/${lesson.id}/script`} label="原稿を見る" primary /> : null}
-            <BriefAction href={`/lessons/${lesson.id}/record`} label="記録を書く" />
-            <BriefAction href={`/schedules/${lesson.id}`} label="予定・生徒" />
-            {lesson.lessonPlanId ? <BriefAction href={`/lessons/${lesson.lessonPlanId}`} label="プラン" /> : null}
-          </div>
-        </div>
-        <div className="border-t border-[#e4e9df] bg-white/65 p-4 lg:border-l lg:border-t-0 sm:p-5">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-[#b66e58]" />
-            <h4 className="text-[12px] font-black text-[#5d4a42]">安全面の確認</h4>
-          </div>
-          {lesson.safetyNotes.length ? (
-            <ul className="mt-3 space-y-2">
-              {lesson.safetyNotes.map((note) => (
-                <li key={note.id} className="rounded-xl border border-[#eee2dc] bg-[#fffaf7] p-3">
-                  <Link href={note.href} className="text-[11px] font-black text-[#8d5d50] hover:underline">{note.label}</Link>
-                  <p className="mt-1 line-clamp-3 text-[11px] font-medium leading-4 text-[#6d625e]">{note.detail}</p>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-3 rounded-xl border border-dashed border-[#dce5d8] bg-[#f7faf5] p-3 text-[11px] font-semibold leading-5 text-[#69736a]">
-              登録済みの注意事項はありません。当日の様子も確認してください。
-            </p>
-          )}
-        </div>
-      </div>
+    <article className="rounded-2xl border border-[#e5eadf] bg-[linear-gradient(135deg,#f7fbf5,#fffaf4)] p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2"><span className="rounded-full bg-[#4f7f5b] px-3 py-1 text-[11px] font-semibold tracking-[0.06em] text-white">NEXT LESSON</span><span className="text-[12px] font-semibold text-[#667269]">参加予定 {lesson.participantCount}名</span></div>
+      <h3 className="mt-3 line-clamp-2 text-[18px] font-bold tracking-[-0.02em] text-[#263b2c]">{lesson.lessonName}</h3>
+      <p className="mt-1 line-clamp-1 text-[13px] font-semibold text-[#55725b]">{lesson.lessonPlanName}</p>
+      <div className="mt-3 grid gap-1.5 text-[12px] font-medium text-[#69736b]"><span className="inline-flex items-center gap-1.5"><Clock3 className="h-4 w-4 text-[#709076]" />{lesson.dateLabel} {lesson.timeLabel}</span><span className="inline-flex items-center gap-1.5"><MapPin className="h-4 w-4 text-[#709076]" />{lesson.place}</span></div>
+      <div className="mt-3 rounded-xl border border-[#eee2dc] bg-white/65 p-3"><div className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-[#b66e58]" /><h4 className="text-[12px] font-semibold text-[#5d4a42]">安全面の確認</h4></div>{lesson.safetyNotes.length ? <p className="mt-1.5 line-clamp-2 text-[12px] leading-5 text-[#6d625e]">{lesson.safetyNotes.map((note) => `${note.label}: ${note.detail}`).join(" / ")}</p> : <p className="mt-1.5 text-[12px] leading-5 text-[#69736a]">登録済みの注意事項はありません。当日の様子も確認してください。</p>}</div>
+      <div className="mt-3 grid grid-cols-2 gap-2">{lesson.lessonPlanId ? <BriefAction href={`/schedules/${lesson.id}/script`} label="原稿を見る" primary /> : null}<BriefAction href={`/schedules/${lesson.id}`} label="予定・生徒" /></div>
     </article>
   );
 }
@@ -176,48 +128,8 @@ function NoNextLesson() {
   );
 }
 
-function BriefList({
-  icon: Icon,
-  title,
-  count,
-  items,
-  empty,
-  allHref,
-}: {
-  icon: typeof UserRoundCheck;
-  title: string;
-  count: number;
-  items: DashboardData["brief"]["pendingFollowups"];
-  empty: string;
-  allHref: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-[#e6e8e1] bg-[#fbfcfa] p-3.5">
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="flex items-center gap-2 text-[12px] font-black text-[#3f5143]"><Icon className="h-4 w-4 text-[#67866d]" />{title}</h3>
-        <span className="rounded-full bg-white px-2 py-1 text-[10px] font-black text-[#6a766c] shadow-sm">{count}件</span>
-      </div>
-      {items.length ? (
-        <div className="mt-3 space-y-2">
-          {items.map((item) => (
-            <Link key={item.id} href={item.href} className="group block rounded-xl border border-[#e9e8e2] bg-white p-3 transition hover:border-[#ccdcca] hover:shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-[12px] font-black text-[#344538]">{item.title}</p>
-                  <p className="mt-1 line-clamp-2 text-[11px] font-medium leading-4 text-[#737a74]">{item.detail}</p>
-                  <p className="mt-1.5 text-[10px] font-bold text-[#8a918b]">{item.meta}</p>
-                </div>
-                <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-[#9aa49b] transition group-hover:translate-x-0.5" />
-              </div>
-            </Link>
-          ))}
-          {count > items.length ? <Link href={allHref} className="inline-flex items-center gap-1 text-[11px] font-black text-[#5a7e61] hover:underline">すべて確認 <ArrowUpRight className="h-3 w-3" /></Link> : null}
-        </div>
-      ) : (
-        <p className="mt-3 rounded-xl border border-dashed border-[#dfe5dc] bg-white/70 p-3 text-[11px] font-semibold text-[#788079]">{empty}</p>
-      )}
-    </div>
-  );
+function BriefCount({ icon: Icon, label, count, href }: { icon: typeof UserRoundCheck; label: string; count: number; href: string }) {
+  return <Link href={href} className="flex items-center gap-2 rounded-xl border border-[#e4e7df] bg-[#fbfcfa] p-3 transition hover:border-[#c9d7c5]"><span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#e9f0e6] text-[#638069]"><Icon className="h-4 w-4" /></span><span><span className="block text-[17px] font-bold text-[#3d4c41]">{count}</span><span className="block text-[12px] text-[#707971]">{label}</span></span></Link>;
 }
 
 const quickActions = [
@@ -236,9 +148,9 @@ function QuickActions() {
         <p className="text-[10px] font-black tracking-[0.12em] text-[#917d60]">QUICK ACTIONS</p>
         <h2 className="mt-1 text-[19px] font-black tracking-[-0.02em] text-[#433a2f]">すぐに始める</h2>
       </div>
-      <div className="grid grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6">
         {quickActions.map((action) => (
-          <Link key={action.href} href={action.href} className="group flex min-h-[104px] flex-col justify-between rounded-2xl border border-white/80 bg-white p-3 shadow-[0_4px_18px_rgba(72,64,52,0.05)] transition hover:-translate-y-0.5 hover:border-[#d7ddcf] hover:shadow-md">
+          <Link key={action.href} href={action.href} className="group flex min-h-[92px] flex-col justify-between rounded-2xl border border-white/80 bg-white p-3 shadow-[0_4px_18px_rgba(72,64,52,0.05)] transition hover:-translate-y-0.5 hover:border-[#d7ddcf] hover:shadow-md">
             <span className={cn(
               "inline-flex h-9 w-9 items-center justify-center rounded-xl",
               action.tone === "sage" && "bg-[#e8f1e5] text-[#53755a]",
@@ -252,9 +164,6 @@ function QuickActions() {
             </span>
           </Link>
         ))}
-      </div>
-      <div className="mt-3 rounded-xl border border-dashed border-[#ddd4c5] bg-white/55 p-3 text-[10px] font-semibold leading-4 text-[#7e7568]">
-        将来の「AI土屋先生」も、ここから自然に相談へつながる設計です。
       </div>
     </section>
   );

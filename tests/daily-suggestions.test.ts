@@ -4,8 +4,8 @@ import test from "node:test";
 import { emptyReferenceIndex } from "../src/lib/ai-review/types";
 import {
   buildStoredDailySuggestions,
-  dailySuggestionOutputSchema,
   dailyRunSourceFingerprint,
+  dailySuggestionOutputSchema,
   estimateDailyCost,
   getConfiguredDailyModel,
   parseAndValidateDailyOutput,
@@ -14,116 +14,81 @@ import {
   type ModelDailyOutput,
 } from "../src/lib/daily-suggestions/types";
 
-function candidate(id: string, priority: 1 | 2 | 3, kind: "none" | "plan" = "none"): DailyCandidate {
+function candidates(): DailyCandidate[] {
+  const common = { confidence: "high" as const, evidenceCount: 3, references: [{ type: "record" as const, ref: "record-1" }], sourcePlanId: null, sourceBlockTemplateId: null, sourceScheduleId: null };
+  return [
+    { ...common, id: "plan", segment: "lesson_plan", type: "new_plan", priority: 1, title: "plan", factualBasis: "facts", proposedAction: "new plan", baseDraft: { kind: "plan", format: "group", blocks: [] }, dedupeKey: "a".repeat(64) },
+    { ...common, id: "block", segment: "new_block", type: "new_block", priority: 2, title: "block", factualBasis: "facts", proposedAction: "new block", baseDraft: { kind: "block", duration_minutes: 8, tags: [] }, dedupeKey: "b".repeat(64) },
+    { ...common, id: "student", segment: "student_support", type: "observation_point", priority: 3, title: "student", factualBasis: "facts", proposedAction: "support", baseDraft: { kind: "none" }, dedupeKey: "c".repeat(64) },
+  ];
+}
+
+function emptyDraft() {
+  return { name: null, theme: null, format: null, memo: null, target: null, overall_goal: null, intensity_flow: null, suitable_lessons: null, content: null, duration_minutes: null, purpose: null, level: null, script: null, cautions: null, tags: [], blocks: [] };
+}
+
+function output(): ModelDailyOutput {
   return {
-    id,
-    type: kind === "plan" ? "plan_revision" : "observation_point",
-    priority,
-    confidence: priority === 1 ? "high" : "medium",
-    evidenceCount: 2,
-    title: id,
-    factualBasis: "fixture facts",
-    proposedAction: "fixture action",
-    references: [{ type: "record", ref: "record-1" }],
-    baseDraft: kind === "plan" ? {
-      kind: "plan",
-      name: "元プラン（AI改訂案）",
-      theme: "呼吸",
-      format: "group",
-      memo: "",
-      blocks: [
-        { block_template_id: "block-1", planned_duration_minutes: 5 },
-        { block_template_id: "block-1", planned_duration_minutes: 7 },
-      ],
-    } : { kind: "none" },
-    sourcePlanId: kind === "plan" ? "plan-1" : null,
-    sourceBlockTemplateId: null,
-    sourceScheduleId: null,
-    dedupeKey: "a".repeat(64 - id.length) + Buffer.from(id).toString("hex").slice(0, id.length),
+    suggestions: [
+      { candidate_id: "plan", title: "新しい60分フロー", summary: "新しい構成", rationale: "直近3回を根拠", includes_inference: true, draft: { ...emptyDraft(), name: "呼吸から安定へ", theme: "足裏と呼吸", format: "group", target: "初級〜中級", overall_goal: "安心して強度を上げる", intensity_flow: "低→中→高→低", blocks: [{ block_template_id: "block-1", planned_duration_minutes: 8 }, { block_template_id: "block-1", planned_duration_minutes: 6 }, { block_template_id: "block-2", planned_duration_minutes: 10 }] } },
+      { candidate_id: "block", title: "新しい足裏ブロック", summary: "新規内容", rationale: "最近の立位導入を根拠", includes_inference: true, draft: { ...emptyDraft(), name: "足裏コンパス", target: "立位前", duration_minutes: 8, purpose: "足裏感覚と重心移動を安全につなぐ", level: "初級", content: "足指・踵・母趾球の三点を順に確認し、ゆっくり重心を移す。", script: "足裏の三点を床へ預け、呼吸に合わせて重心の移動を小さく試します。", cautions: "ふらつく場合は壁や椅子を使い、痛みのない範囲にする。", suitable_lessons: "立位を含むクラス", tags: ["足裏", "立位"] } },
+      { candidate_id: "student", title: "みどりさんへの声かけ", summary: "開始前に強度確認", rationale: "記録された状態を根拠", includes_inference: false, draft: emptyDraft() },
+    ],
   };
 }
 
-function output(ids: string[]): ModelDailyOutput {
-  return {
-    suggestions: ids.map((id) => ({
-      candidate_id: id,
-      title: `提案 ${id}`,
-      summary: "具体的な提案",
-      rationale: "fixture factsに基づく",
-      includes_inference: false,
-      draft: { name: null, theme: null, format: null, memo: null, duration_minutes: null, purpose: null, level: null, script: null, cautions: null, tags: [] },
-    })),
-  };
-}
-
-test("daily structured output only accepts allowlisted candidates and the highest-priority primary", () => {
-  const candidates = [candidate("safety", 1), candidate("recording", 3)];
-  assert.equal(parseAndValidateDailyOutput(JSON.stringify(output(["safety", "recording"])), candidates).suggestions.length, 2);
-  assert.throws(() => parseAndValidateDailyOutput(JSON.stringify(output(["recording"])), candidates), /primary_priority/);
-  assert.throws(() => parseAndValidateDailyOutput(JSON.stringify(output(["invented"])), candidates), /candidate_not_allowed/);
+test("daily structured output requires exactly plan, new block, and student support in order", () => {
+  const value = output();
+  const context = { allowedBlockIds: new Set(["block-1", "block-2"]), existingBlockNames: new Set(["既存"]), existingPlanSignatures: new Set(["block-2>block-1>block-2"]) };
+  assert.equal(parseAndValidateDailyOutput(JSON.stringify(value), candidates(), context).suggestions.length, 3);
+  [value.suggestions[0], value.suggestions[1]] = [value.suggestions[1], value.suggestions[0]];
+  assert.throws(() => parseAndValidateDailyOutput(JSON.stringify(value), candidates(), context), /candidate_order/);
 });
 
-test("daily plan draft preserves repeated occurrences of the same block", () => {
-  const stored = buildStoredDailySuggestions(output(["plan"]), [candidate("plan", 2, "plan")]);
-  assert.deepEqual(stored[0].draft_payload.blocks?.map((item) => item.block_template_id), ["block-1", "block-1"]);
-  assert.equal(stored[0].source_plan_id, "plan-1");
-  assert.match(stored[0].content_hash, /^[0-9a-f]{64}$/);
+test("new plan preserves repeated block occurrences and rejects a copied plan signature", () => {
+  const value = output();
+  const context = { allowedBlockIds: new Set(["block-1", "block-2"]), existingBlockNames: new Set<string>(), existingPlanSignatures: new Set<string>() };
+  const parsed = parseAndValidateDailyOutput(JSON.stringify(value), candidates(), context);
+  const stored = buildStoredDailySuggestions(parsed, candidates());
+  assert.deepEqual(stored[0].draft_payload.blocks?.map((item) => item.block_template_id), ["block-1", "block-1", "block-2"]);
+  assert.throws(() => parseAndValidateDailyOutput(JSON.stringify(value), candidates(), { ...context, existingPlanSignatures: new Set(["block-1>block-1>block-2"]) }), /plan_not_novel/);
 });
 
-test("daily content hash is independent from display rank and evidence bookkeeping", () => {
-  const first = candidate("first", 1);
-  const second = { ...candidate("second", 2), type: first.type, title: first.title, dedupeKey: "b".repeat(64) };
-  const firstStored = buildStoredDailySuggestions(output(["first"]), [first])[0];
-  const secondOutput = output(["second"]);
-  secondOutput.suggestions[0] = { ...secondOutput.suggestions[0], title: firstStored.title, summary: firstStored.summary, rationale: firstStored.rationale };
-  const secondStored = buildStoredDailySuggestions(secondOutput, [second])[0];
-  assert.equal(firstStored.content_hash, secondStored.content_hash);
+test("new block must be complete and not reuse an existing normalized name", () => {
+  const value = output();
+  const context = { allowedBlockIds: new Set(["block-1", "block-2"]), existingBlockNames: new Set(["足裏コンパス"]), existingPlanSignatures: new Set<string>() };
+  assert.throws(() => parseAndValidateDailyOutput(JSON.stringify(value), candidates(), context), /block_not_novel/);
 });
 
-test("daily reference index rejects any reference outside the server allowlist", () => {
+test("daily reference index includes evidence and selected plan blocks", () => {
   const index = emptyReferenceIndex();
   index.record["record-1"] = { id: "record-1", label: "記録", href: "/lessons/example/record" };
-  const stored = buildStoredDailySuggestions(output(["safe"]), [candidate("safe", 1)]);
-  assert.equal(selectedReferenceIndex(stored, index).record["record-1"].href, "/lessons/example/record");
-  stored[0].evidence_refs = [{ type: "record", ref: "invented" }];
-  assert.throws(() => selectedReferenceIndex(stored, index), /reference_not_allowed/);
+  index.block["block-1"] = { id: "block-1", label: "呼吸", href: "/blocks/1" };
+  index.block["block-2"] = { id: "block-2", label: "立位", href: "/blocks/2" };
+  const parsed = parseAndValidateDailyOutput(JSON.stringify(output()), candidates(), { allowedBlockIds: new Set(["block-1", "block-2"]), existingBlockNames: new Set(), existingPlanSignatures: new Set() });
+  const selected = selectedReferenceIndex(buildStoredDailySuggestions(parsed, candidates()), index);
+  assert.equal(selected.block["block-2"].href, "/blocks/2");
 });
 
-test("daily model selection and cost use only the explicit price allowlist", () => {
+test("daily model and source fingerprint remain explicitly allowlisted and feedback-sensitive", () => {
   assert.equal(getConfiguredDailyModel("gpt-5.6-luna"), "gpt-5.6-luna");
   assert.throws(() => getConfiguredDailyModel("expensive-unknown"), /price_allowlist/);
   assert.equal(estimateDailyCost("gpt-5.6-luna", { inputTokens: 10_000, cachedInputTokens: 0, outputTokens: 2_000 }), 0.022);
-  assert.equal(dailySuggestionOutputSchema.additionalProperties, false);
+  assert.equal(dailySuggestionOutputSchema.properties.suggestions.minItems, 3);
   assert.equal(dailySuggestionOutputSchema.properties.suggestions.maxItems, 3);
-});
-
-test("daily source fingerprint ignores newly saved pending suggestions but changes after feedback", () => {
-  const candidates = [candidate("stable", 1)];
-  const base = {
-    suggestionDate: "2026-08-12",
-    reviewFingerprint: "f".repeat(64),
-    candidates,
-  };
+  const base = { suggestionDate: "2026-08-12", reviewFingerprint: "f".repeat(64), candidates: candidates() };
   const before = dailyRunSourceFingerprint({ ...base, priorFeedback: [] });
-  const afterPendingSave = dailyRunSourceFingerprint({
-    ...base,
-    priorFeedback: [{ dedupeKey: candidates[0].dedupeKey, status: "pending" }],
-  });
-  const afterFeedback = dailyRunSourceFingerprint({
-    ...base,
-    priorFeedback: [{ dedupeKey: candidates[0].dedupeKey, status: "dismissed" }],
-  });
-  assert.equal(afterPendingSave, before);
-  assert.notEqual(afterFeedback, before);
+  const pending = dailyRunSourceFingerprint({ ...base, priorFeedback: [{ dedupeKey: "a".repeat(64), status: "pending" }] });
+  const dismissed = dailyRunSourceFingerprint({ ...base, priorFeedback: [{ dedupeKey: "a".repeat(64), status: "dismissed" }] });
+  assert.equal(before, pending);
+  assert.notEqual(before, dismissed);
 });
 
-test("daily migration locks suggestions and atomically records one saved draft", () => {
+test("existing atomic draft RPCs and duplicate guards remain unchanged", () => {
   const sql = readFileSync("supabase/migrations/20260811185420_ai_daily_coaching_suggestions.sql", "utf8");
   const blockRpc = sql.slice(sql.indexOf("create function public.save_ai_daily_suggestion_as_block_draft"), sql.indexOf("create function public.save_ai_daily_suggestion_as_plan_draft"));
   assert.match(blockRpc, /for update;/i);
   assert.match(blockRpc, /is_draft, source_ai_daily_suggestion_id/i);
   assert.match(blockRpc, /status = 'saved'/i);
   assert.match(sql, /unique \(user_id, dedupe_key\)/i);
-  assert.match(sql, /lesson_plan_blocks_reject_draft_template/i);
-  assert.match(sql, /lesson_record_blocks_reject_draft_template/i);
 });

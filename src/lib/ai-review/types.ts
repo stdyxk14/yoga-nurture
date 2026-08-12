@@ -1,20 +1,33 @@
 import { createHash } from "node:crypto";
 
-export const aiReviewPromptVersion = "teaching-review-v1";
-export const aiReviewEvidenceVersion = "teaching-evidence-v1";
+export const aiReviewPromptVersion = "practical-teaching-review-v2";
+export const aiReviewEvidenceVersion = "flexible-teaching-evidence-v2";
 
-export const aiReviewAxes = [
-  "lesson_structure",
-  "block_quality",
-  "field_adaptation",
-  "student_support",
-  "safety_consideration",
-  "continuous_improvement",
-  "data_reliability",
-] as const;
+export type ReviewScopeSelection =
+  | { mode: "lesson"; recordId?: string }
+  | { mode: "period"; range: "recent3" | "recent5" | "month" | "custom"; from?: string; to?: string };
 
-export type AiReviewAxis = (typeof aiReviewAxes)[number];
-export type AiReviewAxisStatus = "strength" | "stable" | "observe" | "review" | "insufficient";
+export type ResolvedReviewScope = {
+  mode: "lesson" | "period";
+  scopeType: "lesson" | "recent" | "month" | "custom";
+  scopeKey: string;
+  scopeLabel: string;
+  targetRecordIds: string[];
+  lessonRecordId: string | null;
+  periodStart: string;
+  periodEnd: string;
+  selection: ReviewScopeSelection;
+};
+
+export type ReviewRecordOption = {
+  id: string;
+  scheduleId: string;
+  label: string;
+  date: string;
+  startsAt: string;
+  updatedAt: string;
+};
+
 export type AiReviewReferenceType = "plan" | "block" | "student" | "record" | "schedule";
 export type AiReviewReference = { type: AiReviewReferenceType; ref: string };
 
@@ -29,39 +42,83 @@ export type AiReviewFinding = {
   next_action: string;
 };
 
+export type AiReviewSection = {
+  summary: string;
+  details: string[];
+  references: AiReviewReference[];
+};
+
+export type AiStudentReview = {
+  student_ref: string;
+  student_name: string;
+  at_the_time: string;
+  recorded_reaction: string;
+  instructor_response: string;
+  good_response: string;
+  concerns: string;
+  next_care: string;
+  cue_idea: string;
+  follow_up_idea: string;
+  experience_idea: string;
+  references: AiReviewReference[];
+};
+
+export type SingleLessonReview = {
+  good_points: AiReviewSection;
+  improvement_points: AiReviewSection;
+  lesson_structure_and_flow: AiReviewSection;
+  block_pose_selection: AiReviewSection;
+  sequence_connections: AiReviewSection;
+  intensity_flow: AiReviewSection;
+  time_allocation: AiReviewSection;
+  cueing_and_voice: AiReviewSection;
+  field_adaptation: AiReviewSection;
+  student_reviews: AiStudentReview[];
+  customer_communication: AiReviewSection;
+  next_improvements: AiReviewSection;
+  new_experiments: AiReviewSection;
+};
+
+export type PeriodLessonReview = {
+  stable_structure: AiReviewSection;
+  variable_structure: AiReviewSection;
+  recent_improvements: AiReviewSection;
+  repeated_challenges: AiReviewSection;
+  frequently_used_blocks: AiReviewSection;
+  retired_content: AiReviewSection;
+  timing_trends: AiReviewSection;
+  cueing_changes: AiReviewSection;
+  student_response_changes: AiReviewSection;
+  repeated_student_care: AiReviewSection;
+  student_reviews: AiStudentReview[];
+  customer_followup_strengths: AiReviewSection;
+  retention_experience: AiReviewSection;
+  next_few_lessons: AiReviewSection;
+};
+
 export type AiReviewOutput = {
+  review_kind: "lesson" | "period";
   overall_assessment: string;
   key_strength: AiReviewFinding;
   priority_improvement: AiReviewFinding;
-  lesson_plan_analysis: AiReviewFinding[];
-  block_analysis: AiReviewFinding[];
-  student_safety_analysis: AiReviewFinding[];
-  data_quality: {
-    summary: string;
-    limitations: string[];
-    completeness_notes: string[];
-  };
+  single_lesson: SingleLessonReview | null;
+  period_review: PeriodLessonReview | null;
+  data_notes: string[];
   next_actions: Array<{
     title: string;
     detail: string;
     priority: "high" | "medium" | "low";
     references: AiReviewReference[];
   }>;
-  axes: Array<{
-    axis: AiReviewAxis;
-    status: AiReviewAxisStatus;
-    summary: string;
-    reason: string;
-    evidence_count: number;
-    confidence: number;
-    includes_inference: boolean;
-    references: AiReviewReference[];
-    next_action: string;
-  }>;
   contradictions: Array<{
     description: string;
     references: AiReviewReference[];
   }>;
+  lesson_plan_analysis?: AiReviewFinding[];
+  block_analysis?: AiReviewFinding[];
+  student_safety_analysis?: AiReviewFinding[];
+  data_quality?: { summary: string; limitations: string[]; completeness_notes: string[] };
+  axes?: unknown[];
 };
 
 export type AiReviewReferenceIndex = Record<AiReviewReferenceType, Record<string, { id: string; label: string; href: string }>>;
@@ -76,6 +133,8 @@ const referenceSchema = {
   },
 } as const;
 
+const referenceArraySchema = { type: "array", maxItems: 16, items: referenceSchema } as const;
+
 const findingSchema = {
   type: "object",
   additionalProperties: false,
@@ -87,8 +146,124 @@ const findingSchema = {
     evidence_count: { type: "integer", minimum: 0 },
     confidence: { type: "number", minimum: 0, maximum: 1 },
     includes_inference: { type: "boolean" },
-    references: { type: "array", maxItems: 12, items: referenceSchema },
+    references: referenceArraySchema,
     next_action: { type: "string" },
+  },
+} as const;
+
+const sectionSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["summary", "details", "references"],
+  properties: {
+    summary: { type: "string" },
+    details: { type: "array", maxItems: 8, items: { type: "string" } },
+    references: referenceArraySchema,
+  },
+} as const;
+
+const studentReviewSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: [
+    "student_ref",
+    "student_name",
+    "at_the_time",
+    "recorded_reaction",
+    "instructor_response",
+    "good_response",
+    "concerns",
+    "next_care",
+    "cue_idea",
+    "follow_up_idea",
+    "experience_idea",
+    "references",
+  ],
+  properties: {
+    student_ref: { type: "string" },
+    student_name: { type: "string" },
+    at_the_time: { type: "string" },
+    recorded_reaction: { type: "string" },
+    instructor_response: { type: "string" },
+    good_response: { type: "string" },
+    concerns: { type: "string" },
+    next_care: { type: "string" },
+    cue_idea: { type: "string" },
+    follow_up_idea: { type: "string" },
+    experience_idea: { type: "string" },
+    references: referenceArraySchema,
+  },
+} as const;
+
+const singleLessonSchema = {
+  type: ["object", "null"],
+  additionalProperties: false,
+  required: [
+    "good_points",
+    "improvement_points",
+    "lesson_structure_and_flow",
+    "block_pose_selection",
+    "sequence_connections",
+    "intensity_flow",
+    "time_allocation",
+    "cueing_and_voice",
+    "field_adaptation",
+    "student_reviews",
+    "customer_communication",
+    "next_improvements",
+    "new_experiments",
+  ],
+  properties: {
+    good_points: sectionSchema,
+    improvement_points: sectionSchema,
+    lesson_structure_and_flow: sectionSchema,
+    block_pose_selection: sectionSchema,
+    sequence_connections: sectionSchema,
+    intensity_flow: sectionSchema,
+    time_allocation: sectionSchema,
+    cueing_and_voice: sectionSchema,
+    field_adaptation: sectionSchema,
+    student_reviews: { type: "array", maxItems: 24, items: studentReviewSchema },
+    customer_communication: sectionSchema,
+    next_improvements: sectionSchema,
+    new_experiments: sectionSchema,
+  },
+} as const;
+
+const periodReviewSchema = {
+  type: ["object", "null"],
+  additionalProperties: false,
+  required: [
+    "stable_structure",
+    "variable_structure",
+    "recent_improvements",
+    "repeated_challenges",
+    "frequently_used_blocks",
+    "retired_content",
+    "timing_trends",
+    "cueing_changes",
+    "student_response_changes",
+    "repeated_student_care",
+    "student_reviews",
+    "customer_followup_strengths",
+    "retention_experience",
+    "next_few_lessons",
+  ],
+  properties: {
+    stable_structure: sectionSchema,
+    variable_structure: sectionSchema,
+    recent_improvements: sectionSchema,
+    repeated_challenges: sectionSchema,
+    frequently_used_blocks: sectionSchema,
+    retired_content: sectionSchema,
+    timing_trends: sectionSchema,
+    cueing_changes: sectionSchema,
+    student_response_changes: sectionSchema,
+    repeated_student_care: sectionSchema,
+    student_reviews: { type: "array", maxItems: 24, items: studentReviewSchema },
+    customer_followup_strengths: sectionSchema,
+    retention_experience: sectionSchema,
+    next_few_lessons: sectionSchema,
   },
 } as const;
 
@@ -96,38 +271,28 @@ export const aiReviewOutputSchema = {
   type: "object",
   additionalProperties: false,
   required: [
+    "review_kind",
     "overall_assessment",
     "key_strength",
     "priority_improvement",
-    "lesson_plan_analysis",
-    "block_analysis",
-    "student_safety_analysis",
-    "data_quality",
+    "single_lesson",
+    "period_review",
+    "data_notes",
     "next_actions",
-    "axes",
     "contradictions",
   ],
   properties: {
+    review_kind: { type: "string", enum: ["lesson", "period"] },
     overall_assessment: { type: "string" },
     key_strength: findingSchema,
     priority_improvement: findingSchema,
-    lesson_plan_analysis: { type: "array", minItems: 1, maxItems: 5, items: findingSchema },
-    block_analysis: { type: "array", minItems: 1, maxItems: 5, items: findingSchema },
-    student_safety_analysis: { type: "array", minItems: 1, maxItems: 5, items: findingSchema },
-    data_quality: {
-      type: "object",
-      additionalProperties: false,
-      required: ["summary", "limitations", "completeness_notes"],
-      properties: {
-        summary: { type: "string" },
-        limitations: { type: "array", maxItems: 10, items: { type: "string" } },
-        completeness_notes: { type: "array", maxItems: 10, items: { type: "string" } },
-      },
-    },
+    single_lesson: singleLessonSchema,
+    period_review: periodReviewSchema,
+    data_notes: { type: "array", maxItems: 8, items: { type: "string" } },
     next_actions: {
       type: "array",
       minItems: 1,
-      maxItems: 6,
+      maxItems: 8,
       items: {
         type: "object",
         additionalProperties: false,
@@ -136,28 +301,7 @@ export const aiReviewOutputSchema = {
           title: { type: "string" },
           detail: { type: "string" },
           priority: { type: "string", enum: ["high", "medium", "low"] },
-          references: { type: "array", maxItems: 12, items: referenceSchema },
-        },
-      },
-    },
-    axes: {
-      type: "array",
-      minItems: 7,
-      maxItems: 7,
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["axis", "status", "summary", "reason", "evidence_count", "confidence", "includes_inference", "references", "next_action"],
-        properties: {
-          axis: { type: "string", enum: aiReviewAxes },
-          status: { type: "string", enum: ["strength", "stable", "observe", "review", "insufficient"] },
-          summary: { type: "string" },
-          reason: { type: "string" },
-          evidence_count: { type: "integer", minimum: 0 },
-          confidence: { type: "number", minimum: 0, maximum: 1 },
-          includes_inference: { type: "boolean" },
-          references: { type: "array", maxItems: 12, items: referenceSchema },
-          next_action: { type: "string" },
+          references: referenceArraySchema,
         },
       },
     },
@@ -170,7 +314,7 @@ export const aiReviewOutputSchema = {
         required: ["description", "references"],
         properties: {
           description: { type: "string" },
-          references: { type: "array", maxItems: 12, items: referenceSchema },
+          references: referenceArraySchema,
         },
       },
     },
@@ -198,8 +342,8 @@ export function estimateReviewCost(model: ReviewPricedModel, usage: { inputToken
   return roundUsd((uncachedInput * price.input + usage.cachedInputTokens * price.cachedInput + usage.outputTokens * price.output) / 1_000_000);
 }
 
-export function reserveReviewCost(model: ReviewPricedModel, evidenceCharacters: number, maxOutputTokens = 8_000) {
-  const estimatedInputTokens = Math.ceil(evidenceCharacters / 3.2) + 2_000;
+export function reserveReviewCost(model: ReviewPricedModel, evidenceCharacters: number, maxOutputTokens = 12_000) {
+  const estimatedInputTokens = Math.ceil(evidenceCharacters / 3.2) + 2_500;
   return Math.max(0.01, estimateReviewCost(model, { inputTokens: estimatedInputTokens, cachedInputTokens: 0, outputTokens: maxOutputTokens }));
 }
 
@@ -207,16 +351,34 @@ export function sourceFingerprint(value: unknown) {
   return createHash("sha256").update(stableStringify(value)).digest("hex");
 }
 
-export function parseAndValidateAiReview(outputText: string, index: AiReviewReferenceIndex): AiReviewOutput {
+export function parseAndValidateAiReview(outputText: string, index: AiReviewReferenceIndex, expectedKind?: "lesson" | "period"): AiReviewOutput {
   const value = JSON.parse(outputText) as AiReviewOutput;
-  if (!value || typeof value !== "object" || !Array.isArray(value.axes)) throw new Error("review_output_invalid");
-  const axes = new Set(value.axes.map((axis) => axis.axis));
-  if (value.axes.length !== aiReviewAxes.length || aiReviewAxes.some((axis) => !axes.has(axis))) throw new Error("review_axes_invalid");
-  for (const axis of value.axes) {
-    if (axis.confidence < 0 || axis.confidence > 1 || axis.evidence_count < 0) throw new Error("review_axis_value_invalid");
-  }
+  if (!value || typeof value !== "object" || !["lesson", "period"].includes(value.review_kind)) throw new Error("review_output_invalid");
+  if (expectedKind && value.review_kind !== expectedKind) throw new Error("review_kind_invalid");
+  if (value.review_kind === "lesson" && (!value.single_lesson || value.period_review !== null)) throw new Error("review_scope_output_invalid");
+  if (value.review_kind === "period" && (!value.period_review || value.single_lesson !== null)) throw new Error("review_scope_output_invalid");
+  if (!Array.isArray(value.next_actions) || !Array.isArray(value.contradictions) || !Array.isArray(value.data_notes)) throw new Error("review_output_invalid");
   validateReviewReferences(value, index);
+  for (const student of reviewStudents(value)) {
+    const target = index.student[student.student_ref];
+    if (!target || target.label !== student.student_name) throw new Error("review_student_name_not_allowed");
+  }
   return value;
+}
+
+export function buildReviewForStorage(review: AiReviewOutput) {
+  return {
+    ...review,
+    lesson_plan_analysis: [],
+    block_analysis: [],
+    student_safety_analysis: [],
+    data_quality: {
+      summary: review.data_notes[0] ?? "今回の判断に必要な範囲で記録を確認しました。",
+      limitations: review.data_notes,
+      completeness_notes: [],
+    },
+    axes: [],
+  };
 }
 
 export function validateReviewReferences(review: AiReviewOutput, index: AiReviewReferenceIndex) {
@@ -237,18 +399,33 @@ export function emptyReferenceIndex(): AiReviewReferenceIndex {
   return { plan: {}, block: {}, student: {}, record: {}, schedule: {} };
 }
 
-function collectReviewReferences(review: AiReviewOutput) {
+function collectReviewReferences(value: unknown) {
   const references: AiReviewReference[] = [];
-  const add = (items: AiReviewReference[]) => references.push(...items);
-  add(review.key_strength.references);
-  add(review.priority_improvement.references);
-  review.lesson_plan_analysis.forEach((finding) => add(finding.references));
-  review.block_analysis.forEach((finding) => add(finding.references));
-  review.student_safety_analysis.forEach((finding) => add(finding.references));
-  review.next_actions.forEach((action) => add(action.references));
-  review.axes.forEach((axis) => add(axis.references));
-  review.contradictions.forEach((item) => add(item.references));
-  return references;
+  const visit = (entry: unknown) => {
+    if (Array.isArray(entry)) {
+      entry.forEach(visit);
+      return;
+    }
+    if (!entry || typeof entry !== "object") return;
+    const row = entry as Record<string, unknown>;
+    if (typeof row.type === "string" && typeof row.ref === "string" && ["plan", "block", "student", "record", "schedule"].includes(row.type)) {
+      references.push({ type: row.type as AiReviewReferenceType, ref: row.ref });
+      return;
+    }
+    Object.values(row).forEach(visit);
+  };
+  visit(value);
+  const seen = new Set<string>();
+  return references.filter((reference) => {
+    const key = `${reference.type}:${reference.ref}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function reviewStudents(review: AiReviewOutput) {
+  return review.single_lesson?.student_reviews ?? review.period_review?.student_reviews ?? [];
 }
 
 function stableStringify(value: unknown): string {
