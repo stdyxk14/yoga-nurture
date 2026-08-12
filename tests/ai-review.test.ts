@@ -124,4 +124,15 @@ test("review prompt treats closure only as a structured schedule state", () => {
   assert.equal(aiReviewPromptVersion, "practical-teaching-review-v3");
   assert.match(server, /Never infer that a lesson was closed or cancelled from overall_memo/);
   assert.match(server, /Only an explicit active structured schedule_closures row can establish closure/);
+  assert.match(server, /p_input_tokens: accounting\?\.inputTokens \?\? 0/);
+  assert.match(server, /p_estimated_cost_usd: accounting\?\.estimatedCostUsd \?\? 0/);
+});
+
+test("billable failed AI responses remain inside the atomic monthly budget ledger", () => {
+  const sql = readFileSync("supabase/migrations/20260812041901_account_failed_ai_usage.sql", "utf8");
+  assert.equal((sql.match(/status = 'failed' and estimated_cost_usd > 0/g) ?? []).length, 4);
+  assert.equal((sql.match(/security invoker/g) ?? []).length, 2);
+  assert.equal((sql.match(/set search_path = ''/g) ?? []).length, 2);
+  assert.match(sql, /revoke all on function public\.claim_ai_review_scope_run[\s\S]*from public, anon, authenticated/i);
+  assert.match(sql, /revoke all on function public\.claim_ai_daily_run[\s\S]*from public, anon, authenticated/i);
 });

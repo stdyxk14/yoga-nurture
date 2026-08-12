@@ -114,5 +114,7 @@ test("daily generation records safe validation categories without logging model 
   assert.match(server, /plan_draft_invalid/);
   assert.match(server, /block_draft_invalid/);
   assert.match(server, /student_draft_invalid/);
+  assert.match(server, /p_input_tokens: accounting\?\.inputTokens \?\? 0/);
+  assert.match(server, /p_estimated_cost_usd: accounting\?\.estimatedCostUsd \?\? 0/);
   assert.doesNotMatch(server, /output_text[),}\]]*\s*\)/);
 });

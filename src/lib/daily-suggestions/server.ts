@@ -93,6 +93,7 @@ export async function runDailySuggestionForUser({ userId, trigger }: { userId: s
     return emptyRunResult("openai_key_missing", requestedModel, "failed", runId);
   }
 
+  let failedAccounting: RunAccounting | null = null;
   try {
     const response = await openai.responses.create(dailyRequest({
       model: requestedModel,
@@ -100,6 +101,9 @@ export async function runDailySuggestionForUser({ userId, trigger }: { userId: s
       safetyIdentifier: safetyIdentifier(userId),
     }), { timeout: 60_000, maxRetries: 0 });
     const responseModel = response.model || requestedModel;
+    const usage = responseUsage(response);
+    const estimatedCostUsd = estimateDailyCost(requestedModel, usage);
+    failedAccounting = { ...usage, estimatedCostUsd };
     assertResponseModel(requestedModel, responseModel);
     const parsed = parseAndValidateDailyOutput(response.output_text, bundle.candidates, {
       allowedBlockIds: bundle.allowedBlockIds,
@@ -116,8 +120,6 @@ export async function runDailySuggestionForUser({ userId, trigger }: { userId: s
     if (repeatedError) throw new Error(`daily_duplicate_check_failed:${repeatedError.message}`);
     if (repeated?.length) throw new Error("daily_content_duplicate");
     const references = selectedReferenceIndex(suggestions, bundle.referenceIndex);
-    const usage = responseUsage(response);
-    const estimatedCostUsd = estimateDailyCost(requestedModel, usage);
     const { data: count, error: completeError } = await admin.rpc("complete_ai_daily_run", {
       p_run_id: runId,
       p_status: "succeeded",
@@ -148,7 +150,7 @@ export async function runDailySuggestionForUser({ userId, trigger }: { userId: s
     };
   } catch (error) {
     const errorCode = classifyDailyError(error);
-    await failRun(admin, runId, errorCode);
+    await failRun(admin, runId, errorCode, failedAccounting);
     console.error("ai_daily.failed", JSON.stringify({ runId, errorCode }));
     return emptyRunResult(errorCode, requestedModel, "failed", runId);
   }
@@ -333,16 +335,18 @@ function assertResponseModel(requested: DailyPricedModel, actual: string) {
   if (actual !== requested && !actual.startsWith(`${requested}-`)) throw new Error("daily_response_model_not_allowlisted");
 }
 
-async function failRun(admin: ReturnType<typeof createSupabaseAdminClient>, runId: string, errorCode: string) {
+type RunAccounting = ReturnType<typeof responseUsage> & { estimatedCostUsd: number };
+
+async function failRun(admin: ReturnType<typeof createSupabaseAdminClient>, runId: string, errorCode: string, accounting: RunAccounting | null = null) {
   const { error } = await admin.rpc("complete_ai_daily_run", {
     p_run_id: runId,
     p_status: "failed",
     p_response_model: null,
-    p_input_tokens: 0,
-    p_cached_input_tokens: 0,
-    p_output_tokens: 0,
-    p_reasoning_output_tokens: 0,
-    p_estimated_cost_usd: 0,
+    p_input_tokens: accounting?.inputTokens ?? 0,
+    p_cached_input_tokens: accounting?.cachedInputTokens ?? 0,
+    p_output_tokens: accounting?.outputTokens ?? 0,
+    p_reasoning_output_tokens: accounting?.reasoningOutputTokens ?? 0,
+    p_estimated_cost_usd: accounting?.estimatedCostUsd ?? 0,
     p_suggestions: null,
     p_reference_index: null,
     p_evidence_summary: null,

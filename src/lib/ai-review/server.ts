@@ -97,6 +97,7 @@ export async function runTeachingReviewForUser({
     return emptyRunResult(bundle.scope.scopeLabel, requestedModel, "openai_key_missing", runId, null, "failed");
   }
 
+  let failedAccounting: RunAccounting | null = null;
   try {
     const response = await openai.responses.create(reviewRequest({
       model: requestedModel,
@@ -105,11 +106,12 @@ export async function runTeachingReviewForUser({
       safetyIdentifier: safetyIdentifier(userId),
     }), { timeout: 120_000, maxRetries: 0 });
     const responseModel = response.model || requestedModel;
+    const usage = responseUsage(response);
+    const estimatedCostUsd = estimateReviewCost(requestedModel, usage);
+    failedAccounting = { ...usage, estimatedCostUsd };
     assertResponseModel(requestedModel, responseModel);
     const review = parseAndValidateAiReview(response.output_text, bundle.referenceIndex, bundle.scope.mode);
     const references = buildStoredReferenceIndex(review, bundle.referenceIndex);
-    const usage = responseUsage(response);
-    const estimatedCostUsd = estimateReviewCost(requestedModel, usage);
     const { data: snapshotId, error: completeError } = await admin.rpc("complete_ai_review_run", {
       p_run_id: runId,
       p_status: "succeeded",
@@ -149,7 +151,7 @@ export async function runTeachingReviewForUser({
     };
   } catch (error) {
     const errorCode = classifyReviewError(error);
-    await failRun(admin, runId, errorCode);
+    await failRun(admin, runId, errorCode, failedAccounting);
     console.error("ai_review.failed", JSON.stringify({ runId, scopeType: bundle.scope.scopeType, errorCode }));
     return emptyRunResult(bundle.scope.scopeLabel, requestedModel, errorCode, runId, null, "failed");
   }
@@ -309,16 +311,18 @@ function assertResponseModel(requested: ReviewPricedModel, actual: string) {
   if (actual !== requested && !actual.startsWith(`${requested}-`)) throw new Error("review_response_model_not_allowlisted");
 }
 
-async function failRun(admin: ReturnType<typeof createSupabaseAdminClient>, runId: string, errorCode: string) {
+type RunAccounting = ReturnType<typeof responseUsage> & { estimatedCostUsd: number };
+
+async function failRun(admin: ReturnType<typeof createSupabaseAdminClient>, runId: string, errorCode: string, accounting: RunAccounting | null = null) {
   const { error } = await admin.rpc("complete_ai_review_run", {
     p_run_id: runId,
     p_status: "failed",
     p_response_model: null,
-    p_input_tokens: 0,
-    p_cached_input_tokens: 0,
-    p_output_tokens: 0,
-    p_reasoning_output_tokens: 0,
-    p_estimated_cost_usd: 0,
+    p_input_tokens: accounting?.inputTokens ?? 0,
+    p_cached_input_tokens: accounting?.cachedInputTokens ?? 0,
+    p_output_tokens: accounting?.outputTokens ?? 0,
+    p_reasoning_output_tokens: accounting?.reasoningOutputTokens ?? 0,
+    p_estimated_cost_usd: accounting?.estimatedCostUsd ?? 0,
     p_review: null,
     p_references: null,
     p_evidence_summary: null,
