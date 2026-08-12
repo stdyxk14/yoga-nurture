@@ -269,16 +269,19 @@ export function parseAndValidateDailyOutput(
   const parsed = JSON.parse(outputText) as ModelDailyOutput;
   if (!parsed || !Array.isArray(parsed.suggestions) || parsed.suggestions.length !== 3 || candidates.length !== 3) throw new Error("daily_output_invalid");
   const expectedSegments: DailyCoachSegment[] = ["lesson_plan", "new_block", "student_support"];
-  for (let index = 0; index < parsed.suggestions.length; index += 1) {
-    const suggestion = parsed.suggestions[index];
+  const suggestionsByCandidate = new Map(parsed.suggestions.map((suggestion) => [suggestion.candidate_id, suggestion]));
+  if (suggestionsByCandidate.size !== parsed.suggestions.length) throw new Error("daily_candidate_duplicate");
+  const orderedSuggestions = candidates.map((candidate) => suggestionsByCandidate.get(candidate.id));
+  if (orderedSuggestions.some((suggestion) => !suggestion)) throw new Error("daily_candidate_not_allowed");
+  for (let index = 0; index < orderedSuggestions.length; index += 1) {
+    const suggestion = orderedSuggestions[index]!;
     const candidate = candidates[index];
-    if (!candidate || candidate.segment !== expectedSegments[index] || suggestion.candidate_id !== candidate.id) throw new Error("daily_candidate_order_invalid");
+    if (!candidate || candidate.segment !== expectedSegments[index]) throw new Error("daily_candidate_order_invalid");
     if (!suggestion.title.trim() || !suggestion.summary.trim() || !suggestion.rationale.trim()) throw new Error("daily_output_invalid");
     if (candidate.segment === "lesson_plan") validatePlanDraft(suggestion.draft, context.allowedBlockIds ?? new Set(), context.existingPlanSignatures ?? new Set());
     if (candidate.segment === "new_block") validateNewBlockDraft(suggestion.draft, context.existingBlockNames ?? new Set());
-    if (candidate.segment === "student_support" && suggestion.draft.blocks.length) throw new Error("daily_student_draft_invalid");
   }
-  return parsed;
+  return { suggestions: orderedSuggestions as ModelDailySuggestion[] };
 }
 
 export function buildStoredDailySuggestions(output: ModelDailyOutput, candidates: DailyCandidate[]): StoredDailySuggestion[] {
@@ -350,7 +353,6 @@ function validateNewBlockDraft(draft: ModelDailyDraft, existingBlockNames: Set<s
   if ((draft.purpose?.trim().length ?? 0) < 8 || (draft.content?.trim().length ?? 0) < 20 || (draft.script?.trim().length ?? 0) < 20 || (draft.cautions?.trim().length ?? 0) < 8 || !draft.duration_minutes || !draft.level?.trim()) {
     throw new Error("daily_new_block_incomplete");
   }
-  if (draft.blocks.length) throw new Error("daily_block_draft_blocks_invalid");
 }
 
 function mergeDraft(base: DailyDraftPayload, model: ModelDailyDraft): DailyDraftPayload {

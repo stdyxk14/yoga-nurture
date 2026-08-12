@@ -37,12 +37,26 @@ function output(): ModelDailyOutput {
   };
 }
 
-test("daily structured output requires exactly plan, new block, and student support in order", () => {
+test("daily structured output requires exactly one plan, new block, and student support and stores them in product order", () => {
   const value = output();
   const context = { allowedBlockIds: new Set(["block-1", "block-2"]), existingBlockNames: new Set(["既存"]), existingPlanSignatures: new Set(["block-2>block-1>block-2"]) };
   assert.equal(parseAndValidateDailyOutput(JSON.stringify(value), candidates(), context).suggestions.length, 3);
   [value.suggestions[0], value.suggestions[1]] = [value.suggestions[1], value.suggestions[0]];
-  assert.throws(() => parseAndValidateDailyOutput(JSON.stringify(value), candidates(), context), /candidate_order/);
+  assert.deepEqual(parseAndValidateDailyOutput(JSON.stringify(value), candidates(), context).suggestions.map((item) => item.candidate_id), ["plan", "block", "student"]);
+});
+
+test("irrelevant unified-schema draft fields do not reject a valid block or student suggestion", () => {
+  const value = output();
+  value.suggestions[1].draft.blocks = [{ block_template_id: "block-1", planned_duration_minutes: 4 }];
+  value.suggestions[2].draft.blocks = [{ block_template_id: "block-2", planned_duration_minutes: 4 }];
+  const parsed = parseAndValidateDailyOutput(JSON.stringify(value), candidates(), {
+    allowedBlockIds: new Set(["block-1", "block-2"]),
+    existingBlockNames: new Set(),
+    existingPlanSignatures: new Set(),
+  });
+  const stored = buildStoredDailySuggestions(parsed, candidates());
+  assert.equal(stored[1].draft_payload.blocks, undefined);
+  assert.deepEqual(stored[2].draft_payload, { kind: "none" });
 });
 
 test("new plan preserves repeated block occurrences and rejects a copied plan signature", () => {
