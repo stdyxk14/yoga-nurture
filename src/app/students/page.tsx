@@ -47,11 +47,11 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
       />
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <WorkspaceSummaryCard label="登録生徒" value={`${workspace.summary.activeStudents}名`} detail="アクティブな生徒" href="/students?filter=all" />
-        <WorkspaceSummaryCard label="要フォロー" value={`${workspace.summary.followUpStudents}名`} detail="未完了フォローあり" tone="coral" href="/students?filter=followup" />
-        <WorkspaceSummaryCard label="注意点あり" value={`${workspace.summary.cautionStudents}名`} detail="安全面の注意あり" tone="purple" href="/students?filter=caution" />
-        <WorkspaceSummaryCard label="30日以内に受講" value={`${workspace.summary.recentStudents}名`} detail="実参加のdistinct生徒" tone="green" href="/students?filter=recent" />
-        <WorkspaceSummaryCard label="次回予定あり" value={`${workspace.summary.nextScheduledStudents}名`} detail="未来予定に参加登録あり" tone="sand" href="/students?filter=scheduled" />
+        <WorkspaceSummaryCard label="登録生徒" value={`${workspace.summary.activeStudents}名`} detail="アクティブな生徒" href="/students?filter=all" active={filter === "all"} />
+        <WorkspaceSummaryCard label="要フォロー" value={`${workspace.summary.followUpStudents}名`} detail="未完了フォローあり" tone="coral" href="/students?filter=followup" active={filter === "followup"} />
+        <WorkspaceSummaryCard label="注意点あり" value={`${workspace.summary.cautionStudents}名`} detail="安全面の注意あり" tone="purple" href="/students?filter=caution" active={filter === "caution"} />
+        <WorkspaceSummaryCard label="30日以内に受講" value={`${workspace.summary.recentStudents}名`} detail="実参加のdistinct生徒" tone="green" href="/students?filter=recent" active={filter === "recent"} />
+        <WorkspaceSummaryCard label="次回予定あり" value={`${workspace.summary.nextScheduledStudents}名`} detail="未来予定に参加登録あり" tone="sand" href="/students?filter=scheduled" active={filter === "scheduled"} />
       </section>
 
       {params.error ? <div className="rounded-xl border border-[#f0d0ca] bg-[#fff1ed] px-4 py-3 text-[13px] font-medium text-[#a65348]">{params.error}</div> : null}

@@ -211,7 +211,7 @@ export type WorkspaceTabGroup<T extends string> = {
 
 export function WorkspaceTabs<T extends string>({ groups, active }: { groups: WorkspaceTabGroup<T>[]; active: T }) {
   return (
-    <nav aria-label="画面セクション" className="flex min-w-0 flex-wrap gap-x-5 gap-y-3">
+    <nav aria-label="画面セクション" className="flex min-w-0 flex-wrap gap-x-4 gap-y-3">
       {groups.map((group) => (
         <div key={group.label} className="min-w-0">
           <p className="mb-1.5 text-[12px] font-medium tracking-[0.06em] text-[#7d837a]">{group.label}</p>
@@ -225,8 +225,10 @@ export function WorkspaceTabs<T extends string>({ groups, active }: { groups: Wo
                   href={item.href}
                   aria-current={selected ? "page" : undefined}
                   className={cn(
-                    "inline-flex min-h-9 items-center gap-2 rounded-lg px-3 text-[13px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--yn-focus)]",
-                    selected ? "bg-[#e6f0e3] text-[#386b46]" : "text-[#5f665c] hover:bg-[#f4f1eb] hover:text-[#34423a]",
+                    "inline-flex min-h-10 items-center gap-2 rounded-lg border px-3.5 text-[13px] font-semibold shadow-[0_1px_3px_rgba(76,88,74,0.05)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--yn-focus)] focus-visible:ring-offset-2",
+                    selected
+                      ? "border-[#8faf8c] bg-[#e4efe1] text-[#2f623c] shadow-[0_4px_12px_rgba(61,105,70,0.12)] ring-1 ring-[#b8ceb3]"
+                      : "border-[#d7ddd2] bg-white/90 text-[#4d5c50] hover:border-[#adc3aa] hover:bg-[#f1f7ef] hover:text-[#2f4e37] hover:shadow-[0_3px_9px_rgba(76,88,74,0.09)]",
                   )}
                 >
                   {Icon ? <Icon className="h-4 w-4" aria-hidden="true" /> : null}
@@ -255,12 +257,14 @@ export function WorkspaceSummaryCard({
   detail,
   href,
   tone = "green",
+  active = false,
 }: {
   label: string;
   value: string;
   detail?: string;
   href?: string;
   tone?: "green" | "purple" | "coral" | "sand";
+  active?: boolean;
 }) {
   const toneClass = {
     green: "text-[#477b52]",
@@ -270,16 +274,17 @@ export function WorkspaceSummaryCard({
   }[tone];
   const content = (
     <>
-      <p className="text-[13px] font-medium text-[#6b7268]">{label}</p>
-      <p className={cn("mt-1 text-[25px] font-semibold tracking-[-0.02em]", toneClass)}>{value}</p>
-      {detail ? <p className="mt-1 text-[13px] leading-5 text-[#737a70]">{detail}</p> : null}
+      <p className={cn("text-[13px] font-medium", active ? "text-[#315f3c]" : "text-[#6b7268]")}>{label}</p>
+      <p className={cn("mt-1 text-[25px] font-semibold tracking-[-0.02em]", active ? "text-[#2f6740]" : toneClass)}>{value}</p>
+      {detail ? <p className={cn("mt-1 text-[13px] leading-5", active ? "text-[#526653]" : "text-[#737a70]")}>{detail}</p> : null}
     </>
   );
   const className = cn(
     "min-w-0 rounded-xl border border-[var(--yn-border)] bg-white/78 px-3.5 py-3 text-left",
-    href && "transition hover:border-[#bdcfb9] hover:bg-[#f7faf5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--yn-focus)]",
+    href && "transition hover:border-[#adc3aa] hover:bg-[#f3f8f1] hover:shadow-[0_4px_12px_rgba(76,88,74,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--yn-focus)] focus-visible:ring-offset-2",
+    active && "border-[#88aa84] bg-[#e6f1e3] shadow-[0_6px_18px_rgba(70,111,77,0.14)] ring-1 ring-[#aec8a9] hover:border-[#789e75] hover:bg-[#e1eedf]",
   );
-  return href ? <Link href={href} className={className}>{content}</Link> : <div className={className}>{content}</div>;
+  return href ? <Link href={href} aria-current={active ? "page" : undefined} className={className}>{content}</Link> : <div className={className}>{content}</div>;
 }
 
 export function WorkspaceTableContainer({ children, className }: { children: ReactNode; className?: string }) {

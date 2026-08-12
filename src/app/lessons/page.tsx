@@ -147,6 +147,18 @@ export default async function LessonsPage({ searchParams }: { searchParams: Prom
 }
 
 function ScheduleWorkspace({ schedules, params, now }: { schedules: DbSchedule[]; params: SearchParams; now: number }) {
+  const quickFilter = params.status === "record_pending"
+    ? "record_pending"
+    : params.status === "closed"
+      ? "closed"
+      : params.period === "future"
+        ? "future"
+        : Object.entries(params).some(([key, value]) => key !== "tab" && Boolean(value))
+          ? null
+          : "all";
+  const allWaiting = schedules.filter((schedule) => isRecordPending(schedule, now));
+  const allClosed = schedules.filter((schedule) => Boolean(schedule.activeClosure));
+  const allFuture = schedules.filter((schedule) => !schedule.activeClosure && !isRecordPending(schedule, now) && Date.parse(schedule.startsAt) >= now);
   const filtered = schedules.filter((schedule) => {
     const q = params.q?.trim().toLowerCase();
     if (q && ![schedule.lessonName, schedule.lessonPlanName, schedule.place, schedule.formatLabel].join(" ").toLowerCase().includes(q)) return false;
@@ -191,10 +203,10 @@ function ScheduleWorkspace({ schedules, params, now }: { schedules: DbSchedule[]
       </WorkspaceToolbar>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <WorkspaceSummaryCard label="表示中" value={`${filtered.length}件`} detail="現在の検索・フィルター結果" />
-        <WorkspaceSummaryCard label="記録待ち" value={`${waiting.length}件`} detail="古い予定から表示" tone="coral" href="/lessons?status=record_pending" />
-        <WorkspaceSummaryCard label="今後の予定" value={`${future.length}件`} detail="近い予定から表示" tone="purple" href="/lessons?period=future" />
-        <WorkspaceSummaryCard label="クローズ済み" value={`${closed.length}件`} detail="通常の出席集計から除外" tone="sand" href="/lessons?status=closed" />
+        <WorkspaceSummaryCard label="すべて" value={`${schedules.length}件`} detail="すべての予定" href="/lessons" active={quickFilter === "all"} />
+        <WorkspaceSummaryCard label="記録待ち" value={`${allWaiting.length}件`} detail="古い予定から表示" tone="coral" href="/lessons?status=record_pending" active={quickFilter === "record_pending"} />
+        <WorkspaceSummaryCard label="今後の予定" value={`${allFuture.length}件`} detail="近い予定から表示" tone="purple" href="/lessons?period=future" active={quickFilter === "future"} />
+        <WorkspaceSummaryCard label="クローズ済み" value={`${allClosed.length}件`} detail="通常の出席集計から除外" tone="sand" href="/lessons?status=closed" active={quickFilter === "closed"} />
       </div>
 
       <ScheduleGroup title="記録待ち" description="実施後記録が未完了のレッスン。古い順です。" schedules={waiting} kind="waiting" />
