@@ -6,6 +6,7 @@ import {
   emptyReferenceIndex,
   estimateReviewCost,
   parseAndValidateAiReview,
+  aiReviewPromptVersion,
   sourceFingerprint,
   type AiReviewOutput,
   type AiReviewSection,
@@ -116,4 +117,11 @@ test("internal AI authentication remains exact and the fixed review cron is disa
   assert.match(route, /scheduled_review_disabled/);
   assert.doesNotMatch(vercel, /\/api\/cron\/ai-review/);
   assert.match(vercel, /\/api\/cron\/ai-daily-suggestions/);
+});
+
+test("review prompt treats closure only as a structured schedule state", () => {
+  const server = readFileSync("src/lib/ai-review/server.ts", "utf8");
+  assert.equal(aiReviewPromptVersion, "practical-teaching-review-v3");
+  assert.match(server, /Never infer that a lesson was closed or cancelled from overall_memo/);
+  assert.match(server, /Only an explicit active structured schedule_closures row can establish closure/);
 });

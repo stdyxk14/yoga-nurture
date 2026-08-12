@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-export const aiReviewPromptVersion = "practical-teaching-review-v2";
+export const aiReviewPromptVersion = "practical-teaching-review-v3";
 export const aiReviewEvidenceVersion = "flexible-teaching-evidence-v2";
 
 export type ReviewScopeSelection =

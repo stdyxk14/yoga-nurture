@@ -229,6 +229,7 @@ export async function buildDailySuggestionEvidence({
     reviewSnapshotId: text(review.id),
     fingerprint: dailyRunSourceFingerprint({
       suggestionDate,
+      reviewSnapshotId: text(review.id),
       reviewFingerprint: text(review.source_fingerprint),
       candidates,
       priorFeedback: prior.map((row) => ({ dedupeKey: text(row.dedupe_key), status: text(row.status) })),

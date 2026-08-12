@@ -90,12 +90,13 @@ test("daily model and source fingerprint remain explicitly allowlisted and feedb
   assert.equal(estimateDailyCost("gpt-5.6-luna", { inputTokens: 10_000, cachedInputTokens: 0, outputTokens: 2_000 }), 0.022);
   assert.equal(dailySuggestionOutputSchema.properties.suggestions.minItems, 3);
   assert.equal(dailySuggestionOutputSchema.properties.suggestions.maxItems, 3);
-  const base = { suggestionDate: "2026-08-12", reviewFingerprint: "f".repeat(64), candidates: candidates() };
+  const base = { suggestionDate: "2026-08-12", reviewSnapshotId: "review-1", reviewFingerprint: "f".repeat(64), candidates: candidates() };
   const before = dailyRunSourceFingerprint({ ...base, priorFeedback: [] });
   const pending = dailyRunSourceFingerprint({ ...base, priorFeedback: [{ dedupeKey: "a".repeat(64), status: "pending" }] });
   const dismissed = dailyRunSourceFingerprint({ ...base, priorFeedback: [{ dedupeKey: "a".repeat(64), status: "dismissed" }] });
   assert.equal(before, pending);
   assert.notEqual(before, dismissed);
+  assert.notEqual(before, dailyRunSourceFingerprint({ ...base, reviewSnapshotId: "review-2", priorFeedback: [] }));
 });
 
 test("existing atomic draft RPCs and duplicate guards remain unchanged", () => {

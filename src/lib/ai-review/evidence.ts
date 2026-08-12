@@ -224,6 +224,7 @@ export async function buildTeachingReviewEvidence({
       null_done: "unconfirmed; never infer as performed or skipped",
       repeated_blocks: "preserve every occurrence even when block_template_id repeats",
       closures: "excluded from the selected completed-lesson teaching review",
+      closure_source: "only an active structured schedule_closures row establishes closure; free-text notes never do",
       student_health: "never diagnose; describe recorded state, a confirmation question, cueing, or a possible accommodation",
       facts_and_inference: "separate user-entered facts from professional interpretation",
       contradictions: "surface conflicting evidence without choosing an unsupported fact",

@@ -235,17 +235,20 @@ export function candidateId(value: unknown) {
 
 export function dailyRunSourceFingerprint({
   suggestionDate,
+  reviewSnapshotId,
   reviewFingerprint,
   candidates,
   priorFeedback,
 }: {
   suggestionDate: string;
+  reviewSnapshotId: string;
   reviewFingerprint: string;
   candidates: DailyCandidate[];
   priorFeedback: Array<{ dedupeKey: string; status: string }>;
 }) {
   return sourceFingerprint({
     suggestion_date: suggestionDate,
+    review_snapshot_id: reviewSnapshotId,
     review_fingerprint: reviewFingerprint,
     candidate_pool: candidates.map((candidate) => ({
       candidate_id: candidate.id,
