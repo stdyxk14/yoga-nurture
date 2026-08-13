@@ -125,13 +125,11 @@ export type ClosureReport = {
   byPlace: RankedTextRow[];
   byPlan: RankedTextRow[];
   byFormat: RankedTextRow[];
-  byDecisionTiming: RankedTextRow[];
   items: Array<{
     scheduleId: string;
     lessonName: string;
     startsAt: string;
     reason: string;
-    decisionTiming: string;
     place: string;
     planId: string | null;
     planName: string;
@@ -197,7 +195,7 @@ type ItemSource = "planned" | "library" | "improvised";
 
 type RawStudent = { id: string; age_group: string | null; gender: string | null; created_at: string };
 type RawParticipant = { student_id: string; attendance_status: AttendanceStatus };
-type RawClosure = { id: string; reason_code: string; decided_at: string; revoked_at: string | null };
+type RawClosure = { id: string; reason_code: string; revoked_at: string | null };
 type RawSchedule = {
   id: string;
   lesson_plan_id: string | null;
@@ -381,13 +379,13 @@ async function fetchReportData(query: ReportQuery, period: ReportPeriod): Promis
     supabase.from("students").select("id,age_group,gender,created_at").eq("archived", false),
     supabase
       .from("schedules")
-      .select("id,lesson_plan_id,lesson_name,starts_at,ends_at,place,format,status,lesson_plan_name_snapshot,lesson_plan_duration_minutes_snapshot,lesson_plan:lesson_plans(id,name,duration_minutes),schedule_participants(student_id,attendance_status),schedule_closures(id,reason_code,decided_at,revoked_at)")
+      .select("id,lesson_plan_id,lesson_name,starts_at,ends_at,place,format,status,lesson_plan_name_snapshot,lesson_plan_duration_minutes_snapshot,lesson_plan:lesson_plans(id,name,duration_minutes),schedule_participants(student_id,attendance_status),schedule_closures(id,reason_code,revoked_at)")
       .gte("starts_at", period.previousStartIso)
       .lt("starts_at", period.endExclusiveIso)
       .order("starts_at", { ascending: true }),
     supabase
       .from("lesson_records")
-      .select("id,schedule_id,lesson_plan_id,lesson_name,record_date,schedule:schedules(id,starts_at,ends_at,place,format,lesson_plan_id,lesson_plan_name_snapshot,lesson_plan_duration_minutes_snapshot,lesson_plan:lesson_plans(id,name,duration_minutes),schedule_closures(id,reason_code,decided_at,revoked_at)),lesson_record_students(student_id,attendance_status),lesson_record_blocks(id,block_template_id,schedule_plan_item_id,item_source,display_name_snapshot,category_name_snapshot,planned_duration_minutes,done,actual_duration_minutes,reaction,improvement_memo,change_type,change_reason_codes,change_reason_note,actual_content_note,replaces_schedule_plan_item_id,block:block_templates(id,name,category:block_categories(name)))")
+      .select("id,schedule_id,lesson_plan_id,lesson_name,record_date,schedule:schedules(id,starts_at,ends_at,place,format,lesson_plan_id,lesson_plan_name_snapshot,lesson_plan_duration_minutes_snapshot,lesson_plan:lesson_plans(id,name,duration_minutes),schedule_closures(id,reason_code,revoked_at)),lesson_record_students(student_id,attendance_status),lesson_record_blocks(id,block_template_id,schedule_plan_item_id,item_source,display_name_snapshot,category_name_snapshot,planned_duration_minutes,done,actual_duration_minutes,reaction,improvement_memo,change_type,change_reason_codes,change_reason_note,actual_content_note,replaces_schedule_plan_item_id,block:block_templates(id,name,category:block_categories(name)))")
       .gte("record_date", period.previousStartDate)
       .lte("record_date", period.endDate)
       .order("record_date", { ascending: true }),
@@ -614,7 +612,6 @@ function buildClosureReport(
     byPlace: countClosureRows(eligibleClosed, (schedule) => schedule.place?.trim() || "未設定"),
     byPlan: countClosureRows(eligibleClosed, (schedule) => schedule.lesson_plan_name_snapshot || schedule.lesson_plan?.name || "未設定", (schedule) => schedule.lesson_plan_id ?? undefined),
     byFormat: countClosureRows(eligibleClosed, (schedule) => formatLabels[schedule.format ?? ""] ?? "未設定"),
-    byDecisionTiming: countClosureRows(eligibleClosed, (schedule) => closureDecisionTiming(schedule.starts_at, activeClosure(schedule)!.decided_at)),
     items: activeClosed
       .sort((a, b) => b.starts_at.localeCompare(a.starts_at))
       .map((schedule) => ({
@@ -622,7 +619,6 @@ function buildClosureReport(
         lessonName: schedule.lesson_name,
         startsAt: schedule.starts_at,
         reason: closureReasonLabels[activeClosure(schedule)!.reason_code] ?? "その他",
-        decisionTiming: closureDecisionTiming(schedule.starts_at, activeClosure(schedule)!.decided_at),
         place: schedule.place?.trim() || "未設定",
         planId: schedule.lesson_plan_id,
         planName: schedule.lesson_plan_name_snapshot || schedule.lesson_plan?.name || "未設定",
@@ -657,16 +653,6 @@ function countClosureRows(
   }
   return Array.from(counts, ([labelValue, value]) => ({ label: labelValue, count: value.count, id: value.id }))
     .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "ja"));
-}
-
-function closureDecisionTiming(startsAt: string, decidedAt: string) {
-  if (Date.parse(decidedAt) >= Date.parse(startsAt)) return "開始後／事後登録";
-  const startDate = tokyoDateString(new Date(startsAt));
-  const decidedDate = tokyoDateString(new Date(decidedAt));
-  const days = dateDiffDays(decidedDate, startDate);
-  if (days <= 0) return "当日";
-  if (days === 1) return "前日";
-  return "2日以上前";
 }
 
 function scheduleTimeBand(startsAt: string) {
@@ -910,7 +896,6 @@ function emptyReport(query: ReportQuery, error: string, resolved?: ReportPeriod)
       byPlace: [],
       byPlan: [],
       byFormat: [],
-      byDecisionTiming: [],
       items: [],
     },
     hints: [],

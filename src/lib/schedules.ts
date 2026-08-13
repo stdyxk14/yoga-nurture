@@ -81,7 +81,7 @@ type RawSchedule = {
   status: ScheduleStatus;
   created_at: string;
   updated_at: string;
-  lesson_plan?: { id: string; name: string | null } | null;
+  lesson_plan?: { id: string; name: string | null; theme?: string | null } | null;
   schedule_participants?: RawParticipant[];
   schedule_closures?: RawScheduleClosure[];
   lesson_records?: Array<{ id: string }>;
@@ -90,7 +90,6 @@ type RawSchedule = {
 type RawScheduleClosure = {
   id: string;
   reason_code: ScheduleClosureReasonCode;
-  decided_at: string;
   note: string | null;
   handoff_note: string | null;
   created_at: string;
@@ -194,7 +193,9 @@ function mapSchedule(row: RawSchedule): DbSchedule {
     scheduleMemo: row.schedule_memo ?? "",
     status: row.status,
     statusLabel: getScheduleStatusLabel(row.status),
-    lessonPlanName: row.lesson_plan_name_snapshot || row.lesson_plan?.name || "未設定",
+    lessonPlanName: row.lesson_plan_id
+      ? row.lesson_plan_name_snapshot || row.lesson_plan?.name || "名称未設定"
+      : "プラン未確定",
     participantCount: participants.length,
     participants,
     activeClosure,
@@ -235,6 +236,11 @@ export async function getScheduleSummaries() {
     .select(`
       id,
       lesson_plan_id,
+      lesson_plan_name_snapshot,
+      lesson_plan_theme_snapshot,
+      lesson_plan_format_snapshot,
+      lesson_plan_memo_snapshot,
+      lesson_plan_duration_minutes_snapshot,
       lesson_name,
       starts_at,
       ends_at,
@@ -243,9 +249,9 @@ export async function getScheduleSummaries() {
       status,
       created_at,
       updated_at,
-      lesson_plan:lesson_plans(id,name),
+      lesson_plan:lesson_plans(id,name,theme),
       schedule_participants(id),
-      schedule_closures(id,reason_code,decided_at,note,handoff_note,created_at,revoked_at),
+      schedule_closures(id,reason_code,note,handoff_note,created_at,revoked_at),
       lesson_records(id)
     `)
     .order("starts_at", { ascending: true });
@@ -258,11 +264,11 @@ export async function getScheduleSummaries() {
     return {
       id: row.id,
       lessonPlanId: row.lesson_plan_id,
-      lessonPlanNameSnapshot: "",
-      lessonPlanThemeSnapshot: "",
-      lessonPlanFormatSnapshot: "",
-      lessonPlanMemoSnapshot: "",
-      lessonPlanDurationMinutesSnapshot: null,
+      lessonPlanNameSnapshot: row.lesson_plan_name_snapshot ?? "",
+      lessonPlanThemeSnapshot: row.lesson_plan_theme_snapshot ?? "",
+      lessonPlanFormatSnapshot: row.lesson_plan_format_snapshot ?? "",
+      lessonPlanMemoSnapshot: row.lesson_plan_memo_snapshot ?? "",
+      lessonPlanDurationMinutesSnapshot: row.lesson_plan_duration_minutes_snapshot ?? null,
       lessonName: row.lesson_name,
       startsAt: row.starts_at,
       endsAt: row.ends_at,
@@ -276,7 +282,9 @@ export async function getScheduleSummaries() {
       scheduleMemo: "",
       status: row.status,
       statusLabel: getScheduleStatusLabel(row.status),
-      lessonPlanName: row.lesson_plan?.name ?? "未設定",
+      lessonPlanName: row.lesson_plan_id
+        ? row.lesson_plan_name_snapshot || row.lesson_plan?.name || "名称未設定"
+        : "プラン未確定",
       participantCount: row.schedule_participants?.length ?? 0,
       participants: [],
       activeClosure: (row.schedule_closures ?? []).filter((closure) => closure.revoked_at === null).map(mapClosure)[0] ?? null,
@@ -395,13 +403,13 @@ function scheduleSelect(includeNotes: boolean) {
       status,
       created_at,
       updated_at,
-      lesson_plan:lesson_plans(id,name),
+       lesson_plan:lesson_plans(id,name,theme),
       schedule_participants(
         id,
         attendance_status,
         student:students(id,name,kana,age_group,gender,experience,caution,memo)
       ),
-      schedule_closures(id,reason_code,decided_at,note,handoff_note,created_at,revoked_at),
+       schedule_closures(id,reason_code,note,handoff_note,created_at,revoked_at),
       lesson_records(id)
     `;
 }
@@ -411,16 +419,6 @@ function mapClosure(row: RawScheduleClosure): ScheduleClosure {
     id: row.id,
     reasonCode: row.reason_code,
     reasonLabel: getScheduleClosureReasonLabel(row.reason_code),
-    decidedAt: row.decided_at,
-    decidedAtLabel: new Intl.DateTimeFormat("ja-JP", {
-      year: "numeric",
-      month: "numeric",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-      timeZone: "Asia/Tokyo",
-    }).format(new Date(row.decided_at)),
     note: row.note ?? "",
     handoffNote: row.handoff_note ?? "",
     createdAt: row.created_at,
@@ -471,9 +469,9 @@ export function getSchedulePayload(formData: FormData, plans: DbLessonPlan[]) {
   const scheduleCaution = String(formData.get("schedule_caution") ?? "").trim();
   const scheduleMemo = String(formData.get("schedule_memo") ?? "").trim();
   const participantIds = formData.getAll("student_ids").map((value) => String(value)).filter(Boolean);
-  const plan = plans.find((item) => item.id === lessonPlanId);
+  const plan = lessonPlanId ? plans.find((item) => item.id === lessonPlanId) : null;
 
-  if (!plan) return { error: "使用するレッスンプランを選択してください。" };
+  if (lessonPlanId && !plan) return { error: "使用するレッスンプランを選択し直してください。" };
   if (!date || !startTime || !endTime) return { error: "日付、開始時間、終了時間を入力してください。" };
   if (!place) return { error: "場所を入力してください。" };
   if (!["personal", "group", "online"].includes(format)) return { error: "形式を選択してください。" };
@@ -487,8 +485,8 @@ export function getSchedulePayload(formData: FormData, plans: DbLessonPlan[]) {
 
   return {
     payload: {
-      lesson_plan_id: lessonPlanId,
-      lesson_name: plan.name,
+      lesson_plan_id: plan?.id ?? null,
+      lesson_name: plan?.name ?? "レッスン内容未確定",
       starts_at: startsAt.toISOString(),
       ends_at: endsAt.toISOString(),
       place,

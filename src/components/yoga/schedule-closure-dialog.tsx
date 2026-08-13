@@ -68,11 +68,6 @@ export function ScheduleClosureDialog({
               </label>
 
               <label className="grid gap-1.5 text-[13px] font-semibold text-[#4f584e]">
-                クローズ決定日時 <span className="text-[#bd5d50]">必須</span>
-                <input name="decided_at" type="datetime-local" required defaultValue={toTokyoDateTimeInput(activeClosure?.decidedAt)} className="h-10 rounded-lg border border-[#dcd6cc] bg-white px-3 text-[14px] font-normal" />
-              </label>
-
-              <label className="grid gap-1.5 text-[13px] font-semibold text-[#4f584e]">
                 補足メモ
                 <textarea name="note" rows={3} defaultValue={activeClosure?.note ?? ""} className="rounded-lg border border-[#dcd6cc] bg-white px-3 py-2 text-[14px] font-normal leading-6" />
               </label>
@@ -101,19 +96,4 @@ export function ScheduleClosureDialog({
       </Dialog.Portal>
     </Dialog.Root>
   );
-}
-
-function toTokyoDateTimeInput(value?: string) {
-  const date = value ? new Date(value) : new Date();
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: "Asia/Tokyo",
-  }).formatToParts(date);
-  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
-  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
 }

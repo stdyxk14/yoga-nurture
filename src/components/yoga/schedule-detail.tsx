@@ -27,6 +27,7 @@ export function ScheduleDetail({ schedule, error }: { schedule: DbSchedule; erro
         meta={(
           <>
             <WorkspaceStatus tone={schedule.activeClosure ? "coral" : "green"}>{schedule.activeClosure ? "クローズ済み" : schedule.statusLabel}</WorkspaceStatus>
+            {!schedule.lessonPlanId ? <WorkspaceStatus tone="sand">プラン未確定</WorkspaceStatus> : null}
             <WorkspaceStatus tone="sand">{schedule.dateLabel}</WorkspaceStatus>
             <WorkspaceStatus tone="purple">{schedule.startTimeLabel}–{schedule.endTimeLabel}</WorkspaceStatus>
           </>
@@ -51,6 +52,8 @@ export function ScheduleDetail({ schedule, error }: { schedule: DbSchedule; erro
         {schedule.lessonPlanId ? <WorkspaceAction href={`/schedules/${schedule.id}/script`} icon={Printer}>原稿</WorkspaceAction> : null}
         {schedule.activeClosure ? (
           <WorkspaceAction icon={FileText} disabled title="クローズを解除すると実施後記録を編集できます">実施後記録（解除が必要）</WorkspaceAction>
+        ) : !schedule.lessonPlanId ? (
+          <WorkspaceAction icon={FileText} disabled title="予定を編集してレッスンプランを設定してください">実施後記録（プラン設定が必要）</WorkspaceAction>
         ) : (
           <WorkspaceAction href={`/lessons/${schedule.id}/record`} icon={FileText} variant="primary">実施後記録</WorkspaceAction>
         )}
@@ -67,12 +70,18 @@ export function ScheduleDetail({ schedule, error }: { schedule: DbSchedule; erro
 
       {schedule.hasCompletedRecord ? <WorkspaceFeedback tone="info">完了済みの実施後記録があるため、この予定はクローズできません。</WorkspaceFeedback> : null}
 
+      {!schedule.lessonPlanId && !schedule.activeClosure ? (
+        <WorkspaceFeedback tone="info">
+          <span>プラン未確定の予定です。原稿の表示と実施後記録の開始にはレッスンプランが必要です。 </span>
+          <Link href={`/schedules/${schedule.id}/edit`} className="font-semibold underline underline-offset-2">予定を編集してプランを設定</Link>
+        </WorkspaceFeedback>
+      ) : null}
+
       {schedule.activeClosure ? (
         <WorkspacePanel className="border-[#e8cfc7] bg-[#fff9f6]">
           <WorkspaceSection title="クローズ済み" description="参加者個人の出欠とは分けて、レッスン全体が実施されなかった記録として保持しています。">
-            <dl className="grid gap-x-6 gap-y-4 md:grid-cols-2 xl:grid-cols-4">
+            <dl className="grid gap-x-6 gap-y-4 md:grid-cols-2 xl:grid-cols-3">
               <Info label="理由" value={schedule.activeClosure.reasonLabel} />
-              <Info label="決定日時" value={schedule.activeClosure.decidedAtLabel} />
               <Info label="補足メモ" value={schedule.activeClosure.note || "なし"} />
               <Info label="次回への引き継ぎ" value={schedule.activeClosure.handoffNote || "なし"} />
             </dl>
@@ -98,7 +107,7 @@ export function ScheduleDetail({ schedule, error }: { schedule: DbSchedule; erro
               {schedule.closureHistory.filter((closure) => closure.revokedAt).map((closure) => (
                 <div key={closure.id} className="flex flex-col gap-1 rounded-lg border border-[#e6ded3] bg-[#faf8f3] p-3 text-[13px] md:flex-row md:items-center md:justify-between">
                   <span className="inline-flex items-center gap-2 font-semibold"><Ban className="h-4 w-4 text-[#a9584d]" aria-hidden="true" />{closure.reasonLabel}</span>
-                  <span className="text-[#6f766c]">決定 {closure.decidedAtLabel}／解除済み</span>
+                  <span className="text-[#6f766c]">解除済み</span>
                 </div>
               ))}
             </div>

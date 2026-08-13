@@ -51,6 +51,7 @@ export async function createScheduleAction(
 
   revalidatePath("/lessons");
   revalidatePath("/schedules");
+  revalidatePath("/dashboard");
   redirect(nextPath);
 }
 
@@ -77,6 +78,7 @@ export async function updateScheduleAction(
 
   revalidatePath("/lessons");
   revalidatePath(`/schedules/${id}`);
+  revalidatePath("/dashboard");
   redirect(nextPath);
 }
 
@@ -105,7 +107,6 @@ export async function saveScheduleClosureAction(
   formData: FormData,
 ): Promise<ScheduleClosureFormState> {
   const reasonCode = String(formData.get("reason_code") ?? "");
-  const decidedAtValue = String(formData.get("decided_at") ?? "").trim();
   const note = String(formData.get("note") ?? "").trim();
   const handoffNote = String(formData.get("handoff_note") ?? "").trim();
   const confirmDraft = formData.get("confirm_draft") === "on";
@@ -113,15 +114,13 @@ export async function saveScheduleClosureAction(
   if (!scheduleClosureReasonOptions.some((option) => option.value === reasonCode)) {
     return { error: "クローズ理由を選択してください。" };
   }
-  const decidedAt = parseJstDateTime(decidedAtValue);
-  if (!decidedAt) return { error: "クローズ決定日時を入力してください。" };
 
   try {
     const { supabase } = await createMutationContext();
     const { error } = await supabase.rpc("save_schedule_closure", {
       p_schedule_id: scheduleId,
       p_reason_code: reasonCode,
-      p_decided_at: decidedAt,
+      p_decided_at: null,
       p_note: note,
       p_handoff_note: handoffNote,
       p_confirm_draft: confirmDraft,
@@ -144,12 +143,6 @@ export async function reopenScheduleClosureAction(scheduleId: string, formData?:
   }
   revalidateClosurePaths(scheduleId);
   redirect(`/schedules/${scheduleId}`);
-}
-
-function parseJstDateTime(value: string) {
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return null;
-  const date = new Date(`${value}:00+09:00`);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
 function revalidateClosurePaths(scheduleId: string) {

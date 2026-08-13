@@ -211,7 +211,7 @@ function ScheduleWorkspace({ schedules, params, now }: { schedules: DbSchedule[]
 
       <ScheduleGroup title="記録待ち" description="実施後記録が未完了のレッスン。古い順です。" schedules={waiting} kind="waiting" />
       <ScheduleGroup title="今後の予定" description="これから実施するレッスン。近い順です。" schedules={future} kind="future" />
-      <ScheduleGroup title="クローズ済み" description="レッスン全体が実施されなかった予定。理由と決定日時は詳細で確認できます。" schedules={closed} kind="closed" />
+      <ScheduleGroup title="クローズ済み" description="レッスン全体が実施されなかった予定。理由は詳細で確認できます。" schedules={closed} kind="closed" />
       <ScheduleGroup title="過去の予定" description="記録済みの過去レッスン。新しい順です。" schedules={past} kind="past" />
     </div>
   );
@@ -253,7 +253,7 @@ function ScheduleRow({ schedule, kind }: { schedule: DbSchedule; kind: ScheduleG
       <TableCell className="whitespace-nowrap font-medium">{schedule.dateLabel}</TableCell>
       <TableCell className="whitespace-nowrap">{schedule.startTimeLabel}–{schedule.endTimeLabel}</TableCell>
       <TableCell><Link href={`/schedules/${schedule.id}`} className="font-semibold text-[#34453a] hover:text-[#4f8058] hover:underline">{schedule.lessonName}</Link></TableCell>
-      <TableCell>{schedule.lessonPlanName}</TableCell>
+      <TableCell>{schedule.lessonPlanId ? schedule.lessonPlanName : <WorkspaceStatus tone="sand">プラン未確定</WorkspaceStatus>}</TableCell>
       <TableCell><span className="block">{schedule.place || "場所未設定"}</span><span className="text-[12px] text-[#747b71]">{schedule.formatLabel}</span></TableCell>
       <TableCell>{schedule.participantCount}名</TableCell>
       <TableCell><ScheduleStatus schedule={schedule} kind={kind} /></TableCell>
@@ -266,7 +266,7 @@ function ScheduleCard({ schedule, kind }: { schedule: DbSchedule; kind: Schedule
   return (
     <article className="rounded-xl border border-[#e6ded3] bg-white/82 p-4">
       <div className="flex items-start justify-between gap-3"><div className="min-w-0"><h3 className="text-[15px] font-semibold">{schedule.lessonName}</h3><p className="mt-1 text-[13px] text-[#5d765f]">{schedule.dateLabel} {schedule.startTimeLabel}–{schedule.endTimeLabel}</p></div><ScheduleStatus schedule={schedule} kind={kind} /></div>
-      <dl className="mt-3 grid grid-cols-2 gap-2 text-[13px]"><div><dt className="text-[#7b8178]">プラン</dt><dd>{schedule.lessonPlanName}</dd></div><div><dt className="text-[#7b8178]">場所／形式</dt><dd>{schedule.place || "場所未設定"}／{schedule.formatLabel}</dd></div></dl>
+      <dl className="mt-3 grid grid-cols-2 gap-2 text-[13px]"><div><dt className="text-[#7b8178]">プラン</dt><dd>{schedule.lessonPlanId ? schedule.lessonPlanName : <WorkspaceStatus tone="sand">プラン未確定</WorkspaceStatus>}</dd></div><div><dt className="text-[#7b8178]">場所／形式</dt><dd>{schedule.place || "場所未設定"}／{schedule.formatLabel}</dd></div></dl>
       <div className="mt-4"><ScheduleActions schedule={schedule} kind={kind} /></div>
     </article>
   );
@@ -274,6 +274,7 @@ function ScheduleCard({ schedule, kind }: { schedule: DbSchedule; kind: Schedule
 
 function ScheduleStatus({ schedule, kind }: { schedule: DbSchedule; kind: ScheduleGroupKind }) {
   if (kind === "closed" || schedule.activeClosure) return <WorkspaceStatus tone="coral">クローズ済み</WorkspaceStatus>;
+  if (!schedule.lessonPlanId) return <WorkspaceStatus tone="sand">プラン未確定</WorkspaceStatus>;
   if (kind === "waiting") return <WorkspaceStatus tone="coral">記録待ち</WorkspaceStatus>;
   if (schedule.status === "recorded") return <WorkspaceStatus tone="green">記録済み</WorkspaceStatus>;
   if (schedule.status === "prepared") return <WorkspaceStatus tone="purple">準備済み</WorkspaceStatus>;
@@ -282,8 +283,12 @@ function ScheduleStatus({ schedule, kind }: { schedule: DbSchedule; kind: Schedu
 }
 
 function ScheduleActions({ schedule, kind }: { schedule: DbSchedule; kind: ScheduleGroupKind }) {
-  const primaryHref = kind === "waiting" ? `/lessons/${schedule.id}/record` : `/schedules/${schedule.id}`;
-  const primaryLabel = kind === "waiting" ? "記録を書く" : "詳細";
+  const primaryHref = !schedule.lessonPlanId
+    ? `/schedules/${schedule.id}/edit`
+    : kind === "waiting"
+      ? `/lessons/${schedule.id}/record`
+      : `/schedules/${schedule.id}`;
+  const primaryLabel = !schedule.lessonPlanId ? "プランを設定" : kind === "waiting" ? "記録を書く" : "詳細";
   return (
     <div className="flex flex-wrap items-center justify-end gap-2">
       <Link href={primaryHref} className="inline-flex h-9 items-center rounded-lg bg-[#5d8f68] px-3 text-[12px] font-semibold text-white hover:bg-[#4e805a]">{primaryLabel}</Link>
@@ -292,7 +297,7 @@ function ScheduleActions({ schedule, kind }: { schedule: DbSchedule; kind: Sched
         <div className="mt-2 flex flex-wrap justify-end gap-1.5 rounded-lg border border-[#e2dbd1] bg-[#fbfaf7] p-2">
           <Link href={`/schedules/${schedule.id}`} className="secondary-row-action">詳細</Link>
           {schedule.lessonPlanId ? <Link href={`/schedules/${schedule.id}/script`} className="secondary-row-action">原稿</Link> : <span className="secondary-row-action opacity-50">原稿なし</span>}
-          {!schedule.activeClosure ? <Link href={`/lessons/${schedule.id}/record`} className="secondary-row-action">実施後記録</Link> : null}
+          {!schedule.activeClosure && schedule.lessonPlanId ? <Link href={`/lessons/${schedule.id}/record`} className="secondary-row-action">実施後記録</Link> : null}
           <Link href={`/schedules/${schedule.id}/edit`} className="secondary-row-action">編集</Link>
           {!schedule.activeClosure && !schedule.hasCompletedRecord ? <ScheduleClosureDialog scheduleId={schedule.id} activeClosure={null} hasDraftRecord={schedule.hasDraftRecord} disabled={false} /> : null}
         </div>

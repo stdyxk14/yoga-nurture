@@ -5,6 +5,11 @@ import { redirect } from "next/navigation";
 import { getStudentPayload, type StudentFormState } from "@/lib/students";
 import { createMutationContext } from "@/lib/supabase/server";
 
+export type QuickStudentFormState = {
+  error?: string;
+  student?: { id: string; name: string; kana: string };
+};
+
 export async function createStudentAction(_state: StudentFormState, formData: FormData): Promise<StudentFormState> {
   const parsed = getStudentPayload(formData);
   if ("error" in parsed) return { error: parsed.error };
@@ -25,6 +30,29 @@ export async function createStudentAction(_state: StudentFormState, formData: Fo
 
   revalidatePath("/students");
   redirect(`/students/${data.id}`);
+}
+
+export async function createStudentFromScheduleAction(
+  _state: QuickStudentFormState,
+  formData: FormData,
+): Promise<QuickStudentFormState> {
+  const name = String(formData.get("name") ?? "").trim();
+  const kana = String(formData.get("kana") ?? "").trim();
+  if (!name) return { error: "名前を入力してください。" };
+
+  const { supabase, userId } = await createMutationContext();
+  const { data, error } = await supabase
+    .from("students")
+    .insert({ user_id: userId, name, kana })
+    .select("id,name,kana")
+    .single();
+
+  if (error || !data) {
+    return { error: `生徒を保存できませんでした。${error?.message ?? ""}`.trim() };
+  }
+
+  revalidatePath("/students");
+  return { student: { id: data.id, name: data.name, kana: data.kana ?? "" } };
 }
 
 export async function updateStudentAction(
@@ -93,5 +121,5 @@ export async function restoreStudentAction(id: string, formData?: FormData): Pro
 
   revalidatePath("/students");
   revalidatePath(`/students/${id}`);
-  redirect(`/students?selected=${id}`);
+  redirect("/students");
 }

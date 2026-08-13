@@ -15,6 +15,14 @@ export async function saveLessonRecordAction(
 
   try {
     const { supabase } = await createMutationContext();
+    const { data: schedule, error: scheduleError } = await supabase
+      .from("schedules")
+      .select("lesson_plan_id")
+      .eq("id", parsed.scheduleId)
+      .maybeSingle();
+    if (scheduleError || !schedule) return { error: "対象の予定を確認できませんでした。" };
+    if (!schedule.lesson_plan_id) return { error: "予定を編集してレッスンプランを設定してから、実施後記録を開始してください。" };
+
     const { error } = await supabase.rpc("save_lesson_record", {
       p_record_id: parsed.recordId || null,
       p_schedule_id: parsed.scheduleId,

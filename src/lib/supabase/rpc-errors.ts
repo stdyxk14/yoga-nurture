@@ -15,7 +15,7 @@ const knownMessages: Array<[string, string]> = [
   ["YN_CLOSURE_COMPLETED_RECORD", "完了済みの実施後記録がある予定はクローズできません。"],
   ["YN_CLOSURE_DRAFT_CONFIRM_REQUIRED", "下書きの実施後記録があります。保持される内容を確認し、警告に同意してからクローズしてください。"],
   ["YN_CLOSURE_NOT_FOUND", "有効なクローズ記録が見つかりません。画面を更新してください。"],
-  ["YN_CLOSURE_INVALID", "クローズ理由と決定日時を確認してください。"],
+  ["YN_CLOSURE_INVALID", "クローズ理由を確認してください。"],
   ["YN_RECORD_SCHEDULE_CLOSED", "クローズ済みです。実施後記録を作成・更新するには、先にクローズを解除してください。"],
   ["YN_RECORD_NOT_FOUND", "対象の実施後記録が見つかりません。"],
   ["YN_RECORD_SCHEDULE_NOT_FOUND", "対象の予定が見つかりません。"],

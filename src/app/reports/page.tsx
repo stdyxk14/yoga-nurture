@@ -242,28 +242,26 @@ function ClosuresView({ report }: { report: ReportData }) {
         正式なクローズ率 = クローズ件数 ÷（開催件数 + クローズ件数）。未来予定と、実施済みでもクローズ済みでもない過去予定は分母に含めません。クローズ済み予定の参加者statusは保持し、通常の出席集計から予定全体を除外します。
       </p>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <RankedList title="理由別" rows={closures.byReason} />
         <RankedList title="曜日別" rows={closures.byWeekday} />
         <RankedList title="時間帯別" rows={closures.byTimeBand} />
-        <RankedList title="決定タイミング" rows={closures.byDecisionTiming} />
         <RankedList title="場所別" rows={closures.byPlace} />
         <RankedList title="レッスンプラン別" rows={closures.byPlan} linkType="plan" />
         <RankedList title="形式別" rows={closures.byFormat} />
       </div>
 
-      <WorkspaceSection title="元の予定" description="クローズ理由・決定タイミングから予定詳細へドリルダウンできます。">
+      <WorkspaceSection title="元の予定" description="クローズ理由から予定詳細へドリルダウンできます。">
         {closures.items.length ? (
           <WorkspaceTableContainer>
-            <table className="w-full min-w-[960px] border-collapse text-left text-[13px]">
-              <thead className="bg-[#f5f3ee] text-[12px] font-semibold text-[#666d63]"><tr><TableHead>予定日</TableHead><TableHead>レッスン</TableHead><TableHead>理由</TableHead><TableHead>決定タイミング</TableHead><TableHead>場所／形式</TableHead><TableHead>プラン</TableHead><TableHead>対象区分</TableHead></tr></thead>
+            <table className="w-full min-w-[860px] border-collapse text-left text-[13px]">
+              <thead className="bg-[#f5f3ee] text-[12px] font-semibold text-[#666d63]"><tr><TableHead>予定日</TableHead><TableHead>レッスン</TableHead><TableHead>理由</TableHead><TableHead>場所／形式</TableHead><TableHead>プラン</TableHead><TableHead>対象区分</TableHead></tr></thead>
               <tbody className="divide-y divide-[#ece5db]">
                 {closures.items.map((item) => (
                   <tr key={item.scheduleId}>
                     <TableCell className="whitespace-nowrap">{formatDateFromIso(item.startsAt)}</TableCell>
                     <TableCell><Link href={`/schedules/${item.scheduleId}`} className="font-semibold text-[#3f7048] hover:underline">{item.lessonName}</Link></TableCell>
                     <TableCell>{item.reason}</TableCell>
-                    <TableCell>{item.decisionTiming}</TableCell>
                     <TableCell>{item.place}／{item.format}</TableCell>
                     <TableCell>{item.planId ? <Link href={`/lessons/${item.planId}`} className="font-medium text-[#3f7048] hover:underline">{item.planName}</Link> : item.planName}</TableCell>
                     <TableCell><WorkspaceStatus tone={item.isFuture ? "purple" : "coral"}>{item.isFuture ? "未来（率から除外）" : "集計対象"}</WorkspaceStatus></TableCell>

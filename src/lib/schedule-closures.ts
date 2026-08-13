@@ -11,8 +11,6 @@ export type ScheduleClosure = {
   id: string;
   reasonCode: ScheduleClosureReasonCode;
   reasonLabel: string;
-  decidedAt: string;
-  decidedAtLabel: string;
   note: string;
   handoffNote: string;
   createdAt: string;

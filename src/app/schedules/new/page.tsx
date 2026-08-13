@@ -7,10 +7,10 @@ export const dynamic = "force-dynamic";
 export default async function NewSchedulePage({
   searchParams,
 }: {
-  searchParams: Promise<{ plan?: string }>;
+  searchParams: Promise<{ plan?: string; date?: string }>;
 }) {
-  const { plan } = await searchParams;
+  const { plan, date } = await searchParams;
   const [plans, students] = await Promise.all([getLessonPlans(), getStudents()]);
 
-  return <ScheduleForm plans={plans} students={students} initialPlanId={plan} />;
+  return <ScheduleForm plans={plans} students={students} initialPlanId={plan} initialDate={date} />;
 }

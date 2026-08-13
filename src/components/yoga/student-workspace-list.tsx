@@ -20,12 +20,8 @@ export type StudentWorkspaceListRow = {
 
 export function StudentWorkspaceList({
   rows,
-  selectedId,
-  selectHrefs,
 }: {
   rows: StudentWorkspaceListRow[];
-  selectedId?: string;
-  selectHrefs: Record<string, string>;
 }) {
   const router = useRouter();
 
@@ -45,24 +41,21 @@ export function StudentWorkspaceList({
         </thead>
         <tbody className="divide-y divide-[#ece5db]">
           {rows.map((student) => {
-            const selected = student.id === selectedId;
-            const selectHref = selectHrefs[student.id] ?? `/students?selected=${student.id}`;
             return (
               <tr
                 key={student.id}
                 tabIndex={0}
-                aria-selected={selected}
                 onClick={(event) => {
                   if ((event.target as HTMLElement).closest("a,button,form,summary")) return;
-                  router.push(selectHref);
+                  router.push(`/students/${student.id}`);
                 }}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
-                    router.push(selectHref);
+                    router.push(`/students/${student.id}`);
                   }
                 }}
-                className={selected ? "cursor-pointer bg-[#eef5eb] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#6f9a76]" : "cursor-pointer transition hover:bg-[#fafcf8] focus-visible:bg-[#fafcf8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#6f9a76]"}
+                className="cursor-pointer transition hover:bg-[#fafcf8] focus-visible:bg-[#fafcf8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#6f9a76]"
               >
                 <TableCell>
                   <div className="flex min-w-0 items-center gap-2.5">
