@@ -7,7 +7,6 @@ import {
   ClipboardList,
   FileText,
   Layers3,
-  MapPin,
   Plus,
   Search,
 } from "lucide-react";
@@ -105,7 +104,7 @@ export default async function LessonsPage({ searchParams }: { searchParams: Prom
     [schedules, blocks] = await Promise.all([schedulesPromise, getBlockAnalysis()]);
   }
 
-  const now = Date.now();
+  const now = await getCurrentTimestamp();
   const pendingSchedules = schedules.filter((schedule) => isRecordPending(schedule, now));
   const futureSchedules = schedules.filter((schedule) => Date.parse(schedule.startsAt) >= now && !isRecordPending(schedule, now));
 
@@ -138,7 +137,7 @@ export default async function LessonsPage({ searchParams }: { searchParams: Prom
       </WorkspacePageHeader>
 
       {activeTab === "schedule" ? <ScheduleWorkspace schedules={schedules} params={params} now={now} /> : null}
-      {activeTab === "records" ? <RecordsWorkspace records={records} params={params} /> : null}
+      {activeTab === "records" ? <RecordsWorkspace records={records} params={params} now={now} /> : null}
       {activeTab === "plans" ? <PlansWorkspace plans={plans} params={params} /> : null}
       {activeTab === "blocks" ? <BlocksWorkspace blocks={blocks} categories={categories} tags={tags} params={params} /> : null}
       {activeTab === "analysis" ? <AnalysisWorkspace blocks={blocks} /> : null}
@@ -176,9 +175,8 @@ function ScheduleWorkspace({ schedules, params, now }: { schedules: DbSchedule[]
   });
 
   const waiting = filtered.filter((schedule) => isRecordPending(schedule, now)).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
-  const closed = filtered.filter((schedule) => Boolean(schedule.activeClosure)).sort((a, b) => b.startsAt.localeCompare(a.startsAt));
   const future = filtered.filter((schedule) => !schedule.activeClosure && !isRecordPending(schedule, now) && Date.parse(schedule.startsAt) >= now).sort((a, b) => a.startsAt.localeCompare(b.startsAt));
-  const past = filtered.filter((schedule) => !schedule.activeClosure && !isRecordPending(schedule, now) && Date.parse(schedule.startsAt) < now).sort((a, b) => b.startsAt.localeCompare(a.startsAt));
+  const past = filtered.filter((schedule) => Boolean(schedule.activeClosure) || (!isRecordPending(schedule, now) && Date.parse(schedule.startsAt) < now)).sort((a, b) => b.startsAt.localeCompare(a.startsAt));
   const places = unique(schedules.map((schedule) => schedule.place).filter(Boolean));
   const plans = uniqueBy(schedules.filter((schedule) => schedule.lessonPlanId), (schedule) => schedule.lessonPlanId!);
 
@@ -211,48 +209,130 @@ function ScheduleWorkspace({ schedules, params, now }: { schedules: DbSchedule[]
 
       <ScheduleGroup title="記録待ち" description="実施後記録が未完了のレッスン。古い順です。" schedules={waiting} kind="waiting" />
       <ScheduleGroup title="今後の予定" description="これから実施するレッスン。近い順です。" schedules={future} kind="future" />
-      <ScheduleGroup title="クローズ済み" description="レッスン全体が実施されなかった予定。理由は詳細で確認できます。" schedules={closed} kind="closed" />
-      <ScheduleGroup title="過去の予定" description="記録済みの過去レッスン。新しい順です。" schedules={past} kind="past" />
+      <MonthlyThemeFlow schedules={schedules} pastSchedules={past} now={now} />
+      <PastScheduleGroups schedules={past} />
     </div>
   );
 }
 
-type ScheduleGroupKind = "waiting" | "future" | "closed" | "past";
+type ScheduleGroupKind = "waiting" | "future" | "past";
 
 function ScheduleGroup({ title, description, schedules, kind }: { title: string; description: string; schedules: DbSchedule[]; kind: ScheduleGroupKind }) {
   return (
     <WorkspaceSection title={title} description={description}>
-      {schedules.length ? (
-        <>
-          <div className="hidden md:block">
-            <WorkspaceTableContainer>
-              <table className="w-full min-w-[930px] border-collapse text-left text-[14px]">
-                <thead className="bg-[#f5f3ee] text-[12px] font-semibold text-[#666d63]">
-                  <tr>
-                    <TableHead>日付</TableHead><TableHead>時間</TableHead><TableHead>レッスン名</TableHead><TableHead>使用プラン</TableHead><TableHead>場所／形式</TableHead><TableHead>参加予定</TableHead><TableHead>状態</TableHead><TableHead className="text-right">操作</TableHead>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#ece5db]">
-                  {schedules.map((schedule) => <ScheduleRow key={schedule.id} schedule={schedule} kind={kind} />)}
-                </tbody>
-              </table>
-            </WorkspaceTableContainer>
-          </div>
-          <div className="grid gap-3 md:hidden">
-            {schedules.map((schedule) => <ScheduleCard key={schedule.id} schedule={schedule} kind={kind} />)}
-          </div>
-        </>
-      ) : <WorkspaceEmptyState title={`${title}はありません`} description="現在の検索・フィルター条件に該当する予定はありません。" />}
+      {schedules.length ? <ScheduleList schedules={schedules} kind={kind} /> : <WorkspaceEmptyState title={`${title}はありません`} description="現在の検索・フィルター条件に該当する予定はありません。" />}
     </WorkspaceSection>
   );
 }
+
+function MonthlyThemeFlow({ schedules, pastSchedules, now }: { schedules: DbSchedule[]; pastSchedules: DbSchedule[]; now: number }) {
+  const completed = schedules.filter((schedule) => schedule.hasCompletedRecord && !schedule.activeClosure);
+  const pastMonthKeys = new Set(pastSchedules.map((schedule) => tokyoMonthKey(schedule.startsAt)));
+  const months = recentTokyoMonthKeys(now).map((monthKey) => {
+    const lessons = completed.filter((schedule) => tokyoMonthKey(schedule.startsAt) === monthKey);
+    const counts = new Map<string, number>();
+    for (const lesson of lessons) {
+      const theme = lessonTheme(lesson);
+      counts.set(theme, (counts.get(theme) ?? 0) + 1);
+    }
+    const themes = Array.from(counts, ([name, count]) => ({ name, count, color: themeColor(name) }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "ja"));
+    return { monthKey, lessons, themes };
+  });
+
+  return (
+    <WorkspaceSection title="月別テーマの流れ" description="今月から2か月前まで、実施済みレッスンのテーマ構成を振り返ります。クローズ済みは集計しません。">
+      <div className="grid gap-3 lg:grid-cols-3">
+        {months.map((month) => (
+          <article key={month.monthKey} className="rounded-xl border border-[#e4ded4] bg-white/86 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div><h3 className="text-[16px] font-semibold text-[#34453a]">{formatMonthHeading(month.monthKey)}</h3><p className="mt-1 text-[12px] text-[#747b71]">実施 {month.lessons.length}件</p></div>
+              {pastMonthKeys.has(month.monthKey)
+                ? <Link href={`#past-${month.monthKey}`} className="text-[11px] font-semibold text-[#52765a] hover:underline">過去予定へ</Link>
+                : <span className="text-[11px] font-medium text-[#92978f]">該当予定なし</span>}
+            </div>
+            <div className="mt-4 flex h-3 overflow-hidden rounded-full bg-[#eeeae3]" aria-label={`${formatMonthHeading(month.monthKey)}のテーマ構成`}>
+              {month.themes.map((theme) => (
+                <span key={theme.name} className={theme.color.bar} style={{ width: `${(theme.count / Math.max(month.lessons.length, 1)) * 100}%` }} title={`${theme.name} ${theme.count}回`} />
+              ))}
+            </div>
+            {month.themes.length ? (
+              <ol className="mt-4 space-y-2">
+                {month.themes.slice(0, 3).map((theme) => (
+                  <li key={theme.name} className="flex items-center justify-between gap-3 text-[12px]">
+                    <span className={`inline-flex min-w-0 items-center gap-2 rounded-full px-2.5 py-1 font-medium ${theme.color.chip}`}><span className={`h-2 w-2 shrink-0 rounded-full ${theme.color.dot}`} /><span className="truncate">{theme.name}</span></span>
+                    <span className="shrink-0 font-semibold text-[#596159]">{theme.count}回</span>
+                  </li>
+                ))}
+              </ol>
+            ) : <p className="mt-4 text-[12px] text-[#7a8178]">実施済みレッスンはありません。</p>}
+          </article>
+        ))}
+      </div>
+    </WorkspaceSection>
+  );
+}
+
+function PastScheduleGroups({ schedules }: { schedules: DbSchedule[] }) {
+  const grouped = Array.from(groupBy(schedules, (schedule) => tokyoMonthKey(schedule.startsAt)).entries());
+  return (
+    <WorkspaceSection title="過去の予定" description="実施済みとクローズ済みを月ごとに、新しい順で表示します。クローズ済みは通常の出席・テーマ集計に含めません。">
+      {grouped.length ? (
+        <div className="space-y-6">
+          {grouped.map(([monthKey, monthSchedules]) => (
+            <section key={monthKey} id={`past-${monthKey}`} className="scroll-mt-24 space-y-3">
+              <div className="flex items-center gap-3"><h3 className="text-[17px] font-semibold text-[#34453a]">{formatMonthHeading(monthKey)}</h3><span className="rounded-full bg-[#f1eee8] px-2.5 py-1 text-[11px] font-semibold text-[#6c736a]">{monthSchedules.length}件</span></div>
+              <ScheduleList schedules={monthSchedules} kind="past" />
+            </section>
+          ))}
+        </div>
+      ) : <WorkspaceEmptyState title="過去の予定はありません" description="現在の検索・フィルター条件に該当する予定はありません。" />}
+    </WorkspaceSection>
+  );
+}
+
+function ScheduleList({ schedules, kind }: { schedules: DbSchedule[]; kind: ScheduleGroupKind }) {
+  return (
+    <>
+      <div className="hidden md:block">
+        <WorkspaceTableContainer>
+          <table className="w-full min-w-[930px] border-collapse text-left text-[14px]">
+            <thead className="bg-[#f5f3ee] text-[12px] font-semibold text-[#666d63]">
+              <tr>
+                <TableHead>日付</TableHead><TableHead>時間</TableHead><TableHead>レッスン名</TableHead><TableHead>使用プラン</TableHead><TableHead>場所／形式</TableHead><TableHead>参加予定</TableHead><TableHead>状態</TableHead><TableHead className="text-right">操作</TableHead>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#ece5db]">
+              {schedules.map((schedule) => <ScheduleRow key={schedule.id} schedule={schedule} kind={kind} />)}
+            </tbody>
+          </table>
+        </WorkspaceTableContainer>
+      </div>
+      <div className="grid gap-3 md:hidden">
+        {schedules.map((schedule) => <ScheduleCard key={schedule.id} schedule={schedule} kind={kind} />)}
+      </div>
+    </>
+  );
+}
+
+const themeColors = [
+  { bar: "bg-[#6f9a76]", chip: "bg-[#e7f0e4] text-[#48694f]", dot: "bg-[#6f9a76]" },
+  { bar: "bg-[#8b7fb2]", chip: "bg-[#ece8f5] text-[#655a8b]", dot: "bg-[#8b7fb2]" },
+  { bar: "bg-[#c49a5a]", chip: "bg-[#f5ead8] text-[#7d6037]", dot: "bg-[#c49a5a]" },
+  { bar: "bg-[#c47b68]", chip: "bg-[#f7e5df] text-[#8a5548]", dot: "bg-[#c47b68]" },
+  { bar: "bg-[#6f99a5]", chip: "bg-[#e4eef1] text-[#4f7079]", dot: "bg-[#6f99a5]" },
+  { bar: "bg-[#8f9a62]", chip: "bg-[#eef0df] text-[#66703f]", dot: "bg-[#8f9a62]" },
+] as const;
 
 function ScheduleRow({ schedule, kind }: { schedule: DbSchedule; kind: ScheduleGroupKind }) {
   return (
     <tr className="transition hover:bg-[#fafcf8] focus-within:bg-[#fafcf8]">
       <TableCell className="whitespace-nowrap font-medium">{schedule.dateLabel}</TableCell>
       <TableCell className="whitespace-nowrap">{schedule.startTimeLabel}–{schedule.endTimeLabel}</TableCell>
-      <TableCell><Link href={`/schedules/${schedule.id}`} className="font-semibold text-[#34453a] hover:text-[#4f8058] hover:underline">{schedule.lessonName}</Link></TableCell>
+      <TableCell>
+        <Link href={`/schedules/${schedule.id}`} className="font-semibold text-[#34453a] hover:text-[#4f8058] hover:underline">{schedule.lessonName}</Link>
+        {schedule.activeClosure ? <span className="mt-1 block text-[12px] text-[#8a6258]">理由：{schedule.activeClosure.reasonLabel}</span> : null}
+      </TableCell>
       <TableCell>{schedule.lessonPlanId ? schedule.lessonPlanName : <WorkspaceStatus tone="sand">プラン未確定</WorkspaceStatus>}</TableCell>
       <TableCell><span className="block">{schedule.place || "場所未設定"}</span><span className="text-[12px] text-[#747b71]">{schedule.formatLabel}</span></TableCell>
       <TableCell>{schedule.participantCount}名</TableCell>
@@ -266,6 +346,7 @@ function ScheduleCard({ schedule, kind }: { schedule: DbSchedule; kind: Schedule
   return (
     <article className="rounded-xl border border-[#e6ded3] bg-white/82 p-4">
       <div className="flex items-start justify-between gap-3"><div className="min-w-0"><h3 className="text-[15px] font-semibold">{schedule.lessonName}</h3><p className="mt-1 text-[13px] text-[#5d765f]">{schedule.dateLabel} {schedule.startTimeLabel}–{schedule.endTimeLabel}</p></div><ScheduleStatus schedule={schedule} kind={kind} /></div>
+      {schedule.activeClosure ? <p className="mt-2 text-[12px] font-medium text-[#8a6258]">理由：{schedule.activeClosure.reasonLabel}</p> : null}
       <dl className="mt-3 grid grid-cols-2 gap-2 text-[13px]"><div><dt className="text-[#7b8178]">プラン</dt><dd>{schedule.lessonPlanId ? schedule.lessonPlanName : <WorkspaceStatus tone="sand">プラン未確定</WorkspaceStatus>}</dd></div><div><dt className="text-[#7b8178]">場所／形式</dt><dd>{schedule.place || "場所未設定"}／{schedule.formatLabel}</dd></div></dl>
       <div className="mt-4"><ScheduleActions schedule={schedule} kind={kind} /></div>
     </article>
@@ -273,7 +354,7 @@ function ScheduleCard({ schedule, kind }: { schedule: DbSchedule; kind: Schedule
 }
 
 function ScheduleStatus({ schedule, kind }: { schedule: DbSchedule; kind: ScheduleGroupKind }) {
-  if (kind === "closed" || schedule.activeClosure) return <WorkspaceStatus tone="coral">クローズ済み</WorkspaceStatus>;
+  if (schedule.activeClosure) return <WorkspaceStatus tone="coral">クローズ済み</WorkspaceStatus>;
   if (!schedule.lessonPlanId) return <WorkspaceStatus tone="sand">プラン未確定</WorkspaceStatus>;
   if (kind === "waiting") return <WorkspaceStatus tone="coral">記録待ち</WorkspaceStatus>;
   if (schedule.status === "recorded") return <WorkspaceStatus tone="green">記録済み</WorkspaceStatus>;
@@ -283,12 +364,14 @@ function ScheduleStatus({ schedule, kind }: { schedule: DbSchedule; kind: Schedu
 }
 
 function ScheduleActions({ schedule, kind }: { schedule: DbSchedule; kind: ScheduleGroupKind }) {
-  const primaryHref = !schedule.lessonPlanId
+  const primaryHref = schedule.activeClosure
+    ? `/schedules/${schedule.id}`
+    : !schedule.lessonPlanId
     ? `/schedules/${schedule.id}/edit`
     : kind === "waiting"
       ? `/lessons/${schedule.id}/record`
       : `/schedules/${schedule.id}`;
-  const primaryLabel = !schedule.lessonPlanId ? "プランを設定" : kind === "waiting" ? "記録を書く" : "詳細";
+  const primaryLabel = schedule.activeClosure ? "詳細" : !schedule.lessonPlanId ? "プランを設定" : kind === "waiting" ? "記録を書く" : "詳細";
   return (
     <div className="flex flex-wrap items-center justify-end gap-2">
       <Link href={primaryHref} className="inline-flex h-9 items-center rounded-lg bg-[#5d8f68] px-3 text-[12px] font-semibold text-white hover:bg-[#4e805a]">{primaryLabel}</Link>
@@ -306,8 +389,7 @@ function ScheduleActions({ schedule, kind }: { schedule: DbSchedule; kind: Sched
   );
 }
 
-function RecordsWorkspace({ records, params }: { records: DbLessonRecord[]; params: SearchParams }) {
-  const now = Date.now();
+function RecordsWorkspace({ records, params, now }: { records: DbLessonRecord[]; params: SearchParams; now: number }) {
   const filtered = records.filter((record) => {
     const q = params.q?.trim().toLowerCase();
     if (q && ![record.lessonName, record.lessonPlanName].join(" ").toLowerCase().includes(q)) return false;
@@ -541,6 +623,40 @@ function ViewLink({ label, view, active, params }: { label: string; view: string
   return <Link href={`/lessons?${query.toString()}`} className={active ? "inline-flex h-8 items-center rounded-lg bg-[#e6f0e3] px-3 text-[12px] font-semibold text-[#386b46]" : "inline-flex h-8 items-center rounded-lg border border-[#ddd6cc] bg-white px-3 text-[12px] font-semibold text-[#626a60] hover:bg-[#f7f4ef]"}>{label}</Link>;
 }
 
+async function getCurrentTimestamp() { return Date.now(); }
+function recentTokyoMonthKeys(now: number) {
+  const current = tokyoMonthKey(new Date(now).toISOString());
+  const [year, month] = current.split("-").map(Number);
+  return [0, 1, 2].map((offset) => {
+    const date = new Date(Date.UTC(year, month - 1 - offset, 1));
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+  });
+}
+function tokyoMonthKey(value: string) {
+  const parts = new Intl.DateTimeFormat("en", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit" }).formatToParts(new Date(value));
+  const year = parts.find((part) => part.type === "year")?.value ?? "0000";
+  const month = parts.find((part) => part.type === "month")?.value ?? "00";
+  return `${year}-${month}`;
+}
+function formatMonthHeading(monthKey: string) {
+  const [year, month] = monthKey.split("-").map(Number);
+  return Number.isFinite(year) && Number.isFinite(month) ? `${year}年${month}月` : "日付不明";
+}
+function lessonTheme(schedule: DbSchedule) {
+  return schedule.lessonPlanThemeSnapshot.trim()
+    || schedule.lessonPlanTheme.trim()
+    || schedule.lessonPlanNameSnapshot.trim()
+    || (schedule.lessonPlanId ? schedule.lessonPlanName.trim() : "")
+    || "テーマ未設定";
+}
+function themeColor(theme: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < theme.length; index += 1) {
+    hash ^= theme.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return themeColors[(hash >>> 0) % themeColors.length];
+}
 function normalizeTab(value?: string): LessonTab { return value === "plans" || value === "blocks" || value === "records" || value === "analysis" ? value : "schedule"; }
 function isRecordPending(schedule: DbSchedule, now: number) { return !schedule.activeClosure && (schedule.status === "record_pending" || (Date.parse(schedule.startsAt) < now && schedule.status !== "recorded")); }
 function matchesPeriod(value: string, period: string | undefined, now: number) {

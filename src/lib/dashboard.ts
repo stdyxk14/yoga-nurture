@@ -26,6 +26,42 @@ export type DiscoverySchedule = {
   safetyNotes: Array<{ id: string; label: string; detail: string; href: string }>;
 };
 
+export type DashboardCalendarEventState = "scheduled" | "record_pending" | "recorded" | "closed" | "unconfirmed";
+
+export type DashboardCalendarEvent = {
+  id: string;
+  dateKey: string;
+  timeLabel: string;
+  lessonName: string;
+  lessonPlanId: string | null;
+  lessonPlanName: string;
+  place: string;
+  participantCount: number;
+  state: DashboardCalendarEventState;
+  stateLabel: string;
+  safetyNotes: DiscoverySchedule["safetyNotes"];
+};
+
+export type DashboardCalendarDay = {
+  dateKey: string;
+  dateLabel: string;
+  dayNumber: number;
+  isCurrentMonth: boolean;
+  isToday: boolean;
+  events: DashboardCalendarEvent[];
+};
+
+export type DashboardCalendar = {
+  monthKey: string;
+  monthLabel: string;
+  previousMonthKey: string;
+  nextMonthKey: string;
+  todayMonthKey: string;
+  todayDateKey: string;
+  selectedDateKey: string;
+  days: DashboardCalendarDay[];
+};
+
 export type BriefItem = {
   id: string;
   title: string;
@@ -68,6 +104,7 @@ export type RadarStatus = "ready" | "setting_up" | "disabled" | "failed" | "budg
 export type DashboardData = {
   greeting: string;
   todayLabel: string;
+  calendar: DashboardCalendar;
   brief: {
     nextLesson: DiscoverySchedule | null;
     pendingFollowups: BriefItem[];
@@ -91,6 +128,7 @@ export type DashboardData = {
 type RawSchedule = {
   id: string;
   lesson_plan_id: string | null;
+  lesson_plan_name_snapshot?: string | null;
   lesson_name: string;
   starts_at: string;
   ends_at: string;
@@ -175,20 +213,34 @@ const radarTypeLabels: Record<RadarItemType, string> = {
   social_signal: "SNSの話題",
 };
 
-export async function getDashboardData(): Promise<DashboardData> {
+type CalendarFrame = {
+  monthKey: string;
+  monthLabel: string;
+  previousMonthKey: string;
+  nextMonthKey: string;
+  todayMonthKey: string;
+  todayDateKey: string;
+  selectedDateKey: string;
+  dateKeys: string[];
+  rangeStart: string;
+  rangeEnd: string;
+};
+
+export async function getDashboardData(requestedMonth?: string): Promise<DashboardData> {
   const now = new Date();
+  const calendarFrame = buildCalendarFrame(now, requestedMonth);
   try {
     return await measurePerformance(
       { operation: "data.discovery-home", route: "/dashboard" },
-      () => fetchDashboardData(now),
+      () => fetchDashboardData(now, calendarFrame),
       (data) => data.insights.length + data.radar.items.length,
     );
   } catch (error) {
-    return emptyDashboard(now, error instanceof Error ? error.message : "ホームのデータを取得できませんでした。");
+    return emptyDashboard(now, calendarFrame, error instanceof Error ? error.message : "ホームのデータを取得できませんでした。");
   }
 }
 
-async function fetchDashboardData(now: Date): Promise<DashboardData> {
+async function fetchDashboardData(now: Date, calendarFrame: CalendarFrame): Promise<DashboardData> {
   const { supabase, userId } = await requireUserId();
   const threeMonthsAgo = new Date(now.getTime() - 93 * 86_400_000).toISOString();
 
@@ -196,6 +248,7 @@ async function fetchDashboardData(now: Date): Promise<DashboardData> {
     report,
     nextScheduleResult,
     recentSchedulesResult,
+    calendarSchedulesResult,
     recordIdsResult,
     followupsResult,
     blocksResult,
@@ -217,6 +270,12 @@ async function fetchDashboardData(now: Date): Promise<DashboardData> {
       .lt("starts_at", now.toISOString())
       .order("starts_at", { ascending: false })
       .limit(50),
+    supabase
+      .from("schedules")
+      .select("id,lesson_plan_id,lesson_plan_name_snapshot,lesson_name,starts_at,ends_at,place,schedule_caution,status,lesson_plan:lesson_plans(id,name),schedule_participants(id,student_id,attendance_status,student:students(id,name,caution)),schedule_closures(revoked_at)")
+      .gte("starts_at", calendarFrame.rangeStart)
+      .lt("starts_at", calendarFrame.rangeEnd)
+      .order("starts_at", { ascending: true }),
     supabase.from("lesson_records").select("schedule_id").not("schedule_id", "is", null),
     supabase
       .from("lesson_record_students")
@@ -237,6 +296,7 @@ async function fetchDashboardData(now: Date): Promise<DashboardData> {
 
   assertQuery(nextScheduleResult.error, "次回予定");
   assertQuery(recentSchedulesResult.error, "未記録レッスン");
+  assertQuery(calendarSchedulesResult.error, "月間予定");
   assertQuery(recordIdsResult.error, "実施後記録");
   assertQuery(followupsResult.error, "フォロー");
   assertQuery(blocksResult.error, "ブロック");
@@ -246,6 +306,7 @@ async function fetchDashboardData(now: Date): Promise<DashboardData> {
 
   const nextSchedule = ((nextScheduleResult.data ?? []) as unknown as RawSchedule[]).find((schedule) => !hasActiveScheduleClosure(schedule)) ?? null;
   const recentSchedules = (recentSchedulesResult.data ?? []) as unknown as RawSchedule[];
+  const calendarSchedules = (calendarSchedulesResult.data ?? []) as unknown as RawSchedule[];
   const recordedScheduleIds = new Set((recordIdsResult.data ?? []).map((row) => row.schedule_id).filter((id): id is string => Boolean(id)));
   const followups = (followupsResult.data ?? []) as unknown as RawFollowup[];
   const blocks = (blocksResult.data ?? []) as unknown as RawBlock[];
@@ -261,6 +322,7 @@ async function fetchDashboardData(now: Date): Promise<DashboardData> {
   return {
     greeting: greeting(now),
     todayLabel: formatJapaneseDate(now),
+    calendar: buildCalendar(calendarFrame, calendarSchedules, recordedScheduleIds, now),
     brief,
     insights,
     radar,
@@ -311,9 +373,94 @@ function hasActiveScheduleClosure(schedule: RawSchedule) {
   return Boolean(schedule.schedule_closures?.some((closure) => closure.revoked_at === null));
 }
 
+function buildCalendar(
+  frame: CalendarFrame,
+  schedules: RawSchedule[],
+  recordedScheduleIds: Set<string>,
+  now: Date,
+): DashboardCalendar {
+  const eventsByDate = new Map<string, DashboardCalendarEvent[]>();
+  for (const schedule of schedules) {
+    const dateKey = tokyoDateKey(new Date(schedule.starts_at));
+    const participants = (schedule.schedule_participants ?? []).filter((row) => row.attendance_status === "present");
+    const state = calendarEventState(schedule, recordedScheduleIds, now);
+    const plan = firstRelation(schedule.lesson_plan);
+    const event: DashboardCalendarEvent = {
+      id: schedule.id,
+      dateKey,
+      timeLabel: formatTimeRange(schedule.starts_at, schedule.ends_at),
+      lessonName: schedule.lesson_name,
+      lessonPlanId: schedule.lesson_plan_id,
+      lessonPlanName: schedule.lesson_plan_id
+        ? schedule.lesson_plan_name_snapshot?.trim() || plan?.name?.trim() || "名称未設定"
+        : "プラン未確定",
+      place: schedule.place?.trim() || "場所未設定",
+      participantCount: participants.length,
+      state,
+      stateLabel: calendarStateLabel(state),
+      safetyNotes: scheduleSafetyNotes(schedule, participants),
+    };
+    eventsByDate.set(dateKey, [...(eventsByDate.get(dateKey) ?? []), event]);
+  }
+
+  return {
+    monthKey: frame.monthKey,
+    monthLabel: frame.monthLabel,
+    previousMonthKey: frame.previousMonthKey,
+    nextMonthKey: frame.nextMonthKey,
+    todayMonthKey: frame.todayMonthKey,
+    todayDateKey: frame.todayDateKey,
+    selectedDateKey: frame.selectedDateKey,
+    days: frame.dateKeys.map((dateKey) => ({
+      dateKey,
+      dateLabel: formatCalendarDateLabel(dateKey),
+      dayNumber: Number(dateKey.slice(8, 10)),
+      isCurrentMonth: dateKey.startsWith(frame.monthKey),
+      isToday: dateKey === frame.todayDateKey,
+      events: eventsByDate.get(dateKey) ?? [],
+    })),
+  };
+}
+
+function calendarEventState(schedule: RawSchedule, recordedScheduleIds: Set<string>, now: Date): DashboardCalendarEventState {
+  if (hasActiveScheduleClosure(schedule)) return "closed";
+  if (!schedule.lesson_plan_id) return "unconfirmed";
+  if (schedule.status === "recorded" || recordedScheduleIds.has(schedule.id)) return "recorded";
+  if (schedule.status === "record_pending" || Date.parse(schedule.ends_at) < now.getTime()) return "record_pending";
+  return "scheduled";
+}
+
+function calendarStateLabel(state: DashboardCalendarEventState) {
+  if (state === "record_pending") return "記録待ち";
+  if (state === "recorded") return "記録済み";
+  if (state === "closed") return "クローズ";
+  if (state === "unconfirmed") return "未確定";
+  return "予定";
+}
+
 function mapDiscoverySchedule(schedule: RawSchedule): DiscoverySchedule {
   const plan = firstRelation(schedule.lesson_plan);
   const participants = (schedule.schedule_participants ?? []).filter((row) => row.attendance_status === "present");
+  const notes = scheduleSafetyNotes(schedule, participants);
+  return {
+    id: schedule.id,
+    lessonName: schedule.lesson_name,
+    lessonPlanId: schedule.lesson_plan_id,
+    lessonPlanName: schedule.lesson_plan_id ? plan?.name?.trim() || "名称未設定" : "プラン未確定",
+    startsAt: schedule.starts_at,
+    endsAt: schedule.ends_at,
+    dateLabel: formatDateValue(schedule.starts_at),
+    timeLabel: formatTimeRange(schedule.starts_at, schedule.ends_at),
+    place: schedule.place?.trim() || "場所未設定",
+    participantCount: participants.length,
+    safetyNotes: notes.slice(0, 5),
+  };
+}
+
+function scheduleSafetyNotes(
+  schedule: RawSchedule,
+  participants: NonNullable<RawSchedule["schedule_participants"]>,
+): DiscoverySchedule["safetyNotes"] {
   const notes: DiscoverySchedule["safetyNotes"] = [];
   if (schedule.schedule_caution?.trim()) {
     notes.push({
@@ -333,19 +480,7 @@ function mapDiscoverySchedule(schedule: RawSchedule): DiscoverySchedule {
       href: `/students/${student.id}`,
     });
   }
-  return {
-    id: schedule.id,
-    lessonName: schedule.lesson_name,
-    lessonPlanId: schedule.lesson_plan_id,
-    lessonPlanName: plan?.name?.trim() || "プラン未設定",
-    startsAt: schedule.starts_at,
-    endsAt: schedule.ends_at,
-    dateLabel: formatDateValue(schedule.starts_at),
-    timeLabel: formatTimeRange(schedule.starts_at, schedule.ends_at),
-    place: schedule.place?.trim() || "場所未設定",
-    participantCount: participants.length,
-    safetyNotes: notes.slice(0, 5),
-  };
+  return notes.slice(0, 5);
 }
 
 function buildTopics({
@@ -607,6 +742,58 @@ function trustLabel(type: RadarItemType, score: number): string {
   return "経験知・一般情報として参照";
 }
 
+function buildCalendarFrame(now: Date, requestedMonth?: string): CalendarFrame {
+  const todayDateKey = tokyoDateKey(now);
+  const todayMonthKey = todayDateKey.slice(0, 7);
+  const monthKey = normalizeMonthKey(requestedMonth) ?? todayMonthKey;
+  const [year, month] = monthKey.split("-").map(Number);
+  const firstWeekday = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
+  const gridStart = new Date(Date.UTC(year, month - 1, 1 - firstWeekday));
+  const dateKeys = Array.from({ length: 42 }, (_, index) => utcDateKey(new Date(gridStart.getTime() + index * 86_400_000)));
+  const rangeEndKey = utcDateKey(new Date(gridStart.getTime() + 42 * 86_400_000));
+  return {
+    monthKey,
+    monthLabel: `${year}年${month}月`,
+    previousMonthKey: shiftMonthKey(monthKey, -1),
+    nextMonthKey: shiftMonthKey(monthKey, 1),
+    todayMonthKey,
+    todayDateKey,
+    selectedDateKey: monthKey === todayMonthKey ? todayDateKey : `${monthKey}-01`,
+    dateKeys,
+    rangeStart: `${dateKeys[0]}T00:00:00+09:00`,
+    rangeEnd: `${rangeEndKey}T00:00:00+09:00`,
+  };
+}
+
+function normalizeMonthKey(value?: string) {
+  if (!value || !/^\d{4}-(0[1-9]|1[0-2])$/.test(value)) return null;
+  const [year, month] = value.split("-").map(Number);
+  const normalized = new Date(Date.UTC(year, month - 1, 1));
+  return normalized.getUTCFullYear() === year && normalized.getUTCMonth() === month - 1 ? value : null;
+}
+
+function shiftMonthKey(monthKey: string, offset: number) {
+  const [year, month] = monthKey.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1 + offset, 1));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function tokyoDateKey(date: Date) {
+  const parts = new Intl.DateTimeFormat("en", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date);
+  const year = parts.find((part) => part.type === "year")?.value ?? "0000";
+  const month = parts.find((part) => part.type === "month")?.value ?? "00";
+  const day = parts.find((part) => part.type === "day")?.value ?? "00";
+  return `${year}-${month}-${day}`;
+}
+
+function utcDateKey(date: Date) {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+}
+
+function formatCalendarDateLabel(dateKey: string) {
+  return new Intl.DateTimeFormat("ja-JP", { month: "long", day: "numeric", weekday: "short", timeZone: "Asia/Tokyo" }).format(new Date(`${dateKey}T00:00:00+09:00`));
+}
+
 function greeting(now: Date): string {
   const hour = Number(new Intl.DateTimeFormat("ja-JP", { hour: "2-digit", hour12: false, timeZone: "Asia/Tokyo" }).format(now));
   if (hour < 11) return "おはようございます";
@@ -640,10 +827,11 @@ function firstRelation<T>(value: T | T[] | null | undefined): T | null {
   return value ?? null;
 }
 
-function emptyDashboard(now: Date, error: string): DashboardData {
+function emptyDashboard(now: Date, calendarFrame: CalendarFrame, error: string): DashboardData {
   return {
     greeting: greeting(now),
     todayLabel: formatJapaneseDate(now),
+    calendar: buildCalendar(calendarFrame, [], new Set<string>(), now),
     brief: { nextLesson: null, pendingFollowups: [], unrecordedLessons: [], pendingFollowupCount: 0, unrecordedCount: 0 },
     insights: buildTeachingInsights({
       topBlocks: [],

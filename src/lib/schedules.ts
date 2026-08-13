@@ -32,6 +32,7 @@ export type DbSchedule = {
   lessonPlanId: string | null;
   lessonPlanNameSnapshot: string;
   lessonPlanThemeSnapshot: string;
+  lessonPlanTheme: string;
   lessonPlanFormatSnapshot: "personal" | "group" | "online" | "";
   lessonPlanMemoSnapshot: string;
   lessonPlanDurationMinutesSnapshot: number | null;
@@ -177,6 +178,7 @@ function mapSchedule(row: RawSchedule): DbSchedule {
     lessonPlanId: row.lesson_plan_id,
     lessonPlanNameSnapshot: row.lesson_plan_name_snapshot ?? "",
     lessonPlanThemeSnapshot: row.lesson_plan_theme_snapshot ?? "",
+    lessonPlanTheme: row.lesson_plan?.theme ?? "",
     lessonPlanFormatSnapshot: row.lesson_plan_format_snapshot ?? "",
     lessonPlanMemoSnapshot: row.lesson_plan_memo_snapshot ?? "",
     lessonPlanDurationMinutesSnapshot: row.lesson_plan_duration_minutes_snapshot ?? null,
@@ -266,6 +268,7 @@ export async function getScheduleSummaries() {
       lessonPlanId: row.lesson_plan_id,
       lessonPlanNameSnapshot: row.lesson_plan_name_snapshot ?? "",
       lessonPlanThemeSnapshot: row.lesson_plan_theme_snapshot ?? "",
+      lessonPlanTheme: row.lesson_plan?.theme ?? "",
       lessonPlanFormatSnapshot: row.lesson_plan_format_snapshot ?? "",
       lessonPlanMemoSnapshot: row.lesson_plan_memo_snapshot ?? "",
       lessonPlanDurationMinutesSnapshot: row.lesson_plan_duration_minutes_snapshot ?? null,
