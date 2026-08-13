@@ -84,6 +84,7 @@ export default async function LessonsPage({ searchParams }: { searchParams: Prom
   let schedules: DbSchedule[] = [];
   let plans: DbLessonPlan[] = [];
   let blocks: DbBlockTemplate[] = [];
+  let blockLibrary: DbBlockTemplate[] = [];
   let categories: BlockCategory[] = [];
   let tags: string[] = [];
   let records: DbLessonRecord[] = [];
@@ -93,9 +94,10 @@ export default async function LessonsPage({ searchParams }: { searchParams: Prom
   } else if (activeTab === "plans") {
     [schedules, plans] = await Promise.all([schedulesPromise, getLessonPlanSummaries()]);
   } else if (activeTab === "blocks") {
-    const result = await Promise.all([schedulesPromise, getBlocks(params, { includeDrafts: true }), getBlockCategories(), getBlockTags()]);
+    const result = await Promise.all([schedulesPromise, getBlocks({}, { includeDrafts: true }), getBlockCategories(), getBlockTags()]);
     schedules = result[0];
-    blocks = result[1];
+    blockLibrary = result[1];
+    blocks = filterBlockLibrary(blockLibrary, params);
     categories = result[2];
     tags = result[3].map((tag) => tag.name);
   } else if (activeTab === "records") {
@@ -139,7 +141,7 @@ export default async function LessonsPage({ searchParams }: { searchParams: Prom
       {activeTab === "schedule" ? <ScheduleWorkspace schedules={schedules} params={params} now={now} /> : null}
       {activeTab === "records" ? <RecordsWorkspace records={records} params={params} now={now} /> : null}
       {activeTab === "plans" ? <PlansWorkspace plans={plans} params={params} /> : null}
-      {activeTab === "blocks" ? <BlocksWorkspace blocks={blocks} categories={categories} tags={tags} params={params} /> : null}
+      {activeTab === "blocks" ? <BlocksWorkspace blocks={blocks} blockLibrary={blockLibrary} categories={categories} tags={tags} params={params} /> : null}
       {activeTab === "analysis" ? <AnalysisWorkspace blocks={blocks} /> : null}
     </div>
   );
@@ -521,27 +523,94 @@ function PlanRow({ plan }: { plan: DbLessonPlan }) {
   );
 }
 
-function BlocksWorkspace({ blocks, categories, tags, params }: { blocks: DbBlockTemplate[]; categories: BlockCategory[]; tags: string[]; params: SearchParams }) {
+function BlocksWorkspace({
+  blocks,
+  blockLibrary,
+  categories,
+  tags,
+  params,
+}: {
+  blocks: DbBlockTemplate[];
+  blockLibrary: DbBlockTemplate[];
+  categories: BlockCategory[];
+  tags: string[];
+  params: SearchParams;
+}) {
   const view = params.view === "cards" || params.view === "categories" ? params.view : "list";
   const activeCategories = categories.filter((category) => !category.archived);
+  const selectedCategory = activeCategories.find((category) => category.id === params.category);
   const subcategories = activeCategories.flatMap((category) => category.subcategories).filter((item) => !item.archived && (!params.category || item.category_id === params.category));
+  const selectedSubcategories = selectedCategory?.subcategories.filter((subcategory) => !subcategory.archived) ?? [];
+  const categoryCounts = countBlocksBy(blockLibrary, (block) => block.categoryId);
+  const subcategoryCounts = countBlocksBy(blockLibrary, (block) => block.subcategoryId);
+
   return (
     <div className="space-y-5">
       <WorkspaceToolbar>
-        <form action="/lessons" className="grid gap-3 lg:grid-cols-2 xl:grid-cols-[minmax(210px,1.5fr)_repeat(4,minmax(135px,0.8fr))_auto_auto] xl:items-end">
-          <input type="hidden" name="tab" value="blocks" /><input type="hidden" name="view" value={view} />
-          <FilterField label="検索"><Input name="q" defaultValue={params.q ?? ""} placeholder="名前・タグ・原稿" className="h-10 bg-white text-[14px]" /></FilterField>
-          <FilterSelect label="カテゴリー" name="category" value={params.category} options={[["", "すべて"], ...activeCategories.map((category) => [category.id, category.name] as const)]} />
+        <form action="/lessons" className="flex flex-col gap-2 sm:flex-row sm:items-end">
+          <input type="hidden" name="tab" value="blocks" />
+          <input type="hidden" name="view" value={view} />
+          {params.category ? <input type="hidden" name="category" value={params.category} /> : null}
+          {params.subcategory ? <input type="hidden" name="subcategory" value={params.subcategory} /> : null}
+          {params.tag ? <input type="hidden" name="tag" value={params.tag} /> : null}
+          {params.sort ? <input type="hidden" name="sort" value={params.sort} /> : null}
+          <div className="min-w-0 flex-1">
+            <FilterField label="検索"><Input name="q" defaultValue={params.q ?? ""} placeholder="名前・タグ・原稿" className="h-10 bg-white text-[14px]" /></FilterField>
+          </div>
+          <button className="h-10 shrink-0 rounded-lg bg-[#5d8f68] px-5 text-[13px] font-semibold text-white hover:bg-[#4f8058]">検索</button>
+          {params.q ? <Link href={blockListHref(params, { q: undefined })} className="inline-flex h-10 shrink-0 items-center justify-center rounded-lg border border-[#ddd6cc] bg-white px-4 text-[13px] font-semibold text-[#626a60] hover:bg-[#f7f4ef]">検索をクリア</Link> : null}
+        </form>
+
+        <div className="mt-4 border-t border-[#ece5db] pt-4">
+          <p className="mb-2 text-[12px] font-semibold text-[#656c63]">大カテゴリー</p>
+          <div className="flex min-w-0 flex-wrap gap-2" aria-label="大カテゴリー">
+            <BlockFilterLink href={blockListHref(params, { category: undefined, subcategory: undefined })} label="すべて" count={blockLibrary.length} active={!params.category} />
+            {activeCategories.map((category) => (
+              <BlockFilterLink
+                key={category.id}
+                href={blockListHref(params, { category: category.id, subcategory: undefined })}
+                label={category.name}
+                count={categoryCounts.get(category.id) ?? 0}
+                active={params.category === category.id}
+              />
+            ))}
+          </div>
+        </div>
+
+        {selectedCategory && selectedSubcategories.length ? (
+          <div className="mt-3 rounded-xl border border-[#e1e8dc] bg-[#f7faf5] p-3">
+            <p className="mb-2 text-[12px] font-semibold text-[#656c63]">{selectedCategory.name}の小カテゴリー</p>
+            <div className="flex min-w-0 flex-wrap gap-1.5" aria-label="小カテゴリー">
+              <BlockFilterLink href={blockListHref(params, { subcategory: undefined })} label="すべて" count={categoryCounts.get(selectedCategory.id) ?? 0} active={!params.subcategory} small />
+              {selectedSubcategories.map((subcategory) => (
+                <BlockFilterLink
+                  key={subcategory.id}
+                  href={blockListHref(params, { subcategory: subcategory.id })}
+                  label={subcategory.name}
+                  count={subcategoryCounts.get(subcategory.id) ?? 0}
+                  active={params.subcategory === subcategory.id}
+                  small
+                />
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        <form action="/lessons" className="mt-4 grid gap-3 border-t border-[#ece5db] pt-4 sm:grid-cols-2 xl:grid-cols-[minmax(180px,1fr)_minmax(180px,1fr)_minmax(180px,1fr)_auto_auto] xl:items-end">
+          <input type="hidden" name="tab" value="blocks" />
+          <input type="hidden" name="view" value={view} />
+          {params.q ? <input type="hidden" name="q" value={params.q} /> : null}
+          {params.category ? <input type="hidden" name="category" value={params.category} /> : null}
           <FilterSelect label="小カテゴリー" name="subcategory" value={params.subcategory} options={[["", "すべて"], ...subcategories.map((subcategory) => [subcategory.id, subcategory.name] as const)]} />
           <FilterSelect label="タグ" name="tag" value={params.tag} options={[["", "すべて"], ...tags.map((tag) => [tag, tag] as const)]} />
           <FilterSelect label="並び順" name="sort" value={params.sort} options={[["updated", "更新日"], ["name", "名前"], ["duration", "時間"], ["usage", "使用回数"], ["good", "良かった率"], ["recent", "最終使用"]]} />
           <button className="h-10 rounded-lg bg-[#5d8f68] px-4 text-[13px] font-semibold text-white">適用</button>
           <Link href="/lessons?tab=blocks" className="inline-flex h-10 items-center justify-center rounded-lg border border-[#ddd6cc] bg-white px-4 text-[13px] font-semibold text-[#626a60]">クリア</Link>
         </form>
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[#ece5db] pt-3"><p className="text-[13px] text-[#6f766c]">{blocks.length}件を表示</p><div className="flex gap-1.5"><ViewLink label="一覧" view="list" active={view === "list"} params={params} /><ViewLink label="カード" view="cards" active={view === "cards"} params={params} /><ViewLink label="カテゴリー" view="categories" active={view === "categories"} params={params} /></div></div>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#ece5db] pt-4"><p className="text-[13px] font-medium text-[#5d685a]">{blocks.length}件を表示</p><div className="flex flex-wrap gap-1.5"><ViewLink label="一覧" view="list" active={view === "list"} params={params} /><ViewLink label="カード" view="cards" active={view === "cards"} params={params} /><ViewLink label="カテゴリー" view="categories" active={view === "categories"} params={params} /></div></div>
       </WorkspaceToolbar>
 
-      {blocks.length ? view === "list" ? <BlockTable blocks={blocks} /> : view === "cards" ? <BlockCards blocks={blocks} /> : <BlockCategoryGroups blocks={blocks} /> : <WorkspaceEmptyState title="該当するブロックはありません" description="検索条件をクリアするか、新しいブロックを登録してください。" />}
+      {blocks.length ? view === "list" ? <BlockTable blocks={blocks} /> : view === "cards" ? <BlockCards blocks={blocks} /> : <BlockCategoryGroups blocks={blocks} categories={activeCategories} /> : <WorkspaceEmptyState title="該当するブロックはありません" description="検索条件をクリアするか、新しいブロックを登録してください。" />}
     </div>
   );
 }
@@ -573,9 +642,37 @@ function BlockUseAction({ block }: { block: DbBlockTemplate }) {
     : <Link href={`/lessons/new?block=${block.id}`} className="inline-flex h-8 items-center rounded-lg bg-[#5d8f68] px-2.5 text-[12px] font-semibold text-white">使う</Link>;
 }
 
-function BlockCategoryGroups({ blocks }: { blocks: DbBlockTemplate[] }) {
+function BlockCategoryGroups({ blocks, categories }: { blocks: DbBlockTemplate[]; categories: BlockCategory[] }) {
+  const categoryOrder = new Map(categories.map((category, index) => [category.name, index]));
   const groups = groupBy(blocks, (block) => block.majorCategory || "未分類");
-  return <div className="space-y-5">{Array.from(groups.entries()).map(([category, items]) => <WorkspaceSection key={category} title={category} description={`${items.length}件`}><BlockTable blocks={items} /></WorkspaceSection>)}</div>;
+  const orderedGroups = Array.from(groups.entries()).sort(([left], [right]) => (categoryOrder.get(left) ?? Number.MAX_SAFE_INTEGER) - (categoryOrder.get(right) ?? Number.MAX_SAFE_INTEGER));
+
+  return (
+    <div className="space-y-5">
+      {orderedGroups.map(([category, items]) => {
+        const categoryDefinition = categories.find((item) => item.name === category);
+        const subcategoryOrder = new Map((categoryDefinition?.subcategories ?? []).filter((item) => !item.archived).map((subcategory, index) => [subcategory.name, index]));
+        const subcategoryGroups = Array.from(groupBy(items, (block) => block.minorCategory || "未分類").entries())
+          .sort(([left], [right]) => (subcategoryOrder.get(left) ?? Number.MAX_SAFE_INTEGER) - (subcategoryOrder.get(right) ?? Number.MAX_SAFE_INTEGER));
+
+        return (
+          <WorkspaceSection key={category} title={category} description={`${items.length}件`}>
+            <div className="space-y-4">
+              {subcategoryGroups.map(([subcategory, subcategoryBlocks]) => (
+                <section key={`${category}-${subcategory}`} className="rounded-xl border border-[#e8e2d8] bg-[#fbfaf7] p-3">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-[14px] font-semibold text-[#445143]">{subcategory}</h3>
+                    <span className="rounded-full bg-[#e6f0e3] px-2.5 py-1 text-[12px] font-semibold text-[#386b46]">{subcategoryBlocks.length}件</span>
+                  </div>
+                  <BlockTable blocks={subcategoryBlocks} />
+                </section>
+              ))}
+            </div>
+          </WorkspaceSection>
+        );
+      })}
+    </div>
+  );
 }
 
 function AnalysisWorkspace({ blocks }: { blocks: DbBlockTemplate[] }) {
@@ -602,6 +699,27 @@ function AnalysisList({ title, rows, metric }: { title: string; rows: DbBlockTem
   return <section className="rounded-xl border border-[#e6ded3] bg-white/82 p-4"><h2 className="text-[16px] font-semibold">{title}</h2>{rows.length ? <ol className="mt-3 divide-y divide-[#ece5db]">{rows.map((block, index) => <li key={block.id} className="flex items-center gap-3 py-2.5"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#eef4eb] text-[12px] font-semibold text-[#4f8058]">{index + 1}</span><Link href={`/blocks/${block.id}`} className="min-w-0 flex-1 truncate text-[14px] font-medium hover:text-[#4f8058] hover:underline">{block.name}</Link><span className="shrink-0 text-[12px] text-[#6d746a]">{metric(block)}</span></li>)}</ol> : <p className="mt-4 text-[13px] text-[#777e74]">対象データがありません。</p>}</section>;
 }
 
+function BlockFilterLink({ href, label, count, active, small = false }: { href: string; label: string; count: number; active: boolean; small?: boolean }) {
+  const sizeClass = small ? "min-h-8 px-2.5 py-1 text-[11px]" : "min-h-9 px-3 py-1.5 text-[12px]";
+  const stateClass = active
+    ? "border-[#6f9a76] bg-[#e5f0e2] text-[#2f623c] ring-1 ring-[#8caf91]"
+    : "border-[#d8ded3] bg-white text-[#536150] hover:border-[#9db49b] hover:bg-[#f4f8f1] hover:text-[#3f7049]";
+  const badgeClass = active ? "bg-[#c9dfc7] text-[#2f623c]" : "bg-[#f0f2ed] text-[#667062]";
+
+  return (
+    <Link
+      href={href}
+      prefetch={false}
+      aria-current={active ? "page" : undefined}
+      aria-label={`${label} ${count}件`}
+      className={`inline-flex max-w-full items-center gap-1.5 rounded-full border font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6f9a76] focus-visible:ring-offset-1 ${sizeClass} ${stateClass}`}
+    >
+      <span className="min-w-0 truncate">{label}</span>
+      <span className={`inline-flex min-w-6 shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-extrabold ${badgeClass}`}>{count}</span>
+    </Link>
+  );
+}
+
 function FilterField({ label, children }: { label: string; children: React.ReactNode }) {
   return <label className="block min-w-0"><span className="mb-1.5 block text-[12px] font-semibold text-[#656c63]">{label}</span>{children}</label>;
 }
@@ -616,11 +734,47 @@ function HeaderStat({ label, value, tone = "green" }: { label: string; value: st
 function MiniMetric({ label, value }: { label: string; value: string }) { return <div className="rounded-lg bg-[#f7f5f0] p-2"><p className="text-[11px] text-[#777e74]">{label}</p><p className="mt-0.5 font-semibold">{value}</p></div>; }
 
 function ViewLink({ label, view, active, params }: { label: string; view: string; active: boolean; params: SearchParams }) {
+  return <Link href={blockListHref(params, { view })} aria-current={active ? "page" : undefined} className={active ? "inline-flex h-8 items-center rounded-lg border border-[#88a98b] bg-[#e6f0e3] px-3 text-[12px] font-semibold text-[#386b46]" : "inline-flex h-8 items-center rounded-lg border border-[#ddd6cc] bg-white px-3 text-[12px] font-semibold text-[#626a60] hover:bg-[#f7f4ef]"}>{label}</Link>;
+}
+
+type BlockListQueryKey = "q" | "category" | "subcategory" | "tag" | "sort" | "view";
+
+function blockListHref(params: SearchParams, changes: Partial<Record<BlockListQueryKey, string | undefined>>) {
   const query = new URLSearchParams();
   query.set("tab", "blocks");
-  for (const key of ["q", "category", "subcategory", "tag", "sort"] as const) if (params[key]) query.set(key, params[key]!);
-  query.set("view", view);
-  return <Link href={`/lessons?${query.toString()}`} className={active ? "inline-flex h-8 items-center rounded-lg bg-[#e6f0e3] px-3 text-[12px] font-semibold text-[#386b46]" : "inline-flex h-8 items-center rounded-lg border border-[#ddd6cc] bg-white px-3 text-[12px] font-semibold text-[#626a60] hover:bg-[#f7f4ef]"}>{label}</Link>;
+  const keys: BlockListQueryKey[] = ["q", "category", "subcategory", "tag", "sort", "view"];
+  for (const key of keys) {
+    const value = Object.prototype.hasOwnProperty.call(changes, key) ? changes[key] : params[key];
+    if (value) query.set(key, value);
+  }
+  return `/lessons?${query.toString()}`;
+}
+
+function countBlocksBy(blocks: DbBlockTemplate[], key: (block: DbBlockTemplate) => string | null) {
+  const counts = new Map<string, number>();
+  for (const block of blocks) {
+    const value = key(block);
+    if (value) counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+  return counts;
+}
+
+function filterBlockLibrary(blocks: DbBlockTemplate[], params: SearchParams) {
+  const q = params.q?.trim().toLowerCase();
+  const filtered = blocks.filter((block) => {
+    if (q && ![block.name, block.script, block.purpose, block.cautions, block.memo, block.tags.join(" ")].join(" ").toLowerCase().includes(q)) return false;
+    if (params.category && block.categoryId !== params.category) return false;
+    if (params.subcategory && block.subcategoryId !== params.subcategory) return false;
+    if (params.tag && !block.tags.includes(params.tag)) return false;
+    return true;
+  });
+
+  if (params.sort === "duration") return filtered.sort((left, right) => left.durationMinutes - right.durationMinutes);
+  if (params.sort === "name") return filtered.sort((left, right) => left.name.localeCompare(right.name, "ja"));
+  if (params.sort === "usage") return filtered.sort((left, right) => right.usageCount - left.usageCount || left.name.localeCompare(right.name, "ja"));
+  if (params.sort === "good") return filtered.sort((left, right) => (right.goodRate ?? -1) - (left.goodRate ?? -1) || right.usageCount - left.usageCount);
+  if (params.sort === "recent") return filtered.sort((left, right) => (right.lastUsedAt || "").localeCompare(left.lastUsedAt || "") || left.name.localeCompare(right.name, "ja"));
+  return filtered.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 }
 
 async function getCurrentTimestamp() { return Date.now(); }

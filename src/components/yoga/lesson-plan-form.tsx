@@ -32,6 +32,9 @@ type DeleteAction = (formData: FormData) => void | Promise<void>;
 
 type BlockViewMode = "cards" | "compact" | "category";
 
+const initialVisibleBlockCount = 18;
+const visibleBlockIncrement = 18;
+
 const lessonFormatOptions = [
   { value: "group", label: "グループ" },
   { value: "personal", label: "パーソナル" },
@@ -46,37 +49,61 @@ const lessonPlanStatusOptions = [
 
 export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, initialBlocks, deleteAction, deleteError }: Props) {
   const [selectedBlocks, setSelectedBlocks] = useState<DbBlockTemplate[]>(initialPlan?.blocks ?? initialBlocks ?? []);
-  const [query, setQuery] = useState("");
-  const [categoryId, setCategoryId] = useState("");
-  const [subcategoryId, setSubcategoryId] = useState("");
-  const [tag, setTag] = useState("");
-  const [level, setLevel] = useState("");
-  const [sort, setSort] = useState("updated");
-  const [condition, setCondition] = useState("");
-  const [durationFilter, setDurationFilter] = useState("");
-  const [usageFilter, setUsageFilter] = useState("");
-  const [ratingFilter, setRatingFilter] = useState("");
+  const [query, setQueryState] = useState("");
+  const [categoryId, setCategoryIdState] = useState("");
+  const [subcategoryId, setSubcategoryIdState] = useState("");
+  const [tag, setTagState] = useState("");
+  const [level, setLevelState] = useState("");
+  const [sort, setSortState] = useState("updated");
+  const [condition, setConditionState] = useState("");
+  const [durationFilter, setDurationFilterState] = useState("");
+  const [usageFilter, setUsageFilterState] = useState("");
+  const [ratingFilter, setRatingFilterState] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [floatingFiltersOpen, setFloatingFiltersOpen] = useState(false);
   const [showFloatingSearch, setShowFloatingSearch] = useState(false);
   const [mobilePlanOpen, setMobilePlanOpen] = useState(false);
   const [viewMode, setViewMode] = useState<BlockViewMode>("cards");
-  const [visibleCount, setVisibleCount] = useState(18);
+  const [visibleCount, setVisibleCount] = useState(initialVisibleBlockCount);
   const [previewBlock, setPreviewBlock] = useState<DbBlockTemplate | null>(null);
   const searchHeaderRef = useRef<HTMLDivElement | null>(null);
   const action = mode === "edit" && initialPlan ? updateLessonPlanAction.bind(null, initialPlan.id) : createLessonPlanAction;
   const [state, formAction, pending] = useActionState(action, initialState);
   const formError = state.error ?? deleteError;
+  const setQuery = (value: string) => { setQueryState(value); setVisibleCount(initialVisibleBlockCount); };
+  const setCategoryId = (value: string) => { setCategoryIdState(value); setVisibleCount(initialVisibleBlockCount); };
+  const setSubcategoryId = (value: string) => { setSubcategoryIdState(value); setVisibleCount(initialVisibleBlockCount); };
+  const setTag = (value: string) => { setTagState(value); setVisibleCount(initialVisibleBlockCount); };
+  const setLevel = (value: string) => { setLevelState(value); setVisibleCount(initialVisibleBlockCount); };
+  const setSort = (value: string) => { setSortState(value); setVisibleCount(initialVisibleBlockCount); };
+  const setCondition = (value: string) => { setConditionState(value); setVisibleCount(initialVisibleBlockCount); };
+  const setDurationFilter = (value: string) => { setDurationFilterState(value); setVisibleCount(initialVisibleBlockCount); };
+  const setUsageFilter = (value: string) => { setUsageFilterState(value); setVisibleCount(initialVisibleBlockCount); };
+  const setRatingFilter = (value: string) => { setRatingFilterState(value); setVisibleCount(initialVisibleBlockCount); };
 
   const selectedCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const block of selectedBlocks) counts.set(block.id, (counts.get(block.id) ?? 0) + 1);
     return counts;
   }, [selectedBlocks]);
-  const visibleSubcategories = useMemo(
-    () => categories.find((category) => category.id === categoryId)?.subcategories.filter((item) => !item.archived) ?? categories.flatMap((category) => category.subcategories).filter((item) => !item.archived),
-    [categories, categoryId],
-  );
+  const activeCategories = useMemo(() => categories.filter((category) => !category.archived), [categories]);
+  const categoryCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const block of blocks) {
+      if (block.categoryId) counts.set(block.categoryId, (counts.get(block.categoryId) ?? 0) + 1);
+    }
+    return counts;
+  }, [blocks]);
+  const subcategoryCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const block of blocks) {
+      if (block.subcategoryId) counts.set(block.subcategoryId, (counts.get(block.subcategoryId) ?? 0) + 1);
+    }
+    return counts;
+  }, [blocks]);
+  const selectedCategory = activeCategories.find((category) => category.id === categoryId);
+  const selectedCategorySubcategories = selectedCategory?.subcategories.filter((item) => !item.archived) ?? [];
+  const visibleSubcategories = selectedCategory?.subcategories.filter((item) => !item.archived) ?? activeCategories.flatMap((category) => category.subcategories).filter((item) => !item.archived);
   const levels = useMemo(() => Array.from(new Set(blocks.map((block) => block.level).filter(Boolean))).sort(), [blocks]);
 
   const filteredBlocks = useMemo(() => {
@@ -205,6 +232,8 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, in
     setRatingFilter("");
     setSort("updated");
   };
+  const showMoreBlocks = () => setVisibleCount((count) => Math.min(count + visibleBlockIncrement, filteredBlocks.length));
+  const showAllBlocks = () => setVisibleCount(filteredBlocks.length);
   const handleDragStart = (event: DragEvent<HTMLElement>, blockId: string) => {
     event.dataTransfer.setData("text/plain", blockId);
     event.dataTransfer.effectAllowed = "copy";
@@ -291,11 +320,19 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, in
           <div ref={searchHeaderRef} className="-mx-1 -mt-1 rounded-3xl border border-[#e5ded3] bg-[#fffdf8] p-3">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
-                <SectionTitle icon={Plus} title="ブロック候補" subtitle={`${filteredBlocks.length}件中 ${visibleBlocks.length}件を表示`} />
+                <SectionTitle icon={Plus} title="ブロック候補" subtitle="検索・カテゴリー・詳細条件を組み合わせて選べます。" />
               </div>
-              <Link href="/blocks/new" className="inline-flex h-9 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
-                ブロックを登録
-              </Link>
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <BlockDisplayControls
+                  filteredCount={filteredBlocks.length}
+                  visibleCount={visibleBlocks.length}
+                  onShowMore={showMoreBlocks}
+                  onShowAll={showAllBlocks}
+                />
+                <Link href="/blocks/new" className="inline-flex h-9 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-[#d8e3d4] bg-white px-3 text-[12px] font-bold text-[#4f7b58]">
+                  ブロックを登録
+                </Link>
+              </div>
             </div>
 
             <div className="mt-3 grid gap-3">
@@ -314,24 +351,48 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, in
                 ) : null}
               </div>
 
-              <div className="flex gap-2 overflow-x-auto overscroll-x-contain whitespace-nowrap pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                <button
-                  type="button"
-                  onClick={() => { setCategoryId(""); setSubcategoryId(""); }}
-                  className={!categoryId ? "min-w-fit shrink-0 whitespace-nowrap rounded-full bg-[#7ea06f] px-4 py-2 text-[12px] font-bold text-white" : "min-w-fit shrink-0 whitespace-nowrap rounded-full border border-[#e1d9ce] bg-white px-4 py-2 text-[12px] font-bold text-[#5d6b58]"}
-                >
-                  すべて
-                </button>
-                {categories.filter((category) => !category.archived).map((category) => (
-                  <button
-                    key={category.id}
-                    type="button"
-                    onClick={() => { setCategoryId(category.id); setSubcategoryId(""); }}
-                    className={categoryId === category.id ? "min-w-fit shrink-0 whitespace-nowrap rounded-full bg-[#7ea06f] px-4 py-2 text-[12px] font-bold text-white" : "min-w-fit shrink-0 whitespace-nowrap rounded-full border border-[#e1d9ce] bg-white px-4 py-2 text-[12px] font-bold text-[#5d6b58]"}
-                  >
-                    {category.name}
-                  </button>
-                ))}
+              <div className="space-y-2">
+                <div className="flex min-w-0 flex-wrap gap-2" aria-label="大カテゴリー">
+                  <BlockFilterButton
+                    label="すべて"
+                    count={blocks.length}
+                    active={!categoryId}
+                    onClick={() => { setCategoryId(""); setSubcategoryId(""); }}
+                  />
+                  {activeCategories.map((category) => (
+                    <BlockFilterButton
+                      key={category.id}
+                      label={category.name}
+                      count={categoryCounts.get(category.id) ?? 0}
+                      active={categoryId === category.id}
+                      onClick={() => { setCategoryId(category.id); setSubcategoryId(""); }}
+                    />
+                  ))}
+                </div>
+                {categoryId && selectedCategorySubcategories.length ? (
+                  <div className="rounded-2xl border border-[#e1e8dc] bg-[#f7faf5] p-2.5">
+                    <p className="mb-2 text-[11px] font-bold tracking-[0.08em] text-[#6a7767]">小カテゴリー</p>
+                    <div className="flex min-w-0 flex-wrap gap-1.5" aria-label="小カテゴリー">
+                      <BlockFilterButton
+                        label="すべて"
+                        count={categoryCounts.get(categoryId) ?? 0}
+                        active={!subcategoryId}
+                        onClick={() => setSubcategoryId("")}
+                        small
+                      />
+                      {selectedCategorySubcategories.map((subcategory) => (
+                        <BlockFilterButton
+                          key={subcategory.id}
+                          label={subcategory.name}
+                          count={subcategoryCounts.get(subcategory.id) ?? 0}
+                          active={subcategoryId === subcategory.id}
+                          onClick={() => setSubcategoryId(subcategory.id)}
+                          small
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
               <div className="flex flex-col gap-2">
@@ -504,10 +565,16 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, in
               ))}
             </div>
           )}
-          {visibleCount < filteredBlocks.length ? (
-            <button type="button" onClick={() => setVisibleCount((count) => count + 18)} className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-xl border border-[#d8e3d4] bg-white text-[12px] font-bold text-[#4f7b58]">
-              もっと見る
-            </button>
+          {visibleBlocks.length < filteredBlocks.length ? (
+            <div className="mt-4 rounded-2xl border border-[#e1e8dc] bg-[#f7faf5] p-3 xl:hidden">
+              <BlockDisplayControls
+                filteredCount={filteredBlocks.length}
+                visibleCount={visibleBlocks.length}
+                onShowMore={showMoreBlocks}
+                onShowAll={showAllBlocks}
+                fullWidth
+              />
+            </div>
           ) : null}
         </SoftCard>
 
@@ -612,6 +679,8 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, in
           setSort={setSort}
           viewMode={viewMode}
           setViewMode={setViewMode}
+          onShowMore={showMoreBlocks}
+          onShowAll={showAllBlocks}
         />
       ) : null}
       {previewBlock ? <BlockScriptModal block={previewBlock} onClose={() => setPreviewBlock(null)} /> : null}
@@ -865,6 +934,73 @@ function FilterControls({
   );
 }
 
+function BlockFilterButton({
+  label,
+  count,
+  active,
+  onClick,
+  small = false,
+}: {
+  label: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+  small?: boolean;
+}) {
+  const sizeClass = small ? "min-h-8 px-2.5 py-1 text-[11px]" : "min-h-9 px-3 py-1.5 text-[12px]";
+  const stateClass = active
+    ? "border-[#6f9a76] bg-[#e5f0e2] text-[#2f623c] ring-1 ring-[#8caf91]"
+    : "border-[#d8ded3] bg-white text-[#536150] hover:border-[#9db49b] hover:bg-[#f4f8f1] hover:text-[#3f7049]";
+  const badgeClass = active ? "bg-[#c9dfc7] text-[#2f623c]" : "bg-[#f0f2ed] text-[#667062]";
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`inline-flex max-w-full items-center gap-1.5 rounded-full border font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6f9a76] focus-visible:ring-offset-1 ${sizeClass} ${stateClass}`}
+    >
+      <span className="min-w-0 truncate">{label}</span>
+      <span className={`inline-flex min-w-6 shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-extrabold ${badgeClass}`}>
+        {count}
+      </span>
+    </button>
+  );
+}
+
+function BlockDisplayControls({
+  filteredCount,
+  visibleCount,
+  onShowMore,
+  onShowAll,
+  fullWidth = false,
+}: {
+  filteredCount: number;
+  visibleCount: number;
+  onShowMore: () => void;
+  onShowAll: () => void;
+  fullWidth?: boolean;
+}) {
+  const canExpand = filteredCount > initialVisibleBlockCount && visibleCount < filteredCount;
+  const buttonClass = fullWidth
+    ? "inline-flex h-9 w-full items-center justify-center rounded-xl border border-[#a9bea5] bg-white px-3 text-[12px] font-bold text-[#3f7049] hover:bg-[#eef5eb]"
+    : "inline-flex h-8 shrink-0 items-center justify-center rounded-lg border border-[#a9bea5] bg-white px-2.5 text-[11px] font-bold text-[#3f7049] hover:bg-[#eef5eb]";
+
+  return (
+    <div className={fullWidth ? "grid gap-2 sm:grid-cols-[auto_1fr_1fr] sm:items-center" : "flex flex-wrap items-center gap-1.5"}>
+      <span aria-live="polite" className="shrink-0 whitespace-nowrap rounded-full bg-[#edf5ef] px-2.5 py-1 text-[12px] font-semibold text-[#3f7049]">
+        {visibleCount} / {filteredCount}件を表示中
+      </span>
+      {canExpand ? (
+        <>
+          <button type="button" onClick={onShowMore} className={buttonClass}>さらに18件</button>
+          <button type="button" onClick={onShowAll} className={buttonClass}>すべて表示</button>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
 function FloatingBlockSearchBar({
   query,
   setQuery,
@@ -898,6 +1034,8 @@ function FloatingBlockSearchBar({
   setSort,
   viewMode,
   setViewMode,
+  onShowMore,
+  onShowAll,
 }: {
   query: string;
   setQuery: (value: string) => void;
@@ -931,6 +1069,8 @@ function FloatingBlockSearchBar({
   setSort: (value: string) => void;
   viewMode: BlockViewMode;
   setViewMode: (value: BlockViewMode) => void;
+  onShowMore: () => void;
+  onShowAll: () => void;
 }) {
   return (
     <div className="pointer-events-none fixed bottom-5 left-[220px] right-6 z-40 hidden xl:block 2xl:left-[500px] 2xl:right-[350px]">
@@ -1007,9 +1147,12 @@ function FloatingBlockSearchBar({
             <ViewModeButton active={viewMode === "compact"} icon={List} label="一覧" onClick={() => setViewMode("compact")} />
             <ViewModeButton active={viewMode === "category"} icon={Layers3} label="カテゴリ別" onClick={() => setViewMode("category")} />
           </div>
-          <span className="shrink-0 whitespace-nowrap rounded-full bg-[#edf5ef] px-2.5 py-1 text-[13px] font-semibold text-[#4f875a]">
-            {filteredCount}件中 {visibleCount}件
-          </span>
+          <BlockDisplayControls
+            filteredCount={filteredCount}
+            visibleCount={visibleCount}
+            onShowMore={onShowMore}
+            onShowAll={onShowAll}
+          />
           {hasFilters ? (
             <button type="button" onClick={clearFilters} className="inline-flex h-8 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-[#d8e3d4] bg-white px-2.5 text-[13px] font-semibold text-[#4f7b58]">
               クリア
