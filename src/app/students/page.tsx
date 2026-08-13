@@ -128,7 +128,7 @@ function StudentPortfolioOverview({ portfolio }: { portfolio: StudentPortfolio }
         <h2 id="student-portfolio-title" className="text-[17px] font-semibold text-[#30372f]">生徒の状況</h2>
         <p className="mt-0.5 text-[13px] leading-5 text-[#70776e]">アクティブな登録生徒 {portfolio.activeStudents}名を、現在の動き・受講回数・フォロー観点で整理しています。</p>
       </div>
-      <div className="grid min-w-0 auto-rows-fr gap-4 lg:grid-cols-2 min-[1360px]:grid-cols-3">
+      <div className="grid min-w-0 auto-rows-fr gap-4 lg:grid-cols-2 xl:grid-cols-3">
         <PortfolioPanel title="現在の活動状況" description="次回予定を最優先に、重複なしで分類">
           <SegmentedMetricBar segments={activity} totalLabel={`分類合計 ${portfolio.activeStudents}名`} emptyLabel="登録生徒なし" unit="名" />
         </PortfolioPanel>

@@ -162,7 +162,7 @@ function OverviewView({ report }: { report: ReportData }) {
         <WorkspaceSummaryCard label="予定変更率" value={summary.changeRate == null ? "データ不足" : `${summary.changeRate}%`} detail={`${summary.addedCount}件の追加・${comparisonText(summary.comparisons.changeRate, true)}`} tone="sand" href="/lessons?tab=records&diff=1" />
       </section>
 
-      <div className="grid min-w-0 gap-4 lg:grid-cols-2 min-[1360px]:grid-cols-3">
+      <div className="grid min-w-0 gap-4 lg:grid-cols-2 xl:grid-cols-3">
         <VisualPanel
           title="レッスン・参加状況の推移"
           description={`${report.attendance.trendGranularity === "day" ? "日別" : "週別"}の参加・キャンセル・無断欠席`}
@@ -187,7 +187,7 @@ function OverviewView({ report }: { report: ReportData }) {
           <PlanUsageVisual plans={report.plans} />
         </VisualPanel>
 
-        <VisualPanel title="ブロックの利用・反応" description="利用回数と評価済みの良い反応" className="lg:col-span-2 min-[1360px]:col-span-2">
+        <VisualPanel title="ブロックの利用・反応" description="利用回数と評価済みの良い反応" className="lg:col-span-2">
           <BlockUseReactionVisual report={report} />
         </VisualPanel>
 
