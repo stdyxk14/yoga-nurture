@@ -6,6 +6,11 @@ import { toGenderCode, toGenderLabel } from "@/lib/student-fields";
 import type { StudentRecord } from "@/components/yoga/records";
 import type { RequestSupabaseClient } from "@/lib/supabase/server";
 import {
+  calculatePastAttendanceCounts,
+  filterPresentScriptParticipants,
+  type LessonScriptAttendanceRow,
+} from "@/lib/lesson-script-attendance";
+import {
   getScheduleClosureReasonLabel,
   type ScheduleClosure,
   type ScheduleClosureReasonCode,
@@ -307,9 +312,16 @@ type RawParticipantRecordInsight = {
   next_follow: string | null;
   follow_up_status?: "none" | "pending" | "completed" | "dismissed" | null;
   record?: {
+    id: string;
+    schedule_id: string | null;
     lesson_name: string | null;
     record_date: string | null;
-    schedule?: { starts_at: string | null } | null;
+    schedule?: {
+      id: string;
+      starts_at: string | null;
+      status: string | null;
+      schedule_closures?: Array<{ revoked_at: string | null }>;
+    } | null;
   } | null;
 };
 
@@ -326,9 +338,11 @@ async function enrichScheduleParticipants(supabase: RequestSupabaseClient, sched
       next_follow,
       follow_up_status,
       record:lesson_records(
+        id,
+        schedule_id,
         lesson_name,
         record_date,
-        schedule:schedules(starts_at)
+        schedule:schedules(id,starts_at,status,schedule_closures(revoked_at))
       )
     `)
     .in("student_id", studentIds)
@@ -344,9 +358,11 @@ async function enrichScheduleParticipants(supabase: RequestSupabaseClient, sched
         memo,
         next_follow,
         record:lesson_records(
+          id,
+          schedule_id,
           lesson_name,
           record_date,
-          schedule:schedules(starts_at)
+          schedule:schedules(id,starts_at,status,schedule_closures(revoked_at))
         )
       `)
       .in("student_id", studentIds)
@@ -355,14 +371,9 @@ async function enrichScheduleParticipants(supabase: RequestSupabaseClient, sched
     rows = (fallback.data ?? []) as unknown as RawParticipantRecordInsight[];
   }
 
-  const attendedCountByStudent = new Map<string, number>();
   const followUpsByStudent = new Map<string, ScheduleParticipant["pendingFollowUps"]>();
 
   for (const row of rows) {
-    if (row.attendance_status === "present") {
-      attendedCountByStudent.set(row.student_id, (attendedCountByStudent.get(row.student_id) ?? 0) + 1);
-    }
-
     const followText = row.next_follow?.trim();
     const followStatus = row.follow_up_status ?? (followText ? "pending" : "none");
     if (followText && followStatus === "pending") {
@@ -377,14 +388,37 @@ async function enrichScheduleParticipants(supabase: RequestSupabaseClient, sched
     }
   }
 
-  return schedules.map((schedule) => ({
-    ...schedule,
-    participants: schedule.participants.map((student) => ({
-      ...student,
-      linkedLessonCount: attendedCountByStudent.get(student.id) ?? 0,
-      pendingFollowUps: (followUpsByStudent.get(student.id) ?? []).slice(0, 3),
-    })),
+  const attendanceRows: LessonScriptAttendanceRow[] = rows.map((row) => ({
+    studentId: row.student_id,
+    attendanceStatus: row.attendance_status,
+    record: row.record
+      ? {
+          id: row.record.id,
+          scheduleId: row.record.schedule_id,
+          recordDate: row.record.record_date,
+          schedule: row.record.schedule
+            ? {
+                id: row.record.schedule.id,
+                startsAt: row.record.schedule.starts_at,
+                status: row.record.schedule.status,
+                hasActiveClosure: Boolean(row.record.schedule.schedule_closures?.some((closure) => closure.revoked_at === null)),
+              }
+            : null,
+        }
+      : null,
   }));
+
+  return schedules.map((schedule) => {
+    const attendedCountByStudent = calculatePastAttendanceCounts(attendanceRows, schedule);
+    return {
+      ...schedule,
+      participants: schedule.participants.map((student) => ({
+        ...student,
+        linkedLessonCount: attendedCountByStudent.get(student.id) ?? 0,
+        pendingFollowUps: (followUpsByStudent.get(student.id) ?? []).slice(0, 3),
+      })),
+    };
+  });
 }
 
 function scheduleSelect(includeNotes: boolean) {
@@ -459,6 +493,12 @@ export async function getScheduleById(id: string, requestClient?: RequestSupabas
   if (!row) notFound();
   const [schedule] = await enrichScheduleParticipants(supabase, [mapSchedule(row)]);
   return schedule;
+}
+
+export async function getScheduleForLessonScript(id: string, requestClient?: RequestSupabaseClient) {
+  const schedule = await getScheduleById(id, requestClient);
+  const participants = filterPresentScriptParticipants(schedule.participants);
+  return { ...schedule, participantCount: participants.length, participants };
 }
 
 export function getSchedulePayload(formData: FormData, plans: DbLessonPlan[]) {

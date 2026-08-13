@@ -1,7 +1,7 @@
 import { LessonPlanPrintPage } from "@/components/yoga/lesson-plan-print-page";
 import { isUuid } from "@/lib/ids";
 import { getLessonPlanForSchedule } from "@/lib/lesson-plans";
-import { getScheduleById } from "@/lib/schedules";
+import { getScheduleForLessonScript } from "@/lib/schedules";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +10,7 @@ export default async function ScheduleScriptPrintPage({ params }: { params: Prom
   const { id } = await params;
   if (!isUuid(id)) notFound();
 
-  const schedule = await getScheduleById(id);
+  const schedule = await getScheduleForLessonScript(id);
   if (!schedule.lessonPlanId) notFound();
 
   const plan = await getLessonPlanForSchedule(schedule);
