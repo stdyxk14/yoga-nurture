@@ -166,37 +166,33 @@ function OverviewView({ report }: { report: ReportData }) {
         <VisualPanel
           title="レッスン・参加状況の推移"
           description={`${report.attendance.trendGranularity === "day" ? "日別" : "週別"}の参加・キャンセル・無断欠席`}
-          className="lg:col-span-2"
+          className="order-1 lg:col-span-2"
         >
           <AttendanceTrendChart rows={report.attendance.trend} />
         </VisualPanel>
 
-        <VisualPanel title="出席構成" description="期間内の出欠エントリ">
+        <VisualPanel title="出席構成" description="期間内の出欠エントリ" className="order-2">
           <DonutMetric segments={attendanceSegments(report)} totalLabel="出欠合計" emptyLabel="対象データなし" />
         </VisualPanel>
 
-        <VisualPanel title="生徒構成" description="登録生徒と期間内参加生徒を同じ属性で比較" className="lg:col-span-2">
+        <VisualPanel title="生徒構成" description="登録生徒と期間内参加生徒の年代・性別を比較" className="order-3 lg:order-4 lg:col-span-2 xl:order-3 xl:col-span-3">
           <StudentCompositionVisual report={report} />
         </VisualPanel>
 
-        <VisualPanel title="予定と実際" description="未分類を推測せず、記録された区分のまま表示">
+        <VisualPanel title="予定と実際" description="未分類を推測せず、記録された区分のまま表示" className="order-4 lg:order-3 xl:order-4">
           <ExecutionCompositionVisual report={report} />
         </VisualPanel>
 
-        <VisualPanel title="レッスンプランの利用状況" description="実施回数上位5件。予定時間と実施時間を比較" className="lg:col-span-2">
-          <PlanUsageVisual plans={report.plans} />
-        </VisualPanel>
-
-        <VisualPanel title="ブロックの利用・反応" description="利用回数と評価済みの良い反応" className="lg:col-span-2">
+        <VisualPanel title="ブロックの利用・反応" description="利用回数と評価済みの良い反応" className="order-5 lg:col-span-2">
           <BlockUseReactionVisual report={report} />
         </VisualPanel>
 
-        <VisualPanel title="スキップ・調整" description="現場適応が多いブロック">
+        <VisualPanel title="スキップ・調整" description="現場適応が多いブロック" className="order-6">
           <BlockAdaptationVisual report={report} />
         </VisualPanel>
 
         {report.closures.closedCount > 0 ? (
-          <VisualPanel title="開催とクローズ" description="過去予定の状態をコンパクトに表示">
+          <VisualPanel title="開催とクローズ" description="過去予定の状態をコンパクトに表示" className="order-7">
             <ClosureCompositionVisual report={report} />
           </VisualPanel>
         ) : null}
@@ -237,7 +233,7 @@ function AttendanceView({ report }: { report: ReportData }) {
 function StudentsView({ report }: { report: ReportData }) {
   return (
     <div className="space-y-5">
-      <VisualPanel title="登録生徒と参加生徒の構成比較" description="年代・性別ごとに人数と割合を並べています。">
+      <VisualPanel title="登録生徒と参加生徒の構成比較" description="年代・性別を登録生徒と期間内参加生徒のドーナツで比較します。">
         <StudentCompositionVisual report={report} />
       </VisualPanel>
       <div className="grid gap-5 xl:grid-cols-2">
@@ -406,46 +402,79 @@ function AttendanceTrendChart({ rows }: { rows: AttendanceBreakdownRow[] }) {
 function StudentCompositionVisual({ report }: { report: ReportData }) {
   const all = report.students.all;
   const participants = report.students.participants;
-  if (!all.total && !participants.total) return <CompactEmptyState label="対象データなし" />;
 
   return (
-    <div className="grid min-w-0 gap-5 md:grid-cols-2">
-      <RatioComparisonGroup title="年代構成" allRows={all.ageRows} participantRows={participants.ageRows} />
-      <RatioComparisonGroup title="性別構成" allRows={all.genderRows} participantRows={participants.genderRows} />
+    <div className="grid min-w-0 gap-5 xl:grid-cols-2">
+      <StudentCompositionGroup title="年代構成" allRows={all.ageRows} participantRows={participants.ageRows} />
+      <StudentCompositionGroup title="性別構成" allRows={all.genderRows} participantRows={participants.genderRows} />
     </div>
   );
 }
 
-function RatioComparisonGroup({ title, allRows, participantRows }: { title: string; allRows: RatioRow[]; participantRows: RatioRow[] }) {
+function StudentCompositionGroup({ title, allRows, participantRows }: { title: string; allRows: RatioRow[]; participantRows: RatioRow[] }) {
   const labels = Array.from(new Set([...allRows.map((row) => row.label), ...participantRows.map((row) => row.label)]));
-  if (!labels.length) return <CompactEmptyState label={`${title}データなし`} />;
+  const allByLabel = new Map(allRows.map((row) => [row.label, row]));
+  const participantsByLabel = new Map(participantRows.map((row) => [row.label, row]));
+  const alignedAllRows = labels.map((label) => allByLabel.get(label) ?? { label, count: 0, percent: 0 });
+  const alignedParticipantRows = labels.map((label) => participantsByLabel.get(label) ?? { label, count: 0, percent: 0 });
 
   return (
-    <div className="min-w-0">
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-[13px] font-semibold text-[#465047]">{title}</h3>
-        <div className="flex gap-3 text-[10px] text-[#737a70]"><ChartLegend color="#6f9875" label="登録" /><ChartLegend color="#8578b2" label="期間参加" /></div>
+    <section className="min-w-0">
+      <h3 className="mb-3 text-[13px] font-semibold text-[#465047]">{title}</h3>
+      <div className="grid min-w-0 gap-3 md:grid-cols-2">
+        <StudentCompositionDonut scope="登録生徒" rows={alignedAllRows} emptyLabel="登録生徒データなし" />
+        <StudentCompositionDonut scope="期間内参加" rows={alignedParticipantRows} emptyLabel="期間内参加生徒データなし" />
       </div>
-      <div className="max-h-[220px] space-y-2 overflow-y-auto pr-1">
-        {labels.map((label) => {
-          const registered = allRows.find((row) => row.label === label) ?? { count: 0, percent: 0 };
-          const participated = participantRows.find((row) => row.label === label) ?? { count: 0, percent: 0 };
-          return (
-            <div key={label} className="min-w-0" title={`${label}: 登録${registered.count}名（${registered.percent}%）、期間参加${participated.count}名（${participated.percent}%）`}>
-              <div className="flex items-center justify-between gap-2 text-[11px]">
-                <span className="truncate font-medium text-[#515a51]">{label}</span>
-                <span className="shrink-0 tabular-nums text-[#737a70]">登録 {registered.count}名 / 参加 {participated.count}名</span>
-              </div>
-              <div className="mt-1 grid gap-1">
-                <RatioBar percent={registered.percent} color="#6f9875" label={`登録 ${registered.percent}%`} />
-                <RatioBar percent={participated.percent} color="#8578b2" label={`期間参加 ${participated.percent}%`} />
-              </div>
-            </div>
-          );
-        })}
-      </div>
+    </section>
+  );
+}
+
+function StudentCompositionDonut({ scope, rows, emptyLabel }: { scope: string; rows: RatioRow[]; emptyLabel: string }) {
+  return (
+    <div className="min-w-0 rounded-lg border border-[#ece5db] bg-[#faf9f5] p-3">
+      <h4 className="mb-2 text-[12px] font-semibold text-[#596159]">{scope}</h4>
+      <DonutMetric
+        segments={rows.map((row) => ({ label: row.label, value: row.count, color: studentCompositionColor(row.label) }))}
+        totalLabel={scope}
+        emptyLabel={emptyLabel}
+        unit="名"
+        layout="stacked"
+        showUnitInCenter
+      />
     </div>
   );
+}
+
+const studentCompositionColors: Record<string, string> = {
+  "年齢不明": "#8a9189",
+  "10代": "#a4b98b",
+  "20前半": "#6f9875",
+  "20半ば": "#5f9182",
+  "20後半": "#548b98",
+  "30前半": "#6887a5",
+  "30半ば": "#7d7fb0",
+  "30後半": "#9279aa",
+  "40前半": "#aa7b9c",
+  "40半ば": "#c17d8d",
+  "40後半": "#cf8875",
+  "50前半": "#d49a68",
+  "50半ば": "#bda364",
+  "50後半": "#9ca567",
+  "60代以上": "#7e9e6d",
+  "女性": "#c17d8d",
+  "男性": "#6887a5",
+  "その他": "#8578b2",
+  "回答しない": "#b39262",
+  "未設定": "#8a9189",
+};
+const studentCompositionFallbackColors = ["#6f9875", "#8578b2", "#d88a77", "#b39262", "#5f8f98", "#9a7e95", "#7d9367"];
+
+function studentCompositionColor(label: string) {
+  const definedColor = studentCompositionColors[label];
+  if (definedColor) return definedColor;
+  let hash = 0;
+  for (const character of label) hash = ((hash * 31) + character.charCodeAt(0)) >>> 0;
+  return studentCompositionFallbackColors[hash % studentCompositionFallbackColors.length];
 }
 
 function PlanUsageVisual({ plans }: { plans: PlanReportRow[] }) {

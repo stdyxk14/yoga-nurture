@@ -60,11 +60,15 @@ export function DonutMetric({
   totalLabel,
   emptyLabel = "対象データなし",
   unit = "件",
+  layout = "inline",
+  showUnitInCenter = false,
 }: {
   segments: MetricSegment[];
   totalLabel: string;
   emptyLabel?: string;
   unit?: string;
+  layout?: "inline" | "stacked";
+  showUnitInCenter?: boolean;
 }) {
   const total = segments.reduce((sum, segment) => sum + segment.value, 0);
 
@@ -76,8 +80,8 @@ export function DonutMetric({
     offset: segments.slice(0, index).reduce((sum, previous) => sum + (previous.value / total) * 100, 0),
   }));
   return (
-    <figure className="grid min-w-0 grid-cols-[116px_minmax(0,1fr)] items-center gap-4">
-      <div className="relative h-[116px] w-[116px]" role="img" aria-label={`${totalLabel} ${total}${unit}`}>
+    <figure className={cn("min-w-0", layout === "stacked" ? "flex h-full flex-col items-center" : "grid grid-cols-[116px_minmax(0,1fr)] items-center gap-4")}>
+      <div className={cn("relative shrink-0", layout === "stacked" ? "h-[104px] w-[104px]" : "h-[116px] w-[116px]")} role="img" aria-label={`${totalLabel} ${total}${unit}`}>
         <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90" aria-hidden="true">
           <circle cx="50" cy="50" r="38" fill="none" stroke="#eceae4" strokeWidth="14" />
           {arcs.map(({ segment, percent, offset }) => {
@@ -93,16 +97,20 @@ export function DonutMetric({
                 strokeWidth="14"
                 strokeDasharray={`${percent} ${100 - percent}`}
                 strokeDashoffset={-offset}
-              />
+              >
+                <title>{segmentTitle(segment, total, unit)}</title>
+              </circle>
             ) : null;
           })}
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-          <span className="text-[24px] font-semibold tracking-[-0.03em] text-[#384338]">{total}</span>
+          <span className={cn("font-semibold tracking-[-0.03em] text-[#384338]", layout === "stacked" ? "text-[22px]" : "text-[24px]")}>
+            {total}{showUnitInCenter ? unit : ""}
+          </span>
           <span className="text-[11px] font-medium text-[#737a70]">{totalLabel}</span>
         </div>
       </div>
-      <figcaption className="grid min-w-0 gap-2.5">
+      <figcaption className={cn("grid min-w-0 gap-2.5", layout === "stacked" ? "mt-3 w-full grid-cols-2 gap-x-3" : undefined)}>
         {segments.map((segment) => (
           <SegmentLegendItem key={segment.label} segment={segment} total={total} unit={unit} />
         ))}
