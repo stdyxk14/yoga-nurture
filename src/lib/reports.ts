@@ -303,7 +303,7 @@ export function normalizeReportPeriod(value?: string | null): ReportPeriodKey {
 }
 
 export function normalizeReportView(value?: string | null): ReportViewKey {
-  return value === "overview" || value === "attendance" || value === "students" || value === "plans" || value === "blocks" || value === "execution" || value === "closures" ? value : "ai_review";
+  return value === "ai_review" || value === "overview" || value === "attendance" || value === "students" || value === "plans" || value === "blocks" || value === "execution" || value === "closures" ? value : "overview";
 }
 
 export function resolveReportPeriod({ period, from, to, now = new Date() }: Pick<ReportQuery, "period" | "from" | "to" | "now">): { period: ReportPeriod | null; error?: string } {

@@ -77,7 +77,7 @@ export function LessonPlanPrintDocument({ plan, schedule }: Props) {
                         <section key={student.id} className="participant-print-card break-inside-avoid border border-[#ddd5ca] p-3">
                           <div className="flex items-baseline justify-between gap-3 border-b border-[#ece4d8] pb-1.5">
                             <p className="font-black text-[#20231e]">{student.name}</p>
-                            <p className="shrink-0 text-[11px] font-extrabold text-[#5d956d]">受講 {student.lessonCount}回</p>
+                            <p className="shrink-0 text-[11px] font-extrabold text-[#5d956d]">過去受講回数 {student.lessonCount}回</p>
                           </div>
                           <dl className="mt-2 grid gap-1.5 text-[11.5px] leading-5">
                             <PrintDefinition label="ヨガ他経験" value={student.experience} />

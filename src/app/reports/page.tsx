@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CalendarDays } from "lucide-react";
 import { AiTeachingReviewView } from "@/components/yoga/ai-teaching-review-view";
+import { CompactEmptyState, DonutMetric, SegmentedMetricBar, type MetricSegment } from "@/components/yoga/data-visuals";
 import {
   WorkspaceEmptyState,
   WorkspacePageHeader,
@@ -43,8 +44,8 @@ type ReportSearchParams = {
 };
 
 const reportViews: Array<{ key: ReportViewKey; label: string }> = [
+  { key: "overview", label: "全体概要" },
   { key: "ai_review", label: "AI総合指導レビュー" },
-  { key: "overview", label: "数値概要" },
   { key: "attendance", label: "出席" },
   { key: "students", label: "生徒" },
   { key: "plans", label: "プラン" },
@@ -79,7 +80,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       <WorkspacePageHeader
         eyebrow="REPORT WORKSPACE"
         title="レポート"
-        description="AI総合指導レビューを起点に、根拠となる記録へ戻りながら指導の強み・改善・次の行動を確認します。数値集計は別ビューで維持しています。"
+        description="全体概要からレッスン・生徒・プラン・現場適応の流れをつかみ、必要な詳細やAI総合指導レビューへ進めます。"
       >
         <div className="flex flex-wrap gap-2" role="tablist" aria-label="レポート表示">
           {reportViews.map((item) => (
@@ -161,14 +162,54 @@ function OverviewView({ report }: { report: ReportData }) {
         <WorkspaceSummaryCard label="予定変更率" value={summary.changeRate == null ? "データ不足" : `${summary.changeRate}%`} detail={`${summary.addedCount}件の追加・${comparisonText(summary.comparisons.changeRate, true)}`} tone="sand" href="/lessons?tab=records&diff=1" />
       </section>
 
+      <div className="grid min-w-0 gap-4 lg:grid-cols-2 min-[1360px]:grid-cols-3">
+        <VisualPanel
+          title="レッスン・参加状況の推移"
+          description={`${report.attendance.trendGranularity === "day" ? "日別" : "週別"}の参加・キャンセル・無断欠席`}
+          className="lg:col-span-2"
+        >
+          <AttendanceTrendChart rows={report.attendance.trend} />
+        </VisualPanel>
+
+        <VisualPanel title="出席構成" description="期間内の出欠エントリ">
+          <DonutMetric segments={attendanceSegments(report)} totalLabel="出欠合計" emptyLabel="対象データなし" />
+        </VisualPanel>
+
+        <VisualPanel title="生徒構成" description="登録生徒と期間内参加生徒を同じ属性で比較" className="lg:col-span-2">
+          <StudentCompositionVisual report={report} />
+        </VisualPanel>
+
+        <VisualPanel title="予定と実際" description="未分類を推測せず、記録された区分のまま表示">
+          <ExecutionCompositionVisual report={report} />
+        </VisualPanel>
+
+        <VisualPanel title="レッスンプランの利用状況" description="実施回数上位5件。予定時間と実施時間を比較" className="lg:col-span-2">
+          <PlanUsageVisual plans={report.plans} />
+        </VisualPanel>
+
+        <VisualPanel title="ブロックの利用・反応" description="利用回数と評価済みの良い反応" className="lg:col-span-2 min-[1360px]:col-span-2">
+          <BlockUseReactionVisual report={report} />
+        </VisualPanel>
+
+        <VisualPanel title="スキップ・調整" description="現場適応が多いブロック">
+          <BlockAdaptationVisual report={report} />
+        </VisualPanel>
+
+        {report.closures.closedCount > 0 ? (
+          <VisualPanel title="開催とクローズ" description="過去予定の状態をコンパクトに表示">
+            <ClosureCompositionVisual report={report} />
+          </VisualPanel>
+        ) : null}
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <WorkspaceSection title="出席の数値詳細"><AttendanceTotals report={report} /></WorkspaceSection>
+        <WorkspaceSection title="予定と実際の数値詳細"><ExecutionTotals report={report} compact /></WorkspaceSection>
+      </div>
+
       <WorkspaceSection title="今期間の気づき" description="AIを使わず、集計ルールに基づいて抽出しています。">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{report.hints.map((hint, index) => <div key={hint} className="flex gap-3 rounded-xl border border-[#e6ded3] bg-white/82 p-4"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#e8f1e5] text-[12px] font-semibold text-[#4f8058]">{index + 1}</span><p className="text-[13px] leading-6 text-[#4e554d]">{hint}</p></div>)}</div>
       </WorkspaceSection>
-
-      <div className="grid gap-4 xl:grid-cols-2">
-        <WorkspaceSection title="出席の内訳"><AttendanceTotals report={report} /></WorkspaceSection>
-        <WorkspaceSection title="予定と実際の要点"><ExecutionTotals report={report} compact /></WorkspaceSection>
-      </div>
     </div>
   );
 }
@@ -177,8 +218,15 @@ function AttendanceView({ report }: { report: ReportData }) {
   return (
     <div className="space-y-5">
       <AttendanceTotals report={report} />
-      <WorkspaceSection title={`${report.attendance.trendGranularity === "day" ? "日別" : "週別"}の参加推移`} description="棒の長さに加えて、下の表でも件数を確認できます。">
-        <SimpleBarChart rows={report.attendance.trend} />
+      <div className="grid min-w-0 gap-4 lg:grid-cols-3">
+        <VisualPanel title={`${report.attendance.trendGranularity === "day" ? "日別" : "週別"}の参加推移`} description="参加・キャンセル・無断欠席の積み上げ" className="lg:col-span-2">
+          <AttendanceTrendChart rows={report.attendance.trend} />
+        </VisualPanel>
+        <VisualPanel title="出席構成" description="期間内の出欠エントリ">
+          <DonutMetric segments={attendanceSegments(report)} totalLabel="出欠合計" emptyLabel="対象データなし" />
+        </VisualPanel>
+      </div>
+      <WorkspaceSection title="推移の数値詳細" description="グラフと同じ件数を表で確認できます。">
         <BreakdownTable rows={report.attendance.trend} firstHeader={report.attendance.trendGranularity === "day" ? "日付" : "週"} />
       </WorkspaceSection>
       <div className="grid gap-5 xl:grid-cols-2"><WorkspaceSection title="形式別の参加状況"><BreakdownTable rows={report.attendance.byFormat} firstHeader="形式" /></WorkspaceSection><WorkspaceSection title="場所別の参加状況"><BreakdownTable rows={report.attendance.byPlace} firstHeader="場所" /></WorkspaceSection></div>
@@ -188,18 +236,28 @@ function AttendanceView({ report }: { report: ReportData }) {
 
 function StudentsView({ report }: { report: ReportData }) {
   return (
-    <div className="grid gap-5 xl:grid-cols-2">
-      <AttributePanel title="全登録生徒の属性" description="期間に関係なく、アクティブな登録生徒を母集団にします。" total={report.students.all.total} genderRows={report.students.all.genderRows} ageRows={report.students.all.ageRows} />
-      <AttributePanel title="選択期間内に参加した生徒の属性" description="期間内に attendance_status = present の記録があるユニーク生徒です。" total={report.students.participants.total} genderRows={report.students.participants.genderRows} ageRows={report.students.participants.ageRows} extra={`新規参加者相当 ${report.students.participants.newEquivalentCount}名（期間内登録かつ参加）`} />
+    <div className="space-y-5">
+      <VisualPanel title="登録生徒と参加生徒の構成比較" description="年代・性別ごとに人数と割合を並べています。">
+        <StudentCompositionVisual report={report} />
+      </VisualPanel>
+      <div className="grid gap-5 xl:grid-cols-2">
+        <AttributePanel title="全登録生徒の属性" description="期間に関係なく、アクティブな登録生徒を母集団にします。" total={report.students.all.total} genderRows={report.students.all.genderRows} ageRows={report.students.all.ageRows} />
+        <AttributePanel title="選択期間内に参加した生徒の属性" description="期間内に attendance_status = present の記録があるユニーク生徒です。" total={report.students.participants.total} genderRows={report.students.participants.genderRows} ageRows={report.students.participants.ageRows} extra={`新規参加者相当 ${report.students.participants.newEquivalentCount}名（期間内登録かつ参加）`} />
+      </div>
     </div>
   );
 }
 
 function PlansView({ report }: { report: ReportData }) {
   return (
-    <WorkspaceSection title="プラン別の実績" description="時間は算出できたレッスンだけを母数にし、件数を併記します。">
-      {report.plans.length ? <WorkspaceTableContainer><table className="w-full min-w-[1180px] border-collapse text-left text-[13px]"><thead className="bg-[#f5f3ee] text-[12px] font-semibold text-[#666d63]"><tr><TableHead>プラン</TableHead><TableHead>実施回数</TableHead><TableHead>延べ参加</TableHead><TableHead>平均参加</TableHead><TableHead>キャンセル率</TableHead><TableHead>平均予定時間</TableHead><TableHead>平均実施時間</TableHead><TableHead>予定変更率</TableHead><TableHead>よく追加</TableHead><TableHead>最終実施日</TableHead></tr></thead><tbody className="divide-y divide-[#ece5db]">{report.plans.map((plan) => <PlanRow key={`${plan.id}-${plan.name}`} plan={plan} />)}</tbody></table></WorkspaceTableContainer> : <WorkspaceEmptyState title="プラン別データがありません" description="この期間・フィルター条件で対象となるレッスンがありません。" />}
-    </WorkspaceSection>
+    <div className="space-y-5">
+      <VisualPanel title="レッスンプランの利用状況" description="実施回数上位5件。予定時間と実施時間の差を比較します。">
+        <PlanUsageVisual plans={report.plans} />
+      </VisualPanel>
+      <WorkspaceSection title="プラン別の実績" description="時間は算出できたレッスンだけを母数にし、件数を併記します。">
+        {report.plans.length ? <WorkspaceTableContainer><table className="w-full min-w-[1180px] border-collapse text-left text-[13px]"><thead className="bg-[#f5f3ee] text-[12px] font-semibold text-[#666d63]"><tr><TableHead>プラン</TableHead><TableHead>実施回数</TableHead><TableHead>延べ参加</TableHead><TableHead>平均参加</TableHead><TableHead>キャンセル率</TableHead><TableHead>平均予定時間</TableHead><TableHead>平均実施時間</TableHead><TableHead>予定変更率</TableHead><TableHead>よく追加</TableHead><TableHead>最終実施日</TableHead></tr></thead><tbody className="divide-y divide-[#ece5db]">{report.plans.map((plan) => <PlanRow key={`${plan.id}-${plan.name}`} plan={plan} />)}</tbody></table></WorkspaceTableContainer> : <WorkspaceEmptyState title="プラン別データがありません" description="この期間・フィルター条件で対象となるレッスンがありません。" />}
+      </WorkspaceSection>
+    </div>
   );
 }
 
@@ -213,13 +271,16 @@ function BlocksView({ report }: { report: ReportData }) {
     { title: "改善メモが多い", rows: report.blocks.improvementHeavy, metric: (row) => `${row.improvementCount}件` },
     { title: "最近使っていない", rows: report.blocks.unused, metric: () => "期間内未使用" },
   ];
-  return <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{lists.map((list) => <BlockRanking key={list.title} {...list} />)}</div>;
+  return <div className="space-y-5"><div className="grid min-w-0 gap-4 lg:grid-cols-2"><VisualPanel title="ブロックの利用・反応" description="利用回数上位と、評価済みの良い反応"><BlockUseReactionVisual report={report} /></VisualPanel><VisualPanel title="スキップ・調整" description="現場適応が多いブロック"><BlockAdaptationVisual report={report} /></VisualPanel></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{lists.map((list) => <BlockRanking key={list.title} {...list} />)}</div></div>;
 }
 
 function ExecutionView({ report }: { report: ReportData }) {
   const execution = report.execution;
   return (
     <div className="space-y-5">
+      <VisualPanel title="予定と実際の構成" description="予定どおり・調整・スキップ・置き換え・追加・未分類を記録値のまま表示">
+        <ExecutionCompositionVisual report={report} />
+      </VisualPanel>
       <ExecutionTotals report={report} />
       <div className="grid gap-4 xl:grid-cols-2"><RankedList title="変更理由" rows={execution.reasons} /><RankedList title="よく変更されるプラン" rows={execution.changedPlans} linkType="plan" /></div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"><RankedList title="よくスキップされる予定項目" rows={execution.skippedItems} /><RankedList title="現場で追加されたライブラリブロック" rows={execution.libraryAdditions} linkType="block" /><RankedList title="即興追加された内容" rows={execution.improvisedItems} /><RankedList title="テンプレート化された即興項目" rows={execution.templatedImprovisedItems} linkType="block" /></div>
@@ -238,6 +299,7 @@ function ClosuresView({ report }: { report: ReportData }) {
         <WorkspaceSummaryCard label="未分類の過去予定" value={`${closures.unclassifiedPastCount}件`} detail={comparisonText(closures.comparisons.unclassifiedPastCount)} tone="purple" href="/lessons?status=record_pending" />
         <WorkspaceSummaryCard label="未来のクローズ" value={`${closures.futureClosedCount}件`} detail="正式な率の分母・分子には含めません" />
       </section>
+      {closures.closedCount > 0 ? <VisualPanel title="開催・クローズ・未分類" description="過去予定の状態"><ClosureCompositionVisual report={report} /></VisualPanel> : null}
       <p className="rounded-lg border border-[#e5ded4] bg-[#faf8f3] px-3 py-2 text-[12px] leading-5 text-[#6d746a]">
         正式なクローズ率 = クローズ件数 ÷（開催件数 + クローズ件数）。未来予定と、実施済みでもクローズ済みでもない過去予定は分母に含めません。クローズ済み予定の参加者statusは保持し、通常の出席集計から予定全体を除外します。
       </p>
@@ -288,6 +350,221 @@ function ExecutionTotals({ report, compact = false }: { report: ReportData; comp
   return <section className={`grid grid-cols-2 gap-3 ${compact ? "lg:grid-cols-3" : "lg:grid-cols-4 2xl:grid-cols-6"}`}>{cards.slice(0, compact ? 6 : cards.length).map(([label, value, tone]) => <WorkspaceSummaryCard key={label} label={label} value={value} detail={label === "平均時間差" ? `算出 ${execution.minuteDifferenceSamples}件` : undefined} tone={tone} />)}</section>;
 }
 
+function VisualPanel({ title, description, children, className = "" }: { title: string; description?: string; children: React.ReactNode; className?: string }) {
+  return (
+    <section className={`min-w-0 rounded-xl border border-[#e6ded3] bg-white/82 p-4 ${className}`}>
+      <div className="mb-4">
+        <h2 className="text-[16px] font-semibold text-[#30372f]">{title}</h2>
+        {description ? <p className="mt-1 text-[12px] leading-5 text-[#70776e]">{description}</p> : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function AttendanceTrendChart({ rows }: { rows: AttendanceBreakdownRow[] }) {
+  if (!rows.length) return <CompactEmptyState label="対象データなし" />;
+  const max = Math.max(...rows.map((row) => row.total), 1);
+  const totals = rows.reduce((result, row) => ({
+    present: result.present + row.present,
+    cancelled: result.cancelled + row.cancelled,
+    noShow: result.noShow + row.noShow,
+  }), { present: 0, cancelled: 0, noShow: 0 });
+
+  return (
+    <figure className="min-w-0">
+      <figcaption className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-medium text-[#677067]">
+        <ChartLegend color="#6f9875" label={`参加 ${totals.present}件`} />
+        <ChartLegend color="#d88a77" label={`キャンセル ${totals.cancelled}件`} />
+        <ChartLegend color="#8578b2" label={`無断欠席 ${totals.noShow}件`} />
+      </figcaption>
+      <div className="max-w-full overflow-x-auto pb-1">
+        <div className="flex h-[184px] min-w-full items-end gap-2" style={{ width: rows.length > 12 ? `${rows.length * 48}px` : "100%" }}>
+          {rows.map((row, index) => {
+            const height = row.total ? Math.max(5, (row.total / max) * 100) : 0;
+            return (
+              <div key={`${row.label}-${index}`} className="flex h-full min-w-[38px] flex-1 flex-col items-center justify-end" title={`${row.label}: 参加${row.present}件、キャンセル${row.cancelled}件、無断欠席${row.noShow}件`}>
+                <span className="mb-1 text-[10px] font-semibold text-[#596159]">{row.total}</span>
+                <div className="flex h-[126px] w-full max-w-[42px] items-end rounded-t bg-[#f0eee8]">
+                  <div className="flex w-full flex-col-reverse overflow-hidden rounded-t" style={{ height: `${height}%` }} role="img" aria-label={`${row.label} 合計${row.total}件`}>
+                    {row.present ? <span className="w-full bg-[#6f9875]" style={{ height: `${(row.present / row.total) * 100}%` }} /> : null}
+                    {row.cancelled ? <span className="w-full bg-[#d88a77]" style={{ height: `${(row.cancelled / row.total) * 100}%` }} /> : null}
+                    {row.noShow ? <span className="w-full bg-[#8578b2]" style={{ height: `${(row.noShow / row.total) * 100}%` }} /> : null}
+                  </div>
+                </div>
+                <span className="mt-1.5 max-w-[58px] truncate text-[10px] font-medium text-[#6d756c]">{row.label}</span>
+                <span className="text-[9px] tabular-nums text-[#858b83]">{row.present}/{row.cancelled}/{row.noShow}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </figure>
+  );
+}
+
+function StudentCompositionVisual({ report }: { report: ReportData }) {
+  const all = report.students.all;
+  const participants = report.students.participants;
+  if (!all.total && !participants.total) return <CompactEmptyState label="対象データなし" />;
+
+  return (
+    <div className="grid min-w-0 gap-5 md:grid-cols-2">
+      <RatioComparisonGroup title="年代構成" allRows={all.ageRows} participantRows={participants.ageRows} />
+      <RatioComparisonGroup title="性別構成" allRows={all.genderRows} participantRows={participants.genderRows} />
+    </div>
+  );
+}
+
+function RatioComparisonGroup({ title, allRows, participantRows }: { title: string; allRows: RatioRow[]; participantRows: RatioRow[] }) {
+  const labels = Array.from(new Set([...allRows.map((row) => row.label), ...participantRows.map((row) => row.label)]));
+  if (!labels.length) return <CompactEmptyState label={`${title}データなし`} />;
+
+  return (
+    <div className="min-w-0">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-[13px] font-semibold text-[#465047]">{title}</h3>
+        <div className="flex gap-3 text-[10px] text-[#737a70]"><ChartLegend color="#6f9875" label="登録" /><ChartLegend color="#8578b2" label="期間参加" /></div>
+      </div>
+      <div className="max-h-[220px] space-y-2 overflow-y-auto pr-1">
+        {labels.map((label) => {
+          const registered = allRows.find((row) => row.label === label) ?? { count: 0, percent: 0 };
+          const participated = participantRows.find((row) => row.label === label) ?? { count: 0, percent: 0 };
+          return (
+            <div key={label} className="min-w-0" title={`${label}: 登録${registered.count}名（${registered.percent}%）、期間参加${participated.count}名（${participated.percent}%）`}>
+              <div className="flex items-center justify-between gap-2 text-[11px]">
+                <span className="truncate font-medium text-[#515a51]">{label}</span>
+                <span className="shrink-0 tabular-nums text-[#737a70]">登録 {registered.count}名 / 参加 {participated.count}名</span>
+              </div>
+              <div className="mt-1 grid gap-1">
+                <RatioBar percent={registered.percent} color="#6f9875" label={`登録 ${registered.percent}%`} />
+                <RatioBar percent={participated.percent} color="#8578b2" label={`期間参加 ${participated.percent}%`} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function PlanUsageVisual({ plans }: { plans: PlanReportRow[] }) {
+  const rows = plans.slice(0, 5);
+  if (!rows.length) return <CompactEmptyState label="対象データなし" />;
+  const maxLessons = Math.max(...rows.map((plan) => plan.lessonCount), 1);
+  const maxMinutes = Math.max(...rows.flatMap((plan) => [plan.averagePlannedMinutes ?? 0, plan.averageActualMinutes ?? 0]), 1);
+
+  return (
+    <ol className="min-w-0 divide-y divide-[#ece5db]">
+      {rows.map((plan) => (
+        <li key={`${plan.id}-${plan.name}`} className="grid min-w-0 gap-2 py-2.5 md:grid-cols-[minmax(170px,0.8fr)_minmax(0,1.2fr)] md:items-center md:gap-5">
+          <div className="min-w-0">
+            {plan.id ? <Link href={`/lessons/${plan.id}`} className="block truncate text-[12px] font-semibold text-[#3f7048] hover:underline">{plan.name}</Link> : <p className="truncate text-[12px] font-semibold text-[#465047]">{plan.name}</p>}
+            <div className="mt-1 flex items-center gap-2 text-[10px] text-[#737a70]"><span>{plan.lessonCount}回</span><span>延べ{plan.participants}名</span></div>
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[#eceae4]" title={`実施 ${plan.lessonCount}回`}><span className="block h-full rounded-full bg-[#6f9875]" style={{ width: `${(plan.lessonCount / maxLessons) * 100}%` }} /></div>
+          </div>
+          <div className="grid min-w-0 gap-1.5">
+            <DurationComparisonBar label="予定" value={plan.averagePlannedMinutes} sample={plan.plannedMinutesSample} max={maxMinutes} color="#b39262" />
+            <DurationComparisonBar label="実施" value={plan.averageActualMinutes} sample={plan.actualMinutesSample} max={maxMinutes} color="#8578b2" />
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function DurationComparisonBar({ label, value, sample, max, color }: { label: string; value: number | null; sample: number; max: number; color: string }) {
+  return (
+    <div className="grid min-w-0 grid-cols-[28px_minmax(0,1fr)_82px] items-center gap-2 text-[10px]" title={`${label}: ${value == null ? "データ不足" : `平均${value}分（${sample}件）`}`}>
+      <span className="font-medium text-[#6c746b]">{label}</span>
+      <span className="h-1.5 overflow-hidden rounded-full bg-[#eceae4]">{value == null ? null : <span className="block h-full rounded-full" style={{ width: `${(value / max) * 100}%`, backgroundColor: color }} />}</span>
+      <span className="whitespace-nowrap text-right tabular-nums text-[#646c63]">{value == null ? "データ不足" : `${value}分・${sample}件`}</span>
+    </div>
+  );
+}
+
+function BlockUseReactionVisual({ report }: { report: ReportData }) {
+  return (
+    <div className="grid min-w-0 gap-5 sm:grid-cols-2">
+      <BlockBarList title="よく使うブロック" rows={report.blocks.mostUsed.slice(0, 5)} value={(row) => row.usedCount} maxValue={Math.max(...report.blocks.mostUsed.slice(0, 5).map((row) => row.usedCount), 1)} valueLabel={(row) => `${row.usedCount}回`} color="#6f9875" />
+      <BlockBarList title="良い反応が多いブロック" rows={report.blocks.goodReaction.slice(0, 5)} value={(row) => row.goodRate ?? 0} maxValue={100} valueLabel={(row) => `${row.goodRate ?? 0}%・評価${row.evaluatedCount}件`} color="#8578b2" emptyLabel="評価済みデータなし" />
+    </div>
+  );
+}
+
+function BlockAdaptationVisual({ report }: { report: ReportData }) {
+  const rowsById = new Map<string, BlockReportRow>();
+  for (const row of [...report.blocks.mostSkipped, ...report.blocks.mostAdjusted]) rowsById.set(row.id, row);
+  const rows = Array.from(rowsById.values()).sort((a, b) => (b.skippedCount + b.adjustedCount) - (a.skippedCount + a.adjustedCount) || a.name.localeCompare(b.name, "ja")).slice(0, 5);
+  if (!rows.length) return <CompactEmptyState label="対象データなし" />;
+  const max = Math.max(...rows.flatMap((row) => [row.skippedCount, row.adjustedCount]), 1);
+
+  return (
+    <ol className="min-w-0 space-y-2.5">
+      {rows.map((row) => (
+        <li key={row.id} className="min-w-0" title={`${row.name}: スキップ${row.skippedCount}回、調整${row.adjustedCount}回`}>
+          <div className="flex items-center justify-between gap-2 text-[11px]"><Link href={`/blocks/${row.id}`} className="truncate font-semibold text-[#465047] hover:text-[#4f8058] hover:underline">{row.name}</Link><span className="shrink-0 tabular-nums text-[#737a70]">スキップ {row.skippedCount} / 調整 {row.adjustedCount}</span></div>
+          <div className="mt-1 grid gap-1"><RatioBar percent={(row.skippedCount / max) * 100} color="#d88a77" label={`スキップ ${row.skippedCount}回`} /><RatioBar percent={(row.adjustedCount / max) * 100} color="#8578b2" label={`調整 ${row.adjustedCount}回`} /></div>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function BlockBarList({ title, rows, value, maxValue, valueLabel, color, emptyLabel = "対象データなし" }: { title: string; rows: BlockReportRow[]; value: (row: BlockReportRow) => number; maxValue: number; valueLabel: (row: BlockReportRow) => string; color: string; emptyLabel?: string }) {
+  return (
+    <div className="min-w-0">
+      <h3 className="mb-2 text-[12px] font-semibold text-[#596159]">{title}</h3>
+      {rows.length ? <ol className="space-y-2.5">{rows.map((row) => <li key={row.id} className="min-w-0" title={`${row.name}: ${valueLabel(row)}`}><div className="flex items-center justify-between gap-2 text-[11px]"><Link href={`/blocks/${row.id}`} className="truncate font-medium text-[#4f584f] hover:text-[#4f8058] hover:underline">{row.name}</Link><span className="shrink-0 tabular-nums text-[#737a70]">{valueLabel(row)}</span></div><div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[#eceae4]"><span className="block h-full rounded-full" style={{ width: `${(value(row) / maxValue) * 100}%`, backgroundColor: color }} /></div></li>)}</ol> : <CompactEmptyState label={emptyLabel} />}
+    </div>
+  );
+}
+
+function ExecutionCompositionVisual({ report }: { report: ReportData }) {
+  const segments = executionSegments(report);
+  const total = segments.reduce((sum, segment) => sum + segment.value, 0);
+  return <SegmentedMetricBar segments={segments} totalLabel={`差分記録 ${total}件`} emptyLabel="対象データなし" />;
+}
+
+function ClosureCompositionVisual({ report }: { report: ReportData }) {
+  const closures = report.closures;
+  const segments: MetricSegment[] = [
+    { label: "開催", value: closures.heldCount, color: "#6f9875" },
+    { label: "クローズ", value: closures.closedCount, color: "#d88a77" },
+    { label: "未分類の過去予定", value: closures.unclassifiedPastCount, color: "#8578b2" },
+  ];
+  return <SegmentedMetricBar segments={segments} totalLabel={`過去予定 ${segments.reduce((sum, segment) => sum + segment.value, 0)}件`} emptyLabel="対象データなし" />;
+}
+
+function attendanceSegments(report: ReportData): MetricSegment[] {
+  return [
+    { label: "参加", value: report.attendance.present, color: "#6f9875" },
+    { label: "キャンセル", value: report.attendance.cancelled, color: "#d88a77" },
+    { label: "無断欠席", value: report.attendance.noShow, color: "#8578b2" },
+  ];
+}
+
+function executionSegments(report: ReportData): MetricSegment[] {
+  const execution = report.execution;
+  return [
+    { label: "予定どおり", value: execution.asPlanned, color: "#6f9875" },
+    { label: "調整", value: execution.adjusted, color: "#8578b2" },
+    { label: "スキップ", value: execution.skipped, color: "#d88a77" },
+    { label: "置き換え", value: execution.replaced, color: "#b39262" },
+    { label: "ライブラリ追加", value: execution.libraryAdded, color: "#7696a3" },
+    { label: "即興追加", value: execution.improvisedAdded, color: "#ce9b5c" },
+    { label: "旧形式／未分類", value: execution.legacyUnclassified, color: "#9b9d98" },
+  ];
+}
+
+function RatioBar({ percent, color, label }: { percent: number; color: string; label: string }) {
+  return <span className="block h-1.5 overflow-hidden rounded-full bg-[#eceae4]" title={label} aria-label={label}><span className="block h-full rounded-full" style={{ width: `${Math.max(0, Math.min(percent, 100))}%`, backgroundColor: color }} /></span>;
+}
+
+function ChartLegend({ color, label }: { color: string; label: string }) {
+  return <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: color }} aria-hidden="true" />{label}</span>;
+}
+
 function AttributePanel({ title, description, total, genderRows, ageRows, extra }: { title: string; description: string; total: number; genderRows: RatioRow[]; ageRows: RatioRow[]; extra?: string }) {
   return <section className="rounded-xl border border-[#e6ded3] bg-white/82 p-4"><div className="flex items-start justify-between gap-3"><div><h2 className="text-[17px] font-semibold">{title}</h2><p className="mt-1 text-[13px] leading-5 text-[#70776e]">{description}</p></div><WorkspaceStatus tone="green">{total}名</WorkspaceStatus></div>{extra ? <p className="mt-3 rounded-lg bg-[#f7f5f0] px-3 py-2 text-[13px] text-[#5f675d]">{extra}</p> : null}<div className="mt-4 grid gap-5 md:grid-cols-2"><RatioTable title="性別" rows={genderRows} /><RatioTable title="年代" rows={ageRows} /></div></section>;
 }
@@ -306,12 +583,6 @@ function BlockRanking({ title, rows, metric }: { title: string; rows: BlockRepor
 
 function RankedList({ title, rows, linkType }: { title: string; rows: RankedTextRow[]; linkType?: "plan" | "block" }) {
   return <section className="rounded-xl border border-[#e6ded3] bg-white/82 p-4"><h2 className="text-[16px] font-semibold">{title}</h2>{rows.length ? <ol className="mt-3 divide-y divide-[#ece5db]">{rows.slice(0, 10).map((row, index) => <li key={`${title}-${row.label}`} className="flex items-center gap-3 py-2.5"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#f0edf8] text-[12px] font-semibold text-[#7568a7]">{index + 1}</span><div className="min-w-0 flex-1">{row.id && linkType ? <Link href={linkType === "plan" ? `/lessons/${row.id}` : `/blocks/${row.id}`} className="block truncate text-[13px] font-semibold hover:text-[#4f8058] hover:underline">{row.label}</Link> : <p className="truncate text-[13px] font-semibold">{row.label}</p>}{row.detail ? <p className="text-[11px] text-[#777e74]">{row.detail}</p> : null}</div><span className="text-[13px] font-semibold text-[#5f675d]">{row.count}件</span></li>)}</ol> : <p className="mt-4 text-[13px] text-[#777e74]">対象データなし</p>}</section>;
-}
-
-function SimpleBarChart({ rows }: { rows: AttendanceBreakdownRow[] }) {
-  if (!rows.length) return <WorkspaceEmptyState title="推移データがありません" description="期間内の参加・キャンセル記録がありません。" />;
-  const max = Math.max(...rows.map((row) => row.total), 1);
-  return <div className="rounded-xl border border-[#e6ded3] bg-white/82 p-4"><div className="flex h-[180px] items-end gap-2 overflow-x-auto pb-1">{rows.map((row) => <div key={row.label} className="flex min-w-[42px] flex-1 flex-col items-center justify-end gap-2"><span className="text-[11px] font-semibold text-[#4f8058]">{row.present}</span><div className="flex h-[130px] w-full max-w-[52px] items-end overflow-hidden rounded-t bg-[#f0eee8]"><div className="w-full bg-[#83a985]" style={{ height: `${Math.max(3, (row.present / max) * 100)}%` }} title={`${row.label}: 参加${row.present}件`} /></div><span className="whitespace-nowrap text-[11px] text-[#737a70]">{row.label}</span></div>)}</div></div>;
 }
 
 function BreakdownTable({ rows, firstHeader }: { rows: AttendanceBreakdownRow[]; firstHeader: string }) {

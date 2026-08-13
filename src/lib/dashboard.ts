@@ -320,7 +320,7 @@ async function fetchDashboardData(now: Date, calendarFrame: CalendarFrame): Prom
   const insights = buildInsights(report, generatedTopics, knowledge.length);
 
   return {
-    greeting: greeting(now),
+    greeting: "今日の予定と準備",
     todayLabel: formatJapaneseDate(now),
     calendar: buildCalendar(calendarFrame, calendarSchedules, recordedScheduleIds, now),
     brief,
@@ -794,13 +794,6 @@ function formatCalendarDateLabel(dateKey: string) {
   return new Intl.DateTimeFormat("ja-JP", { month: "long", day: "numeric", weekday: "short", timeZone: "Asia/Tokyo" }).format(new Date(`${dateKey}T00:00:00+09:00`));
 }
 
-function greeting(now: Date): string {
-  const hour = Number(new Intl.DateTimeFormat("ja-JP", { hour: "2-digit", hour12: false, timeZone: "Asia/Tokyo" }).format(now));
-  if (hour < 11) return "おはようございます";
-  if (hour < 17) return "こんにちは";
-  return "こんばんは";
-}
-
 function formatDateTime(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "日時不明";
@@ -829,7 +822,7 @@ function firstRelation<T>(value: T | T[] | null | undefined): T | null {
 
 function emptyDashboard(now: Date, calendarFrame: CalendarFrame, error: string): DashboardData {
   return {
-    greeting: greeting(now),
+    greeting: "今日の予定と準備",
     todayLabel: formatJapaneseDate(now),
     calendar: buildCalendar(calendarFrame, [], new Set<string>(), now),
     brief: { nextLesson: null, pendingFollowups: [], unrecordedLessons: [], pendingFollowupCount: 0, unrecordedCount: 0 },

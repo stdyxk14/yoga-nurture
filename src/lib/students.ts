@@ -59,6 +59,25 @@ export type StudentWorkspaceSummary = {
   nextScheduledStudents: number;
 };
 
+export type StudentPortfolioSegment = {
+  key: string;
+  label: string;
+  count: number;
+  percent: number;
+};
+
+export type StudentPortfolio = {
+  activeStudents: number;
+  activity: StudentPortfolioSegment[];
+  attendance: StudentPortfolioSegment[];
+  safety: {
+    followUp: number;
+    caution: number;
+    both: number;
+    neither: number;
+  };
+};
+
 type RawRecordStudent = {
   id: string;
   student_id: string;
@@ -179,6 +198,7 @@ export async function getStudentWorkspace({
         recentStudents: activeRows.filter((student) => isWithinDays(student.lastAttendedAt, nowTime, 30)).length,
         nextScheduledStudents: activeRows.filter((student) => Boolean(student.nextScheduledAt)).length,
       };
+      const portfolio = calculateStudentPortfolio(activeRows, nowTime);
 
       const q = search.trim().toLowerCase();
       const students = allRows
@@ -186,7 +206,7 @@ export async function getStudentWorkspace({
         .filter((student) => !q || [student.name, student.kana, student.ageGroup, student.gender, student.experience, student.caution, student.memo].join(" ").toLowerCase().includes(q));
       const selected = students.find((student) => student.id === selectedId) ?? students[0] ?? null;
 
-      return { students, selected, summary, resultCount: students.length, filter };
+      return { students, selected, summary, portfolio, resultCount: students.length, filter };
     },
     (result) => result.students.length,
   );
@@ -257,6 +277,56 @@ export function matchesStudentFilter(student: Pick<StudentWorkspaceRow, "archive
   return true;
 }
 
+export function calculateStudentPortfolio(
+  students: Array<Pick<StudentWorkspaceRow, "archived" | "pendingFollowUpCount" | "caution" | "attendedCount" | "lastAttendedAt" | "nextScheduledAt">>,
+  nowTime = Date.now(),
+): StudentPortfolio {
+  const activeStudents = students.filter((student) => !student.archived);
+  const activityCounts = { scheduled: 0, recent: 0, returning: 0, none: 0 };
+  const attendanceCounts = { none: 0, early: 0, regular: 0, established: 0 };
+  let followUp = 0;
+  let caution = 0;
+  let both = 0;
+  let neither = 0;
+
+  for (const student of activeStudents) {
+    if (student.nextScheduledAt) activityCounts.scheduled += 1;
+    else if (isWithinDays(student.lastAttendedAt, nowTime, 30)) activityCounts.recent += 1;
+    else if (student.attendedCount > 0) activityCounts.returning += 1;
+    else activityCounts.none += 1;
+
+    if (student.attendedCount === 0) attendanceCounts.none += 1;
+    else if (student.attendedCount <= 2) attendanceCounts.early += 1;
+    else if (student.attendedCount <= 5) attendanceCounts.regular += 1;
+    else attendanceCounts.established += 1;
+
+    const hasFollowUp = student.pendingFollowUpCount > 0;
+    const hasCaution = Boolean(student.caution.trim());
+    if (hasFollowUp) followUp += 1;
+    if (hasCaution) caution += 1;
+    if (hasFollowUp && hasCaution) both += 1;
+    if (!hasFollowUp && !hasCaution) neither += 1;
+  }
+
+  const total = activeStudents.length;
+  return {
+    activeStudents: total,
+    activity: [
+      portfolioSegment("scheduled", "次回予定あり", activityCounts.scheduled, total),
+      portfolioSegment("recent", "30日以内に受講", activityCounts.recent, total),
+      portfolioSegment("returning", "31日以上空いている", activityCounts.returning, total),
+      portfolioSegment("none", "受講なし", activityCounts.none, total),
+    ],
+    attendance: [
+      portfolioSegment("none", "0回", attendanceCounts.none, total),
+      portfolioSegment("early", "1〜2回", attendanceCounts.early, total),
+      portfolioSegment("regular", "3〜5回", attendanceCounts.regular, total),
+      portfolioSegment("established", "6回以上", attendanceCounts.established, total),
+    ],
+    safety: { followUp, caution, both, neither },
+  };
+}
+
 export function normalizeStudentFilter(value?: string | null): StudentFilterKey {
   return value === "recent" || value === "followup" || value === "caution" || value === "scheduled" || value === "no-attendance" || value === "archived" ? value : "all";
 }
@@ -265,6 +335,10 @@ function isWithinDays(value: string | null, nowTime: number, days: number) {
   if (!value) return false;
   const timestamp = Date.parse(value);
   return Number.isFinite(timestamp) && timestamp <= nowTime && timestamp >= nowTime - days * 86_400_000;
+}
+
+function portfolioSegment(key: string, label: string, count: number, total: number): StudentPortfolioSegment {
+  return { key, label, count, percent: total ? Math.round((count / total) * 100) : 0 };
 }
 
 function groupBy<T>(rows: T[], key: (row: T) => string) {

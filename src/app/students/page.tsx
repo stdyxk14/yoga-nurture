@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Edit3, Plus, Search } from "lucide-react";
 import { restoreStudentAction } from "@/app/students/actions";
 import { Input } from "@/components/ui/input";
+import { CompactEmptyState, SegmentedMetricBar, type MetricSegment } from "@/components/yoga/data-visuals";
 import { StudentWorkspaceList } from "@/components/yoga/student-workspace-list";
 import {
   WorkspaceAction,
@@ -11,7 +12,7 @@ import {
   WorkspaceSummaryCard,
   WorkspaceToolbar,
 } from "@/components/yoga/workspace-kit";
-import { getStudentWorkspace, normalizeStudentFilter, type StudentFilterKey, type StudentWorkspaceRow } from "@/lib/students";
+import { getStudentWorkspace, normalizeStudentFilter, type StudentFilterKey, type StudentPortfolio, type StudentWorkspaceRow } from "@/lib/students";
 
 type StudentSearchParams = { q?: string; filter?: string; selected?: string; error?: string };
 
@@ -50,6 +51,8 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
         <WorkspaceSummaryCard label="30日以内に受講" value={`${workspace.summary.recentStudents}名`} detail="実参加のdistinct生徒" tone="green" href="/students?filter=recent" active={filter === "recent"} />
         <WorkspaceSummaryCard label="次回予定あり" value={`${workspace.summary.nextScheduledStudents}名`} detail="未来予定に参加登録あり" tone="sand" href="/students?filter=scheduled" active={filter === "scheduled"} />
       </section>
+
+      <StudentPortfolioOverview portfolio={workspace.portfolio} />
 
       {params.error ? <div className="rounded-xl border border-[#f0d0ca] bg-[#fff1ed] px-4 py-3 text-[13px] font-medium text-[#a65348]">{params.error}</div> : null}
 
@@ -93,6 +96,106 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
           action={<WorkspaceAction href="/students/new" icon={Plus} primary>生徒を登録</WorkspaceAction>}
         />
       )}
+    </div>
+  );
+}
+
+function StudentPortfolioOverview({ portfolio }: { portfolio: StudentPortfolio }) {
+  const activityColors = ["#5d8f68", "#83a985", "#b39262", "#a7aaa3"];
+  const attendanceColors = ["#c2c5bf", "#9bb69a", "#6f9875", "#4f795a"];
+  const activity = portfolio.activity.map((item, index): MetricSegment => ({
+    label: item.label,
+    value: item.count,
+    color: activityColors[index],
+    description: item.key === "scheduled"
+      ? "未来の参加予定がある生徒"
+      : item.key === "recent"
+        ? "次回予定はなく、直近30日以内に受講した生徒"
+        : item.key === "returning"
+          ? "過去に受講があり、31日以上空いている生徒"
+          : "受講記録も次回予定もない生徒",
+  }));
+  const attendance = portfolio.attendance.map((item, index): MetricSegment => ({
+    label: item.label,
+    value: item.count,
+    color: attendanceColors[index],
+    description: `過去受講回数 ${item.label}`,
+  }));
+
+  return (
+    <section aria-labelledby="student-portfolio-title" className="min-w-0 space-y-3">
+      <div>
+        <h2 id="student-portfolio-title" className="text-[17px] font-semibold text-[#30372f]">生徒の状況</h2>
+        <p className="mt-0.5 text-[13px] leading-5 text-[#70776e]">アクティブな登録生徒 {portfolio.activeStudents}名を、現在の動き・受講回数・フォロー観点で整理しています。</p>
+      </div>
+      <div className="grid min-w-0 auto-rows-fr gap-4 lg:grid-cols-2 min-[1360px]:grid-cols-3">
+        <PortfolioPanel title="現在の活動状況" description="次回予定を最優先に、重複なしで分類">
+          <SegmentedMetricBar segments={activity} totalLabel={`分類合計 ${portfolio.activeStudents}名`} emptyLabel="登録生徒なし" unit="名" />
+        </PortfolioPanel>
+
+        <PortfolioPanel title="過去受講回数の分布" description="実参加として記録された回数">
+          <SegmentedMetricBar segments={attendance} totalLabel={`分類合計 ${portfolio.activeStudents}名`} emptyLabel="登録生徒なし" unit="名" />
+        </PortfolioPanel>
+
+        <PortfolioPanel title="フォロー・安全面" description="要フォローと注意点ありは重複します">
+          <StudentSafetyOverview portfolio={portfolio} />
+        </PortfolioPanel>
+      </div>
+    </section>
+  );
+}
+
+function PortfolioPanel({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
+  return (
+    <article className="flex h-full min-w-0 flex-col rounded-xl border border-[#e6ded3] bg-white/82 p-4">
+      <div className="mb-4">
+        <h3 className="text-[15px] font-semibold text-[#384338]">{title}</h3>
+        <p className="mt-1 text-[12px] leading-5 text-[#747b72]">{description}</p>
+      </div>
+      <div className="mt-auto min-w-0">{children}</div>
+    </article>
+  );
+}
+
+function StudentSafetyOverview({ portfolio }: { portfolio: StudentPortfolio }) {
+  const total = portfolio.activeStudents;
+  if (!total) return <CompactEmptyState label="登録生徒なし" />;
+
+  const metrics = [
+    { label: "要フォロー", value: portfolio.safety.followUp, href: "/students?filter=followup", color: "#bd5d50" },
+    { label: "注意点あり", value: portfolio.safety.caution, href: "/students?filter=caution", color: "#7568a7" },
+  ];
+
+  return (
+    <div className="min-w-0 space-y-3">
+      {metrics.map((metric) => {
+        const percent = Math.round((metric.value / total) * 100);
+        return (
+          <Link key={metric.label} href={metric.href} className="block rounded-lg px-1 py-1 hover:bg-[#f6f7f2]" title={`${metric.label}: ${metric.value}名（${percent}%）`}>
+            <div className="flex items-center justify-between gap-3 text-[12px]">
+              <span className="font-semibold text-[#4a534a]">{metric.label}</span>
+              <span className="shrink-0 font-semibold text-[#5d655c]">{metric.value}名・{percent}%</span>
+            </div>
+            <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-[#eceae4]">
+              <span className="block h-full rounded-full" style={{ width: `${percent}%`, backgroundColor: metric.color }} />
+            </div>
+          </Link>
+        );
+      })}
+      <div className="grid grid-cols-2 gap-2 border-t border-[#ece5db] pt-3">
+        <SafetyCount label="両方該当" value={portfolio.safety.both} total={total} />
+        <SafetyCount label="どちらもなし" value={portfolio.safety.neither} total={total} />
+      </div>
+    </div>
+  );
+}
+
+function SafetyCount({ label, value, total }: { label: string; value: number; total: number }) {
+  const percent = Math.round((value / total) * 100);
+  return (
+    <div className="rounded-lg bg-[#f7f5f0] px-3 py-2" title={`${label}: ${value}名（${percent}%）`}>
+      <p className="text-[11px] font-medium text-[#70776e]">{label}</p>
+      <p className="mt-0.5 text-[16px] font-semibold text-[#465047]">{value}名 <span className="text-[11px] font-medium text-[#777e74]">{percent}%</span></p>
     </div>
   );
 }

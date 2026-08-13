@@ -2,8 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { calculateGoodRate } from "../src/lib/blocks";
 import { summarizeLessonRecordDiff } from "../src/lib/lesson-records";
-import { calculateClosureMetrics, calculatePlannedChangeRate, resolveReportPeriod } from "../src/lib/reports";
-import { getStudentPayload, matchesStudentFilter } from "../src/lib/students";
+import { calculateClosureMetrics, calculatePlannedChangeRate, normalizeReportView, resolveReportPeriod } from "../src/lib/reports";
+import { calculateStudentPortfolio, getStudentPayload, matchesStudentFilter } from "../src/lib/students";
+
+test("reports default to overview while preserving the explicit AI review view", () => {
+  assert.equal(normalizeReportView(), "overview");
+  assert.equal(normalizeReportView("unknown"), "overview");
+  assert.equal(normalizeReportView("ai_review"), "ai_review");
+});
 
 test("custom report periods use inclusive Tokyo dates and an equally long previous period", () => {
   const result = resolveReportPeriod({
@@ -114,6 +120,24 @@ test("student filters distinguish follow-up, caution, recent, no-attendance and 
   assert.equal(matchesStudentFilter({ ...base, attendedCount: 0, lastAttendedAt: null }, "no-attendance", now), true);
   assert.equal(matchesStudentFilter({ ...base, archived: true }, "all", now), false);
   assert.equal(matchesStudentFilter({ ...base, archived: true }, "archived", now), true);
+});
+
+test("student portfolio activity buckets are exclusive and cover every active student", () => {
+  const now = Date.parse("2026-08-13T12:00:00+09:00");
+  const students = [
+    { archived: false, pendingFollowUpCount: 1, caution: "膝に注意", attendedCount: 6, lastAttendedAt: "2026-08-10T10:00:00+09:00", nextScheduledAt: "2026-08-20T10:00:00+09:00" },
+    { archived: false, pendingFollowUpCount: 1, caution: "", attendedCount: 2, lastAttendedAt: "2026-08-01T10:00:00+09:00", nextScheduledAt: null },
+    { archived: false, pendingFollowUpCount: 0, caution: "腰に注意", attendedCount: 4, lastAttendedAt: "2026-06-01T10:00:00+09:00", nextScheduledAt: null },
+    { archived: false, pendingFollowUpCount: 0, caution: "", attendedCount: 0, lastAttendedAt: null, nextScheduledAt: null },
+    { archived: true, pendingFollowUpCount: 1, caution: "", attendedCount: 1, lastAttendedAt: "2026-08-12T10:00:00+09:00", nextScheduledAt: null },
+  ];
+
+  const portfolio = calculateStudentPortfolio(students, now);
+  assert.equal(portfolio.activeStudents, 4);
+  assert.deepEqual(portfolio.activity.map((item) => item.count), [1, 1, 1, 1]);
+  assert.equal(portfolio.activity.reduce((sum, item) => sum + item.count, 0), portfolio.activeStudents);
+  assert.deepEqual(portfolio.attendance.map((item) => item.count), [1, 1, 1, 1]);
+  assert.deepEqual(portfolio.safety, { followUp: 2, caution: 2, both: 1, neither: 1 });
 });
 
 test("new students default to unknown age instead of a fabricated age band", () => {
