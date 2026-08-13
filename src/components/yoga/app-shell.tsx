@@ -39,7 +39,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="yn-app min-h-screen max-w-full overflow-x-hidden bg-[var(--yoga-bg)] text-[#20231e]">
+    <div className="yn-app min-h-screen max-w-full overflow-x-clip bg-[var(--yoga-bg)] text-[#20231e]">
       <MobileTopBar title={current?.label ?? "YOGA NURTURE"} onMenuClick={() => setMobileMenuOpen(true)} />
       <MobileMenu open={mobileMenuOpen} pathname={pathname} onClose={() => setMobileMenuOpen(false)} />
       <div
@@ -54,7 +54,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <main
           className={cn(
-            "min-w-0 max-w-full overflow-x-hidden pb-28 pt-3 print:px-0 print:py-0 md:pb-4",
+            "min-w-0 max-w-full overflow-x-clip pb-28 pt-3 print:px-0 print:py-0 md:pb-4",
             isProtectedScriptRoute
               ? "px-3 md:px-3 md:py-3 xl:px-4"
               : "px-3 md:px-4 md:py-4 xl:px-5 min-[1400px]:px-6",

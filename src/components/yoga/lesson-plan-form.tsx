@@ -579,23 +579,34 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, in
         </SoftCard>
 
         <SoftCard
-          className="hidden p-3 min-[960px]:sticky min-[960px]:top-4 min-[960px]:col-span-1 min-[960px]:block min-[960px]:max-h-[calc(100dvh-2rem)] min-[960px]:self-start min-[960px]:overflow-y-auto xl:p-4"
+          className="hidden gap-0 overflow-hidden p-0 min-[960px]:sticky min-[960px]:top-4 min-[960px]:col-span-1 min-[960px]:flex min-[960px]:h-[calc(100dvh-2rem)] min-[960px]:self-start min-[960px]:flex-col"
           onDragOver={(event) => event.preventDefault()}
           onDrop={(event) => handleDrop(event)}
         >
-          <SectionTitle icon={Clock} title="作成中のプラン" subtitle={`${totalMinutes}分 / ${selectedBlocks.length}ブロック`} />
-          <SelectedPlanItems
-            selectedBlocks={selectedBlocks}
-            moveBlock={moveBlock}
-            removeBlock={removeBlock}
-            onPreview={setPreviewBlock}
-            onDrop={handleDrop}
-          />
-          <button type="submit" disabled={pending} className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#5d956d] text-[13px] font-bold text-white shadow-[0_8px_18px_rgba(64,113,77,0.18)] disabled:opacity-60">
-            <Save className="h-4 w-4" />
-            {pending ? "保存中..." : mode === "new" ? "プランを保存" : "変更を保存"}
-          </button>
-          {deleteAction ? <DeleteLessonPlanButton action={deleteAction} /> : null}
+          <div className="shrink-0 border-b border-[#eee4d8] p-3 [&>div]:mb-0 xl:p-4">
+            <SectionTitle icon={Clock} title="作成中のプラン" subtitle={`${totalMinutes}分 / ${selectedBlocks.length}ブロック`} />
+          </div>
+          <div
+            role="region"
+            aria-label="作成中のブロック一覧"
+            tabIndex={0}
+            className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#6f9a76] xl:px-4 xl:pb-4"
+          >
+            <SelectedPlanItems
+              selectedBlocks={selectedBlocks}
+              moveBlock={moveBlock}
+              removeBlock={removeBlock}
+              onPreview={setPreviewBlock}
+              onDrop={handleDrop}
+            />
+          </div>
+          <div className="shrink-0 border-t border-[#eee4d8] bg-[#fffdf8] p-3 xl:p-4">
+            <button type="submit" disabled={pending} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#5d956d] text-[13px] font-bold text-white shadow-[0_8px_18px_rgba(64,113,77,0.18)] disabled:opacity-60">
+              <Save className="h-4 w-4" />
+              {pending ? "保存中..." : mode === "new" ? "プランを保存" : "変更を保存"}
+            </button>
+            {deleteAction ? <DeleteLessonPlanButton action={deleteAction} /> : null}
+          </div>
         </SoftCard>
       </div>
 
