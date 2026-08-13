@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CalendarDays } from "lucide-react";
 import { AiTeachingReviewView } from "@/components/yoga/ai-teaching-review-view";
 import { CompactEmptyState, DonutMetric, SegmentedMetricBar, type MetricSegment } from "@/components/yoga/data-visuals";
+import { StudentCompositionVisual } from "@/components/yoga/student-composition-visual";
 import {
   WorkspaceEmptyState,
   WorkspacePageHeader,
@@ -175,8 +176,8 @@ function OverviewView({ report }: { report: ReportData }) {
           <DonutMetric segments={attendanceSegments(report)} totalLabel="出欠合計" emptyLabel="対象データなし" />
         </VisualPanel>
 
-        <VisualPanel title="生徒構成" description="登録生徒と期間内参加生徒の年代・性別を比較" className="order-3 lg:order-4 lg:col-span-2 xl:order-3 xl:col-span-3">
-          <StudentCompositionVisual report={report} />
+        <VisualPanel title="生徒構成" description="表示対象を切り替えて年代・性別を確認" className="order-3 lg:order-4 lg:col-span-2 xl:order-3 xl:col-span-3">
+          <StudentCompositionVisual registered={report.students.all} participants={report.students.participants} />
         </VisualPanel>
 
         <VisualPanel title="予定と実際" description="未分類を推測せず、記録された区分のまま表示" className="order-4 lg:order-3 xl:order-4">
@@ -233,8 +234,8 @@ function AttendanceView({ report }: { report: ReportData }) {
 function StudentsView({ report }: { report: ReportData }) {
   return (
     <div className="space-y-5">
-      <VisualPanel title="登録生徒と参加生徒の構成比較" description="年代・性別を登録生徒と期間内参加生徒のドーナツで比較します。">
-        <StudentCompositionVisual report={report} />
+      <VisualPanel title="登録生徒と参加生徒の構成比較" description="表示対象を切り替えて年代・性別を確認します。">
+        <StudentCompositionVisual registered={report.students.all} participants={report.students.participants} />
       </VisualPanel>
       <div className="grid gap-5 xl:grid-cols-2">
         <AttributePanel title="全登録生徒の属性" description="期間に関係なく、アクティブな登録生徒を母集団にします。" total={report.students.all.total} genderRows={report.students.all.genderRows} ageRows={report.students.all.ageRows} />
@@ -397,84 +398,6 @@ function AttendanceTrendChart({ rows }: { rows: AttendanceBreakdownRow[] }) {
       </div>
     </figure>
   );
-}
-
-function StudentCompositionVisual({ report }: { report: ReportData }) {
-  const all = report.students.all;
-  const participants = report.students.participants;
-
-  return (
-    <div className="grid min-w-0 gap-5 xl:grid-cols-2">
-      <StudentCompositionGroup title="年代構成" allRows={all.ageRows} participantRows={participants.ageRows} />
-      <StudentCompositionGroup title="性別構成" allRows={all.genderRows} participantRows={participants.genderRows} />
-    </div>
-  );
-}
-
-function StudentCompositionGroup({ title, allRows, participantRows }: { title: string; allRows: RatioRow[]; participantRows: RatioRow[] }) {
-  const labels = Array.from(new Set([...allRows.map((row) => row.label), ...participantRows.map((row) => row.label)]));
-  const allByLabel = new Map(allRows.map((row) => [row.label, row]));
-  const participantsByLabel = new Map(participantRows.map((row) => [row.label, row]));
-  const alignedAllRows = labels.map((label) => allByLabel.get(label) ?? { label, count: 0, percent: 0 });
-  const alignedParticipantRows = labels.map((label) => participantsByLabel.get(label) ?? { label, count: 0, percent: 0 });
-
-  return (
-    <section className="min-w-0">
-      <h3 className="mb-3 text-[13px] font-semibold text-[#465047]">{title}</h3>
-      <div className="grid min-w-0 gap-3 md:grid-cols-2">
-        <StudentCompositionDonut scope="登録生徒" rows={alignedAllRows} emptyLabel="登録生徒データなし" />
-        <StudentCompositionDonut scope="期間内参加" rows={alignedParticipantRows} emptyLabel="期間内参加生徒データなし" />
-      </div>
-    </section>
-  );
-}
-
-function StudentCompositionDonut({ scope, rows, emptyLabel }: { scope: string; rows: RatioRow[]; emptyLabel: string }) {
-  return (
-    <div className="min-w-0 rounded-lg border border-[#ece5db] bg-[#faf9f5] p-3">
-      <h4 className="mb-2 text-[12px] font-semibold text-[#596159]">{scope}</h4>
-      <DonutMetric
-        segments={rows.map((row) => ({ label: row.label, value: row.count, color: studentCompositionColor(row.label) }))}
-        totalLabel={scope}
-        emptyLabel={emptyLabel}
-        unit="名"
-        layout="stacked"
-        showUnitInCenter
-      />
-    </div>
-  );
-}
-
-const studentCompositionColors: Record<string, string> = {
-  "年齢不明": "#8a9189",
-  "10代": "#a4b98b",
-  "20前半": "#6f9875",
-  "20半ば": "#5f9182",
-  "20後半": "#548b98",
-  "30前半": "#6887a5",
-  "30半ば": "#7d7fb0",
-  "30後半": "#9279aa",
-  "40前半": "#aa7b9c",
-  "40半ば": "#c17d8d",
-  "40後半": "#cf8875",
-  "50前半": "#d49a68",
-  "50半ば": "#bda364",
-  "50後半": "#9ca567",
-  "60代以上": "#7e9e6d",
-  "女性": "#c17d8d",
-  "男性": "#6887a5",
-  "その他": "#8578b2",
-  "回答しない": "#b39262",
-  "未設定": "#8a9189",
-};
-const studentCompositionFallbackColors = ["#6f9875", "#8578b2", "#d88a77", "#b39262", "#5f8f98", "#9a7e95", "#7d9367"];
-
-function studentCompositionColor(label: string) {
-  const definedColor = studentCompositionColors[label];
-  if (definedColor) return definedColor;
-  let hash = 0;
-  for (const character of label) hash = ((hash * 31) + character.charCodeAt(0)) >>> 0;
-  return studentCompositionFallbackColors[hash % studentCompositionFallbackColors.length];
 }
 
 function PlanUsageVisual({ plans }: { plans: PlanReportRow[] }) {

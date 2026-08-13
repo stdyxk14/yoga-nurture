@@ -61,6 +61,7 @@ export function DonutMetric({
   emptyLabel = "対象データなし",
   unit = "件",
   layout = "inline",
+  legendColumns = 1,
   showUnitInCenter = false,
 }: {
   segments: MetricSegment[];
@@ -68,6 +69,7 @@ export function DonutMetric({
   emptyLabel?: string;
   unit?: string;
   layout?: "inline" | "stacked";
+  legendColumns?: 1 | 2;
   showUnitInCenter?: boolean;
 }) {
   const total = segments.reduce((sum, segment) => sum + segment.value, 0);
@@ -110,7 +112,7 @@ export function DonutMetric({
           <span className="text-[11px] font-medium text-[#737a70]">{totalLabel}</span>
         </div>
       </div>
-      <figcaption className={cn("grid min-w-0 gap-2.5", layout === "stacked" ? "mt-3 w-full grid-cols-2 gap-x-3" : undefined)}>
+      <figcaption className={cn("grid min-w-0 gap-2.5", layout === "stacked" ? "mt-3 w-full grid-cols-2 gap-x-3" : legendColumns === 2 ? "grid-cols-2 gap-x-3" : undefined)}>
         {segments.map((segment) => (
           <SegmentLegendItem key={segment.label} segment={segment} total={total} unit={unit} />
         ))}
