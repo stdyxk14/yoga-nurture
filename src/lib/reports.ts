@@ -1,8 +1,14 @@
 import { requireUserId } from "@/lib/students";
 import { measurePerformance } from "@/lib/performance";
+import {
+  buildLessonCoverage,
+  emptyLessonCoverageReport,
+  type LessonCoverageReport,
+  type LessonCoverageSourceItem,
+} from "@/lib/lesson-coverage";
 
 export type ReportPeriodKey = "week" | "month" | "3months" | "half" | "year" | "custom";
-export type ReportViewKey = "ai_review" | "overview" | "attendance" | "students" | "plans" | "blocks" | "execution" | "closures";
+export type ReportViewKey = "ai_review" | "overview" | "coverage" | "attendance" | "students" | "plans" | "blocks" | "execution" | "closures";
 
 export type ReportQuery = {
   period: ReportPeriodKey;
@@ -12,6 +18,7 @@ export type ReportQuery = {
   plan?: string;
   place?: string;
   now?: Date;
+  includeCoverage?: boolean;
 };
 
 export type ReportPeriod = {
@@ -176,6 +183,7 @@ export type ReportData = {
     unused: BlockReportRow[];
   };
   execution: ExecutionSummary;
+  coverage: LessonCoverageReport;
   closures: ClosureReport;
   hints: string[];
   dataQuality: {
@@ -219,6 +227,10 @@ type RawRecordItem = {
   item_source: ItemSource;
   display_name_snapshot: string | null;
   category_name_snapshot: string | null;
+  subcategory_name_snapshot?: string | null;
+  purpose_snapshot?: string | null;
+  tags_snapshot?: string[] | null;
+  sort_order?: number;
   planned_duration_minutes: number | null;
   done: boolean | null;
   actual_duration_minutes: number | null;
@@ -229,7 +241,14 @@ type RawRecordItem = {
   change_reason_note: string | null;
   actual_content_note: string | null;
   replaces_schedule_plan_item_id: string | null;
-  block?: { id: string; name: string | null; category?: { name: string | null } | null } | null;
+  block?: {
+    id: string;
+    name: string | null;
+    purpose?: string | null;
+    category?: { name: string | null } | null;
+    subcategory?: { name: string | null } | null;
+    block_template_tags?: Array<{ tag?: { name: string | null } | null }>;
+  } | null;
 };
 type RawRecord = {
   id: string;
@@ -241,6 +260,7 @@ type RawRecord = {
     id: string;
     starts_at: string | null;
     ends_at: string | null;
+    status?: string | null;
     place: string | null;
     format: LessonFormat | null;
     lesson_plan_id: string | null;
@@ -303,7 +323,7 @@ export function normalizeReportPeriod(value?: string | null): ReportPeriodKey {
 }
 
 export function normalizeReportView(value?: string | null): ReportViewKey {
-  return value === "ai_review" || value === "overview" || value === "attendance" || value === "students" || value === "plans" || value === "blocks" || value === "execution" || value === "closures" ? value : "overview";
+  return value === "ai_review" || value === "overview" || value === "coverage" || value === "attendance" || value === "students" || value === "plans" || value === "blocks" || value === "execution" || value === "closures" ? value : "overview";
 }
 
 export function resolveReportPeriod({ period, from, to, now = new Date() }: Pick<ReportQuery, "period" | "from" | "to" | "now">): { period: ReportPeriod | null; error?: string } {
@@ -375,6 +395,9 @@ export async function getReportData(query: ReportQuery): Promise<ReportData> {
 
 async function fetchReportData(query: ReportQuery, period: ReportPeriod): Promise<ReportData> {
   const { supabase } = await requireUserId();
+  const recordSelect = query.includeCoverage
+    ? "id,schedule_id,lesson_plan_id,lesson_name,record_date,schedule:schedules(id,starts_at,ends_at,status,place,format,lesson_plan_id,lesson_plan_name_snapshot,lesson_plan_duration_minutes_snapshot,lesson_plan:lesson_plans(id,name,duration_minutes),schedule_closures(id,reason_code,revoked_at)),lesson_record_students(student_id,attendance_status),lesson_record_blocks(id,sort_order,block_template_id,schedule_plan_item_id,item_source,display_name_snapshot,category_name_snapshot,subcategory_name_snapshot,purpose_snapshot,tags_snapshot,planned_duration_minutes,done,actual_duration_minutes,reaction,improvement_memo,change_type,change_reason_codes,change_reason_note,actual_content_note,replaces_schedule_plan_item_id,block:block_templates(id,name,purpose,category:block_categories(name),subcategory:block_subcategories(name),block_template_tags(tag:block_tags(name))))"
+    : "id,schedule_id,lesson_plan_id,lesson_name,record_date,schedule:schedules(id,starts_at,ends_at,place,format,lesson_plan_id,lesson_plan_name_snapshot,lesson_plan_duration_minutes_snapshot,lesson_plan:lesson_plans(id,name,duration_minutes),schedule_closures(id,reason_code,revoked_at)),lesson_record_students(student_id,attendance_status),lesson_record_blocks(id,block_template_id,schedule_plan_item_id,item_source,display_name_snapshot,category_name_snapshot,planned_duration_minutes,done,actual_duration_minutes,reaction,improvement_memo,change_type,change_reason_codes,change_reason_note,actual_content_note,replaces_schedule_plan_item_id,block:block_templates(id,name,category:block_categories(name)))";
   const [studentsResult, schedulesResult, recordsResult, plansResult, blocksResult, optionsResult] = await Promise.all([
     supabase.from("students").select("id,age_group,gender,created_at").eq("archived", false),
     supabase
@@ -385,7 +408,7 @@ async function fetchReportData(query: ReportQuery, period: ReportPeriod): Promis
       .order("starts_at", { ascending: true }),
     supabase
       .from("lesson_records")
-      .select("id,schedule_id,lesson_plan_id,lesson_name,record_date,schedule:schedules(id,starts_at,ends_at,place,format,lesson_plan_id,lesson_plan_name_snapshot,lesson_plan_duration_minutes_snapshot,lesson_plan:lesson_plans(id,name,duration_minutes),schedule_closures(id,reason_code,revoked_at)),lesson_record_students(student_id,attendance_status),lesson_record_blocks(id,block_template_id,schedule_plan_item_id,item_source,display_name_snapshot,category_name_snapshot,planned_duration_minutes,done,actual_duration_minutes,reaction,improvement_memo,change_type,change_reason_codes,change_reason_note,actual_content_note,replaces_schedule_plan_item_id,block:block_templates(id,name,category:block_categories(name)))")
+      .select(recordSelect)
       .gte("record_date", period.previousStartDate)
       .lte("record_date", period.endDate)
       .order("record_date", { ascending: true }),
@@ -421,6 +444,17 @@ async function fetchReportData(query: ReportQuery, period: ReportPeriod): Promis
   const periodStudents = presentStudentIds.map((id) => studentById.get(id)).filter((student): student is RawStudent => Boolean(student));
   const blockRows = buildBlockRows(current.items, blocks);
   const execution = buildExecutionSummary(current);
+  const coverage = query.includeCoverage
+    ? buildLessonCoverage(current.records.map((record) => ({
+      lessonRecordId: record.id,
+      scheduleId: record.schedule_id,
+      lessonName: record.lesson_name,
+      dateIso: recordDateIso(record),
+      scheduleStatus: record.schedule?.status ?? null,
+      closed: hasActiveClosure(record.schedule),
+      items: (record.lesson_record_blocks ?? []).map(toCoverageSourceItem),
+    })))
+    : emptyLessonCoverageReport();
   const planRows = buildPlanRows(current, plans);
   const attendance = buildAttendanceReport(current.attendance, period);
   const closures = buildClosureReport(allSchedules, period, commonFilter, query.now ?? new Date());
@@ -472,6 +506,7 @@ async function fetchReportData(query: ReportQuery, period: ReportPeriod): Promis
       unused: [...blockRows].filter((row) => row.usedCount === 0).sort((a, b) => a.latestDate.localeCompare(b.latestDate)).slice(0, 10),
     },
     execution,
+    coverage,
     closures,
     hints: [],
     dataQuality,
@@ -852,6 +887,28 @@ function isConfirmedPlanned(item: Pick<RawRecordItem, "item_source" | "change_ty
 function isExecutedAdded(item: Pick<RawRecordItem, "change_type" | "done">) { return item.change_type === "added" && item.done === true; }
 function isExecutedItem(item: Pick<RawRecordItem, "item_source" | "change_type" | "done">) { return item.done === true && !(item.item_source === "planned" && item.change_type === "replaced"); }
 function isActualItem(item: Pick<RawRecordItem, "item_source" | "change_type" | "done" | "actual_duration_minutes">) { return isExecutedItem(item) && item.actual_duration_minutes != null; }
+function toCoverageSourceItem(item: RawRecordItem): LessonCoverageSourceItem {
+  return {
+    id: item.id,
+    blockTemplateId: item.block_template_id,
+    itemSource: item.item_source,
+    changeType: item.change_type,
+    done: item.done,
+    actualDurationMinutes: item.actual_duration_minutes,
+    displayNameSnapshot: item.display_name_snapshot,
+    categoryNameSnapshot: item.category_name_snapshot,
+    subcategoryNameSnapshot: item.subcategory_name_snapshot,
+    purposeSnapshot: item.purpose_snapshot,
+    tagsSnapshot: item.tags_snapshot,
+    block: item.block ? {
+      name: item.block.name,
+      purpose: item.block.purpose,
+      category: item.block.category,
+      subcategory: item.block.subcategory,
+      blockTemplateTags: item.block.block_template_tags,
+    } : null,
+  };
+}
 function lessonPlannedMinutes(lesson: PeriodDataset["lessons"][number]) { const itemMinutes = (lesson.record?.lesson_record_blocks ?? []).filter((item) => item.item_source === "planned" && item.planned_duration_minutes != null).map((item) => item.planned_duration_minutes!); return itemMinutes.length ? itemMinutes.reduce(sum, 0) : lesson.plannedMinutes; }
 function itemName(item: Pick<RawRecordItem, "display_name_snapshot" | "block">) { return item.display_name_snapshot?.trim() || item.block?.name?.trim() || "名称未設定"; }
 function recordDateIso(record: RawRecord) { return record.schedule?.starts_at ?? `${record.record_date}T00:00:00+09:00`; }
@@ -883,6 +940,7 @@ function emptyReport(query: ReportQuery, error: string, resolved?: ReportPeriod)
     plans: [],
     blocks: { mostUsed: [], goodReaction: [], mostSkipped: [], mostAdjusted: [], mostReplaced: [], improvementHeavy: [], unused: [] },
     execution: { plannedItems: 0, asPlanned: 0, adjusted: 0, skipped: 0, replaced: 0, libraryAdded: 0, improvisedAdded: 0, legacyUnclassified: 0, plannedMinutes: 0, actualMinutes: 0, averageMinuteDifference: null, minuteDifferenceSamples: 0, reasons: [], changedPlans: [], skippedItems: [], libraryAdditions: [], improvisedItems: [], templatedImprovisedItems: [] },
+    coverage: emptyLessonCoverageReport(),
     closures: {
       closedCount: 0,
       heldCount: 0,

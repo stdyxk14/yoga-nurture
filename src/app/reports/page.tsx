@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CalendarDays } from "lucide-react";
 import { AiTeachingReviewView } from "@/components/yoga/ai-teaching-review-view";
 import { CompactEmptyState, DonutMetric, SegmentedMetricBar, type MetricSegment } from "@/components/yoga/data-visuals";
+import { LessonCoverageView } from "@/components/yoga/lesson-coverage-view";
 import { StudentCompositionVisual } from "@/components/yoga/student-composition-visual";
 import {
   WorkspaceEmptyState,
@@ -46,6 +47,7 @@ type ReportSearchParams = {
 
 const reportViews: Array<{ key: ReportViewKey; label: string }> = [
   { key: "overview", label: "全体概要" },
+  { key: "coverage", label: "カバレッジ" },
   { key: "ai_review", label: "AI総合指導レビュー" },
   { key: "attendance", label: "出席" },
   { key: "students", label: "生徒" },
@@ -72,7 +74,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const period = normalizeReportPeriod(params.period);
   const reviewSelection = parseReviewSelection(params);
   const [report, reviewState] = await Promise.all([
-    getReportData({ period, from: params.from, to: params.to, format: params.format, plan: params.plan, place: params.place }),
+    getReportData({ period, from: params.from, to: params.to, format: params.format, plan: params.plan, place: params.place, includeCoverage: view === "coverage" }),
     view === "ai_review" ? getTeachingReviewState(reviewSelection) : Promise.resolve(null),
   ]);
 
@@ -134,13 +136,14 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
 
       {view !== "ai_review" && !report.error && !report.hasAnyData ? <WorkspaceEmptyState title="この条件で集計できるデータがありません" description="期間または共通フィルターを変更してください。全登録生徒の属性は生徒タブから確認できます。" /> : null}
       {view === "ai_review" || !report.error ? <ReportView view={view} report={report} reviewState={reviewState} /> : null}
-      {view !== "ai_review" && !report.error ? <DataQuality report={report} /> : null}
+      {view !== "ai_review" && view !== "coverage" && !report.error ? <DataQuality report={report} /> : null}
     </div>
   );
 }
 
 function ReportView({ view, report, reviewState }: { view: ReportViewKey; report: ReportData; reviewState: TeachingReviewState | null }) {
   if (view === "ai_review" && reviewState) return <AiTeachingReviewView state={reviewState} />;
+  if (view === "coverage") return <LessonCoverageView report={report.coverage} />;
   if (view === "attendance") return <AttendanceView report={report} />;
   if (view === "students") return <StudentsView report={report} />;
   if (view === "plans") return <PlansView report={report} />;

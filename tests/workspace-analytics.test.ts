@@ -9,6 +9,7 @@ test("reports default to overview while preserving the explicit AI review view",
   assert.equal(normalizeReportView(), "overview");
   assert.equal(normalizeReportView("unknown"), "overview");
   assert.equal(normalizeReportView("ai_review"), "ai_review");
+  assert.equal(normalizeReportView("coverage"), "coverage");
 });
 
 test("custom report periods use inclusive Tokyo dates and an equally long previous period", () => {
