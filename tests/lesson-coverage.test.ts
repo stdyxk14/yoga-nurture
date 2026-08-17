@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   buildLessonCoverage,
   classifyLessonCoverage,
+  LESSON_COVERAGE_DEFINITIONS,
   summarizeRecentLessonCoverage,
   type LessonCoverageSourceItem,
   type LessonCoverageSourceLesson,
@@ -40,6 +41,20 @@ function coverageLesson(id: string, date: string, items: LessonCoverageSourceIte
 }
 
 test("coverage classification supports multiple matches and observed Japanese variants", () => {
+  assert.deepEqual(LESSON_COVERAGE_DEFINITIONS.map((definition) => definition.label), [
+    "呼吸・集中",
+    "首・肩",
+    "胸・背中",
+    "背骨・体幹",
+    "股関節・骨盤",
+    "脚・足",
+    "バランス",
+    "筋力・安定",
+    "リラックス・回復",
+    "全身・フロー",
+    "未分類",
+  ]);
+
   assert.deepEqual(classifyLessonCoverage({
     displayNameSnapshot: "肩甲骨と胸郭をひらく",
     purposeSnapshot: "呼吸へ集中する",
