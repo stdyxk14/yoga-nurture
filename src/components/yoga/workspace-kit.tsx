@@ -206,7 +206,7 @@ export function WorkspaceFeedback({
 
 export type WorkspaceTabGroup<T extends string> = {
   label: string;
-  items: Array<{ id: T; label: string; href: string; icon?: LucideIcon }>;
+  items: Array<{ id: T; label: string; href: string; icon?: LucideIcon; prefetch?: boolean }>;
 };
 
 export function WorkspaceTabs<T extends string>({ groups, active }: { groups: WorkspaceTabGroup<T>[]; active: T }) {
@@ -223,6 +223,7 @@ export function WorkspaceTabs<T extends string>({ groups, active }: { groups: Wo
                 <Link
                   key={item.id}
                   href={item.href}
+                  prefetch={item.prefetch}
                   aria-current={selected ? "page" : undefined}
                   className={cn(
                     "inline-flex min-h-10 items-center gap-2 rounded-lg border px-3.5 text-[13px] font-semibold shadow-[0_1px_3px_rgba(76,88,74,0.05)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--yn-focus)] focus-visible:ring-offset-2",

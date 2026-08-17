@@ -196,6 +196,16 @@ export type ReportData = {
   };
 };
 
+export type DashboardReportData = Pick<ReportData, "plans" | "blocks" | "execution" | "dataQuality">;
+
+export type DashboardReportSource = {
+  schedules: unknown[];
+  records: unknown[];
+  plans: unknown[];
+  blocks: unknown[];
+  now: Date;
+};
+
 type AttendanceStatus = "present" | "cancelled" | "no_show";
 type LessonFormat = "group" | "personal" | "online";
 type ChangeType = "as_planned" | "adjusted" | "skipped" | "replaced" | "added";
@@ -407,6 +417,96 @@ export async function getLessonCoverageForSchedules(scheduleIds: string[]): Prom
 
   if (error) throw new Error(`カバレッジデータを取得できませんでした: ${error.message}`);
   return buildLessonCoverage(((data ?? []) as unknown as RawRecord[]).map(toCoverageSourceLesson));
+}
+
+type RecentCoverageRecordIndex = {
+  id: string;
+  schedule_id: string | null;
+  schedule?: {
+    starts_at: string;
+    status: string;
+    schedule_closures?: Array<{ revoked_at: string | null }>;
+  } | Array<{
+    starts_at: string;
+    status: string;
+    schedule_closures?: Array<{ revoked_at: string | null }>;
+  }> | null;
+};
+
+export async function getRecentLessonCoverage(limit = 8): Promise<LessonCoverageReport> {
+  const boundedLimit = Math.max(0, Math.floor(limit));
+  if (!boundedLimit) return emptyLessonCoverageReport();
+
+  const { supabase } = await requireUserId();
+  const indexResult = await supabase
+    .from("lesson_records")
+    .select("id,schedule_id,schedule:schedules!inner(starts_at,status,schedule_closures(revoked_at))")
+    .eq("schedule.status", "recorded")
+    .not("schedule_id", "is", null);
+
+  if (indexResult.error) throw new Error(`直近カバレッジの対象を取得できませんでした: ${indexResult.error.message}`);
+
+  const recordIds = ((indexResult.data ?? []) as unknown as RecentCoverageRecordIndex[])
+    .filter((row) => {
+      const schedule = Array.isArray(row.schedule) ? row.schedule[0] : row.schedule;
+      return Boolean(schedule) && !schedule?.schedule_closures?.some((closure) => closure.revoked_at === null);
+    })
+    .sort((left, right) => {
+      const leftSchedule = Array.isArray(left.schedule) ? left.schedule[0] : left.schedule;
+      const rightSchedule = Array.isArray(right.schedule) ? right.schedule[0] : right.schedule;
+      return (rightSchedule?.starts_at ?? "").localeCompare(leftSchedule?.starts_at ?? "");
+    })
+    .slice(0, boundedLimit)
+    .map((row) => row.id);
+
+  if (!recordIds.length) return emptyLessonCoverageReport();
+
+  const { data, error } = await supabase
+    .from("lesson_records")
+    .select(coverageRecordSelect)
+    .in("id", recordIds);
+
+  if (error) throw new Error(`カバレッジデータを取得できませんでした: ${error.message}`);
+  return buildLessonCoverage(((data ?? []) as unknown as RawRecord[]).map(toCoverageSourceLesson));
+}
+
+export function buildDashboardReportData(source: DashboardReportSource): DashboardReportData {
+  const resolved = resolveReportPeriod({ period: "3months", now: source.now });
+  if (!resolved.period) throw new Error("ダッシュボード集計の期間を解決できませんでした。");
+
+  const current = buildPeriodDataset(
+    source.schedules as RawSchedule[],
+    source.records as RawRecord[],
+    resolved.period.startIso,
+    resolved.period.endExclusiveIso,
+    () => true,
+  );
+  const core = aggregateCore(current);
+  const plans = buildPlanRows(current, source.plans as RawPlan[]);
+  const blockRows = buildBlockRows(current.items, source.blocks as RawBlock[]);
+  const execution = buildExecutionSummary(current);
+
+  return {
+    plans,
+    blocks: {
+      mostUsed: rankBlocks(blockRows, (row) => row.usedCount),
+      goodReaction: [...blockRows].filter((row) => row.evaluatedCount > 0).sort((a, b) => (b.goodRate ?? -1) - (a.goodRate ?? -1) || b.evaluatedCount - a.evaluatedCount).slice(0, 10),
+      mostSkipped: rankBlocks(blockRows, (row) => row.skippedCount),
+      mostAdjusted: rankBlocks(blockRows, (row) => row.adjustedCount),
+      mostReplaced: rankBlocks(blockRows, (row) => row.replacedCount),
+      improvementHeavy: rankBlocks(blockRows, (row) => row.improvementCount),
+      unused: [...blockRows].filter((row) => row.usedCount === 0).sort((a, b) => a.latestDate.localeCompare(b.latestDate)).slice(0, 10),
+    },
+    execution,
+    dataQuality: {
+      lessons: core.totalLessons,
+      recordedLessons: core.recordedLessons,
+      recordRate: percent(core.recordedLessons, core.totalLessons),
+      unevaluatedBlocks: current.items.filter((item) => isExecutedItem(item) && item.reaction == null).length,
+      legacyUnclassifiedItems: current.items.filter((item) => item.change_type == null).length,
+      missingActualMinutes: current.items.filter((item) => isExecutedItem(item) && item.actual_duration_minutes == null).length,
+    },
+  };
 }
 
 async function fetchReportData(query: ReportQuery, period: ReportPeriod): Promise<ReportData> {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   ArrowUpRight,
@@ -22,18 +22,25 @@ import {
   UserRoundCheck,
   UsersRound,
 } from "lucide-react";
-import { TodayAiSuggestionPanel } from "@/components/yoga/daily-suggestion-panel";
-import type { DailySuggestionState } from "@/lib/daily-suggestions/queries";
 import type {
   DashboardCalendarEvent,
   DashboardCalendarEventState,
-  DashboardData,
+  DashboardPrimaryData,
+  DashboardSecondaryData,
 } from "@/lib/dashboard";
 import { cn } from "@/lib/utils";
 
 const weekdays = ["日", "月", "火", "水", "木", "金", "土"] as const;
 
-export function DashboardView({ data, dailySuggestionState }: { data: DashboardData; dailySuggestionState: DailySuggestionState }) {
+export function DashboardView({
+  data,
+  dailySuggestionPanel,
+  secondaryPanel,
+}: {
+  data: DashboardPrimaryData;
+  dailySuggestionPanel: ReactNode;
+  secondaryPanel: ReactNode;
+}) {
   return (
     <main className="min-w-0 space-y-6 pb-10">
       <CompactHomeHeader data={data} />
@@ -48,17 +55,25 @@ export function DashboardView({ data, dailySuggestionState }: { data: DashboardD
       <MonthlyLessonCalendar data={data} />
 
       <div className="grid min-w-0 items-start gap-5 xl:grid-cols-12">
-        <div className="min-w-0 xl:col-span-8"><TodayAiSuggestionPanel state={dailySuggestionState} /></div>
+        <div className="min-w-0 xl:col-span-8">{dailySuggestionPanel}</div>
         <div className="min-w-0 xl:col-span-4"><QuickActions /></div>
       </div>
 
-      <TeachingInsights insights={data.insights} />
-      <NextActions actions={data.nextActions} />
+      {secondaryPanel}
     </main>
   );
 }
 
-function CompactHomeHeader({ data }: { data: DashboardData }) {
+export function DashboardSecondaryView({ data }: { data: DashboardSecondaryData }) {
+  return (
+    <>
+      <TeachingInsights insights={data.insights} />
+      <NextActions actions={data.nextActions} />
+    </>
+  );
+}
+
+function CompactHomeHeader({ data }: { data: DashboardPrimaryData }) {
   return (
     <header className="flex min-h-16 flex-col gap-3 rounded-2xl border border-[#dde3da] bg-white/88 px-4 py-3 shadow-[0_8px_28px_rgba(56,72,59,0.05)] backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-5">
       <div className="min-w-0">
@@ -82,7 +97,7 @@ function CompactHomeHeader({ data }: { data: DashboardData }) {
   );
 }
 
-function MonthlyLessonCalendar({ data }: { data: DashboardData }) {
+function MonthlyLessonCalendar({ data }: { data: DashboardPrimaryData }) {
   const [selectedDateKey, setSelectedDateKey] = useState(data.calendar.selectedDateKey);
   const selectedDay = data.calendar.days.find((day) => day.dateKey === selectedDateKey) ?? data.calendar.days[0];
 
@@ -186,7 +201,7 @@ function CalendarEventChip({ event, onSelect }: { event: DashboardCalendarEvent;
   );
 }
 
-function SelectedDayPanel({ day, pendingFollowupCount }: { day: DashboardData["calendar"]["days"][number] | undefined; pendingFollowupCount: number }) {
+function SelectedDayPanel({ day, pendingFollowupCount }: { day: DashboardPrimaryData["calendar"]["days"][number] | undefined; pendingFollowupCount: number }) {
   const events = day?.events ?? [];
   const unrecordedCount = events.filter((event) => event.state === "record_pending").length;
   const registerHref = `/schedules/new?date=${day?.dateKey ?? ""}`;
@@ -299,7 +314,7 @@ function QuickActions() {
   );
 }
 
-function TeachingInsights({ insights }: { insights: DashboardData["insights"] }) {
+function TeachingInsights({ insights }: { insights: DashboardSecondaryData["insights"] }) {
   return (
     <section className="rounded-[26px] border border-[#dce6d9] bg-white shadow-[0_14px_45px_rgba(57,76,58,0.06)]">
       <SectionHeader eyebrow="MY PRACTICE" title="自分の現場からの発見" icon={SearchCheck} aside={`${insights.length}件`} />
@@ -331,7 +346,7 @@ function TeachingInsights({ insights }: { insights: DashboardData["insights"] })
   );
 }
 
-function NextActions({ actions }: { actions: DashboardData["nextActions"] }) {
+function NextActions({ actions }: { actions: DashboardSecondaryData["nextActions"] }) {
   return (
     <section className="rounded-[26px] border border-[#dfe5dc] bg-[linear-gradient(90deg,#f5f9f3,#fffaf4)] p-4 shadow-[0_12px_35px_rgba(70,78,63,0.05)] sm:p-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center">

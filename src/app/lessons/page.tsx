@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import {
   BarChart3,
@@ -28,9 +29,9 @@ import {
 } from "@/components/yoga/workspace-kit";
 import { getBlockAnalysis, getBlockCategories, getBlocks, getBlockTags, type BlockCategory, type DbBlockTemplate } from "@/lib/blocks";
 import { getLessonPlanSummaries, type DbLessonPlan } from "@/lib/lesson-plans";
-import { emptyLessonCoverageReport } from "@/lib/lesson-coverage";
+import type { LessonCoverageReport } from "@/lib/lesson-coverage";
 import { getLessonRecords, type DbLessonRecord, type LessonRecordDiffSummary } from "@/lib/lesson-records";
-import { getLessonCoverageForSchedules } from "@/lib/reports";
+import { getRecentLessonCoverage } from "@/lib/reports";
 import { getScheduleSummaries, type DbSchedule } from "@/lib/schedules";
 
 type LessonTab = "schedule" | "plans" | "blocks" | "records" | "analysis";
@@ -55,18 +56,18 @@ const tabGroups: WorkspaceTabGroup<LessonTab>[] = [
   {
     label: "日常運用",
     items: [
-      { id: "schedule", label: "予定", href: "/lessons", icon: CalendarDays },
-      { id: "records", label: "実施後記録", href: "/lessons?tab=records", icon: FileText },
+      { id: "schedule", label: "予定", href: "/lessons", icon: CalendarDays, prefetch: false },
+      { id: "records", label: "実施後記録", href: "/lessons?tab=records", icon: FileText, prefetch: false },
     ],
   },
   {
     label: "教材",
     items: [
-      { id: "plans", label: "レッスンプラン", href: "/lessons?tab=plans", icon: ClipboardList },
-      { id: "blocks", label: "ブロック", href: "/lessons?tab=blocks", icon: Layers3 },
+      { id: "plans", label: "レッスンプラン", href: "/lessons?tab=plans", icon: ClipboardList, prefetch: false },
+      { id: "blocks", label: "ブロック", href: "/lessons?tab=blocks", icon: Layers3, prefetch: false },
     ],
   },
-  { label: "振り返り", items: [{ id: "analysis", label: "分析", href: "/lessons?tab=analysis", icon: BarChart3 }] },
+  { label: "振り返り", items: [{ id: "analysis", label: "分析", href: "/lessons?tab=analysis", icon: BarChart3, prefetch: false }] },
 ];
 
 const periodOptions = [
@@ -83,6 +84,7 @@ export default async function LessonsPage({ searchParams }: { searchParams: Prom
   const params = await searchParams;
   const activeTab = normalizeTab(params.tab);
   const schedulesPromise = getScheduleSummaries();
+  const recentCoveragePromise = activeTab === "schedule" ? getRecentLessonCoverage(8) : null;
 
   let schedules: DbSchedule[] = [];
   let plans: DbLessonPlan[] = [];
@@ -91,16 +93,9 @@ export default async function LessonsPage({ searchParams }: { searchParams: Prom
   let categories: BlockCategory[] = [];
   let tags: string[] = [];
   let records: DbLessonRecord[] = [];
-  let recentCoverage = emptyLessonCoverageReport();
 
   if (activeTab === "schedule") {
     schedules = await schedulesPromise;
-    const coverageScheduleIds = [...schedules]
-      .filter((schedule) => schedule.hasCompletedRecord && !schedule.activeClosure)
-      .sort((left, right) => right.startsAt.localeCompare(left.startsAt))
-      .slice(0, 8)
-      .map((schedule) => schedule.id);
-    recentCoverage = await getLessonCoverageForSchedules(coverageScheduleIds);
   } else if (activeTab === "plans") {
     [schedules, plans] = await Promise.all([schedulesPromise, getLessonPlanSummaries()]);
   } else if (activeTab === "blocks") {
@@ -148,7 +143,7 @@ export default async function LessonsPage({ searchParams }: { searchParams: Prom
         </div>
       </WorkspacePageHeader>
 
-      {activeTab === "schedule" ? <ScheduleWorkspace schedules={schedules} recentCoverage={recentCoverage} params={params} now={now} /> : null}
+      {activeTab === "schedule" && recentCoveragePromise ? <ScheduleWorkspace schedules={schedules} recentCoveragePromise={recentCoveragePromise} params={params} now={now} /> : null}
       {activeTab === "records" ? <RecordsWorkspace records={records} params={params} now={now} /> : null}
       {activeTab === "plans" ? <PlansWorkspace plans={plans} params={params} /> : null}
       {activeTab === "blocks" ? <BlocksWorkspace blocks={blocks} blockLibrary={blockLibrary} categories={categories} tags={tags} params={params} /> : null}
@@ -157,7 +152,7 @@ export default async function LessonsPage({ searchParams }: { searchParams: Prom
   );
 }
 
-function ScheduleWorkspace({ schedules, recentCoverage, params, now }: { schedules: DbSchedule[]; recentCoverage: ReturnType<typeof emptyLessonCoverageReport>; params: SearchParams; now: number }) {
+function ScheduleWorkspace({ schedules, recentCoveragePromise, params, now }: { schedules: DbSchedule[]; recentCoveragePromise: Promise<LessonCoverageReport>; params: SearchParams; now: number }) {
   const quickFilter = params.status === "record_pending"
     ? "record_pending"
     : params.status === "closed"
@@ -221,15 +216,38 @@ function ScheduleWorkspace({ schedules, recentCoverage, params, now }: { schedul
 
       <ScheduleGroup title="記録待ち" description="実施後記録が未完了のレッスン。古い順です。" schedules={waiting} kind="waiting" />
       <ScheduleGroup title="今後の予定" description="これから実施するレッスン。近い順です。" schedules={future} kind="future" />
-      <WorkspaceSection
-        title="直近レッスン・カバレッジ"
-        description="完了済み・未クローズの直近8レッスンで、実施した身体領域と指導テーマを振り返ります。"
-        action={<Link href="/reports?view=coverage" className="text-[12px] font-semibold text-[#477050] hover:underline">詳しいカバレッジマップを見る</Link>}
-      >
-        <RecentLessonCoverage report={recentCoverage} />
-      </WorkspaceSection>
+      <Suspense fallback={<RecentCoverageSkeleton />}>
+        <RecentCoverageSection reportPromise={recentCoveragePromise} />
+      </Suspense>
       <PastScheduleGroups schedules={past} />
     </div>
+  );
+}
+
+async function RecentCoverageSection({ reportPromise }: { reportPromise: Promise<LessonCoverageReport> }) {
+  return (
+    <WorkspaceSection
+      title="直近レッスン・カバレッジ"
+      description="完了済み・未クローズの直近8レッスンで、実施した身体領域と指導テーマを振り返ります。"
+      action={<Link href="/reports?view=coverage" prefetch={false} className="text-[12px] font-semibold text-[#477050] hover:underline">詳しいカバレッジマップを見る</Link>}
+    >
+      <RecentLessonCoverage report={await reportPromise} />
+    </WorkspaceSection>
+  );
+}
+
+function RecentCoverageSkeleton() {
+  return (
+    <WorkspaceSection
+      title="直近レッスン・カバレッジ"
+      description="完了済み・未クローズの直近8レッスンで、実施した身体領域と指導テーマを振り返ります。"
+      action={<Link href="/reports?view=coverage" prefetch={false} className="text-[12px] font-semibold text-[#477050] hover:underline">詳しいカバレッジマップを見る</Link>}
+    >
+      <div aria-label="直近レッスン・カバレッジを読み込み中" className="grid animate-pulse gap-3 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="h-56 rounded-xl border border-[#e6ded3] bg-white/70" />
+        <div className="h-56 rounded-xl border border-[#e6ded3] bg-[#f7faf5]" />
+      </div>
+    </WorkspaceSection>
   );
 }
 

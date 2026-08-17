@@ -9,7 +9,7 @@ import {
   type TeachingInsight,
 } from "@/lib/discovery-home";
 import { measurePerformance } from "@/lib/performance";
-import { getReportData, type ReportData } from "@/lib/reports";
+import { buildDashboardReportData, type DashboardReportData } from "@/lib/reports";
 import { requireUserId } from "@/lib/students";
 
 export type DiscoverySchedule = {
@@ -125,14 +125,24 @@ export type DashboardData = {
   error?: string;
 };
 
+export type DashboardPrimaryData = Pick<DashboardData, "greeting" | "todayLabel" | "calendar" | "brief" | "error">;
+export type DashboardSecondaryData = Pick<DashboardData, "insights" | "radar" | "nextActions" | "error">;
+
+export type DashboardDataLoad = {
+  primary: Promise<DashboardPrimaryData>;
+  secondary: Promise<DashboardSecondaryData>;
+};
+
 type RawSchedule = {
   id: string;
   lesson_plan_id: string | null;
   lesson_plan_name_snapshot?: string | null;
+  lesson_plan_duration_minutes_snapshot?: number | null;
   lesson_name: string;
   starts_at: string;
   ends_at: string;
   place: string | null;
+  format?: string | null;
   schedule_caution: string | null;
   status: string;
   lesson_plan?: { id: string; name: string | null } | Array<{ id: string; name: string | null }> | null;
@@ -143,6 +153,7 @@ type RawSchedule = {
     student?: { id: string; name: string; caution: string | null } | Array<{ id: string; name: string; caution: string | null }> | null;
   }>;
   schedule_closures?: Array<{ revoked_at: string | null }>;
+  lesson_records?: Array<{ id: string }>;
 };
 
 type RawFollowup = {
@@ -163,7 +174,7 @@ type RawBlock = {
   block_template_tags?: Array<{ tag?: { name: string } | Array<{ name: string }> | null }>;
 };
 
-type RawPlan = { id: string; name: string; theme: string | null };
+type RawPlan = { id: string; name: string; theme?: string | null; duration_minutes?: number };
 type RawKnowledge = { id: string; title: string; tags: string[] | null; status: string };
 type RawStudent = { id: string; name: string; caution: string | null };
 
@@ -226,57 +237,71 @@ type CalendarFrame = {
   rangeEnd: string;
 };
 
-export async function getDashboardData(requestedMonth?: string): Promise<DashboardData> {
+export function getDashboardData(requestedMonth?: string): DashboardDataLoad {
   const now = new Date();
   const calendarFrame = buildCalendarFrame(now, requestedMonth);
-  try {
-    return await measurePerformance(
-      { operation: "data.discovery-home", route: "/dashboard" },
-      () => fetchDashboardData(now, calendarFrame),
-      (data) => data.insights.length + data.radar.items.length,
-    );
-  } catch (error) {
-    return emptyDashboard(now, calendarFrame, error instanceof Error ? error.message : "ホームのデータを取得できませんでした。");
-  }
+  const request = prepareDashboardRequest(now, calendarFrame);
+  const errorMessage = (error: unknown) => error instanceof Error ? error.message : "ホームのデータを取得できませんでした。";
+
+  return {
+    primary: measurePerformance(
+      { operation: "data.dashboard-primary", route: "/dashboard" },
+      async () => {
+        try {
+          const prepared = await request;
+          return await prepared.primary;
+        } catch (error) {
+          return dashboardPrimaryFallback(now, calendarFrame, errorMessage(error));
+        }
+      },
+      (data) => data.calendar.days.reduce((count, day) => count + day.events.length, 0),
+    ),
+    secondary: measurePerformance(
+      { operation: "data.dashboard-insights", route: "/dashboard" },
+      async () => {
+        try {
+          const prepared = await request;
+          return await prepared.secondary;
+        } catch (error) {
+          return dashboardSecondaryFallback(now, calendarFrame, errorMessage(error));
+        }
+      },
+      (data) => data.insights.length,
+    ),
+  };
 }
 
-async function fetchDashboardData(now: Date, calendarFrame: CalendarFrame): Promise<DashboardData> {
+async function prepareDashboardRequest(now: Date, calendarFrame: CalendarFrame) {
   const { supabase, userId } = await requireUserId();
   const threeMonthsAgo = new Date(now.getTime() - 93 * 86_400_000).toISOString();
+  const reportEnd = new Date(now.getTime() + 86_400_000).toISOString();
+  const radarEnabled = process.env.RADAR_EXTERNAL_FETCH_ENABLED === "true";
 
-  const [
-    report,
-    nextScheduleResult,
-    recentSchedulesResult,
-    calendarSchedulesResult,
-    recordIdsResult,
-    followupsResult,
-    blocksResult,
-    plansResult,
-    knowledgeResult,
-    studentsResult,
-  ] = await Promise.all([
-    getReportData({ period: "3months", format: "all", plan: "all", place: "all", now }),
+  const nextSchedulePromise = Promise.resolve(
     supabase
       .from("schedules")
       .select("id,lesson_plan_id,lesson_name,starts_at,ends_at,place,schedule_caution,status,lesson_plan:lesson_plans(id,name),schedule_participants(id,student_id,attendance_status,student:students(id,name,caution)),schedule_closures(revoked_at)")
       .gte("ends_at", now.toISOString())
       .order("starts_at", { ascending: true })
       .limit(20),
+  );
+  const periodSchedulesPromise = Promise.resolve(
     supabase
       .from("schedules")
-      .select("id,lesson_plan_id,lesson_name,starts_at,ends_at,place,schedule_caution,status,lesson_plan:lesson_plans(id,name),schedule_closures(revoked_at)")
+      .select("id,lesson_plan_id,lesson_plan_name_snapshot,lesson_plan_duration_minutes_snapshot,lesson_name,starts_at,ends_at,place,format,schedule_caution,status,lesson_plan:lesson_plans(id,name),schedule_closures(revoked_at),lesson_records(id)")
       .gte("starts_at", threeMonthsAgo)
-      .lt("starts_at", now.toISOString())
-      .order("starts_at", { ascending: false })
-      .limit(50),
+      .lt("starts_at", reportEnd)
+      .order("starts_at", { ascending: false }),
+  );
+  const calendarSchedulesPromise = Promise.resolve(
     supabase
       .from("schedules")
-      .select("id,lesson_plan_id,lesson_plan_name_snapshot,lesson_name,starts_at,ends_at,place,schedule_caution,status,lesson_plan:lesson_plans(id,name),schedule_participants(id,student_id,attendance_status,student:students(id,name,caution)),schedule_closures(revoked_at)")
+      .select("id,lesson_plan_id,lesson_plan_name_snapshot,lesson_name,starts_at,ends_at,place,schedule_caution,status,lesson_plan:lesson_plans(id,name),schedule_participants(id,student_id,attendance_status,student:students(id,name,caution)),schedule_closures(revoked_at),lesson_records(id)")
       .gte("starts_at", calendarFrame.rangeStart)
       .lt("starts_at", calendarFrame.rangeEnd)
       .order("starts_at", { ascending: true }),
-    supabase.from("lesson_records").select("schedule_id").not("schedule_id", "is", null),
+  );
+  const followupsPromise = Promise.resolve(
     supabase
       .from("lesson_record_students")
       .select("id,student_id,next_follow,follow_up_status,student:students(id,name),record:lesson_records(id,schedule_id,lesson_name,record_date)")
@@ -284,50 +309,119 @@ async function fetchDashboardData(now: Date, calendarFrame: CalendarFrame): Prom
       .not("next_follow", "is", null)
       .order("follow_up_updated_at", { ascending: false })
       .limit(20),
+  );
+  const recordsPromise = Promise.resolve(
+    supabase
+      .from("lesson_records")
+      .select(radarEnabled
+        ? "id,schedule_id,lesson_plan_id,lesson_name,record_date,schedule:schedules(id,starts_at,lesson_plan_id,lesson_plan_name_snapshot,lesson_plan:lesson_plans(id,name),schedule_closures(revoked_at)),lesson_record_blocks(block_template_id,item_source,display_name_snapshot,planned_duration_minutes,done,actual_duration_minutes,reaction,improvement_memo,change_type,change_reason_codes)"
+        : "id,schedule_id,lesson_plan_id,lesson_name,record_date,schedule:schedules(id,starts_at,lesson_plan_id,lesson_plan_name_snapshot,lesson_plan:lesson_plans(id,name),schedule_closures(revoked_at)),lesson_record_blocks(block_template_id,item_source,display_name_snapshot,planned_duration_minutes,done,actual_duration_minutes,reaction,improvement_memo,change_type)")
+      .gte("record_date", threeMonthsAgo.slice(0, 10))
+      .lte("record_date", tokyoDateKey(now)),
+  );
+  const blocksPromise = Promise.resolve(
     supabase
       .from("block_templates")
-      .select("id,name,purpose,cautions,category:block_categories(name),block_template_tags(tag:block_tags(name))")
+      .select(radarEnabled
+        ? "id,name,purpose,cautions,category:block_categories(name),block_template_tags(tag:block_tags(name))"
+        : "id,name")
       .eq("archived", false)
-      .eq("is_draft", false),
-    supabase.from("lesson_plans").select("id,name,theme").neq("status", "archived"),
-    supabase.from("knowledge_documents").select("id,title,tags,status").neq("status", "archived"),
-    supabase.from("students").select("id,name,caution").eq("archived", false),
-  ]);
+      .eq("is_draft", false)
+      .order("name", { ascending: true }),
+  );
+  const plansPromise = Promise.resolve(
+    supabase
+      .from("lesson_plans")
+      .select(radarEnabled ? "id,name,theme,duration_minutes" : "id,name,duration_minutes")
+      .neq("status", "archived")
+      .order("name", { ascending: true }),
+  );
+  const knowledgePromise = radarEnabled
+    ? Promise.resolve(supabase.from("knowledge_documents").select("id,title,tags,status").neq("status", "archived"))
+    : Promise.resolve({ data: [], error: null });
+  const studentsPromise = radarEnabled
+    ? Promise.resolve(supabase.from("students").select("id,name,caution").eq("archived", false))
+    : Promise.resolve({ data: [], error: null });
 
-  assertQuery(nextScheduleResult.error, "次回予定");
-  assertQuery(recentSchedulesResult.error, "未記録レッスン");
-  assertQuery(calendarSchedulesResult.error, "月間予定");
-  assertQuery(recordIdsResult.error, "実施後記録");
-  assertQuery(followupsResult.error, "フォロー");
-  assertQuery(blocksResult.error, "ブロック");
-  assertQuery(plansResult.error, "プラン");
-  assertQuery(knowledgeResult.error, "Knowledge");
-  assertQuery(studentsResult.error, "生徒");
+  const primary = Promise.all([
+    nextSchedulePromise,
+    periodSchedulesPromise,
+    calendarSchedulesPromise,
+    followupsPromise,
+  ]).then(([nextScheduleResult, periodSchedulesResult, calendarSchedulesResult, followupsResult]) => {
+    assertQuery(nextScheduleResult.error, "次回予定");
+    assertQuery(periodSchedulesResult.error, "未記録レッスン");
+    assertQuery(calendarSchedulesResult.error, "月間予定");
+    assertQuery(followupsResult.error, "フォロー");
 
-  const nextSchedule = ((nextScheduleResult.data ?? []) as unknown as RawSchedule[]).find((schedule) => !hasActiveScheduleClosure(schedule)) ?? null;
-  const recentSchedules = (recentSchedulesResult.data ?? []) as unknown as RawSchedule[];
-  const calendarSchedules = (calendarSchedulesResult.data ?? []) as unknown as RawSchedule[];
-  const recordedScheduleIds = new Set((recordIdsResult.data ?? []).map((row) => row.schedule_id).filter((id): id is string => Boolean(id)));
-  const followups = (followupsResult.data ?? []) as unknown as RawFollowup[];
-  const blocks = (blocksResult.data ?? []) as unknown as RawBlock[];
-  const plans = (plansResult.data ?? []) as RawPlan[];
-  const knowledge = (knowledgeResult.data ?? []) as RawKnowledge[];
-  const students = (studentsResult.data ?? []) as RawStudent[];
+    const nextSchedule = ((nextScheduleResult.data ?? []) as unknown as RawSchedule[]).find((schedule) => !hasActiveScheduleClosure(schedule)) ?? null;
+    const periodSchedules = (periodSchedulesResult.data ?? []) as unknown as RawSchedule[];
+    const recentSchedules = periodSchedules
+      .filter((schedule) => schedule.starts_at >= threeMonthsAgo && schedule.starts_at < now.toISOString())
+      .slice(0, 50);
+    const calendarSchedules = (calendarSchedulesResult.data ?? []) as unknown as RawSchedule[];
+    const recordedScheduleIds = new Set(
+      [...periodSchedules, ...calendarSchedules]
+        .filter((schedule) => Boolean(schedule.lesson_records?.length))
+        .map((schedule) => schedule.id),
+    );
+    const followups = (followupsResult.data ?? []) as unknown as RawFollowup[];
+    const brief = buildBrief({ nextSchedule, recentSchedules, recordedScheduleIds, followups });
 
-  const generatedTopics = buildTopics({ blocks, plans, knowledge, students, report });
-  const radar = await loadRadar({ supabase, userId, generatedTopics, now });
-  const brief = buildBrief({ nextSchedule, recentSchedules, recordedScheduleIds, followups });
-  const insights = buildInsights(report, generatedTopics, knowledge.length);
+    return {
+      greeting: "今日の予定と準備",
+      todayLabel: formatJapaneseDate(now),
+      calendar: buildCalendar(calendarFrame, calendarSchedules, recordedScheduleIds, now),
+      brief,
+    } satisfies DashboardPrimaryData;
+  });
 
-  return {
-    greeting: "今日の予定と準備",
-    todayLabel: formatJapaneseDate(now),
-    calendar: buildCalendar(calendarFrame, calendarSchedules, recordedScheduleIds, now),
-    brief,
-    insights,
-    radar,
-    nextActions: buildNextActions({ brief, insights, report }),
-  };
+  const secondary = Promise.all([
+    periodSchedulesPromise,
+    recordsPromise,
+    blocksPromise,
+    plansPromise,
+    knowledgePromise,
+    studentsPromise,
+    primary,
+  ]).then(async ([periodSchedulesResult, recordsResult, blocksResult, plansResult, knowledgeResult, studentsResult, primaryData]) => {
+    assertQuery(periodSchedulesResult.error, "3か月分の予定");
+    assertQuery(recordsResult.error, "3か月分の実施後記録");
+    assertQuery(blocksResult.error, "ブロック");
+    assertQuery(plansResult.error, "プラン");
+
+    const blocks = (blocksResult.data ?? []) as unknown as RawBlock[];
+    const plans = (plansResult.data ?? []) as unknown as RawPlan[];
+    const report = buildDashboardReportData({
+      schedules: periodSchedulesResult.data ?? [],
+      records: recordsResult.data ?? [],
+      blocks,
+      plans,
+      now,
+    });
+
+    let generatedTopics: GeneratedRadarTopic[] = [];
+    let radar = disabledRadarState();
+    let knowledgeCount = 0;
+    if (radarEnabled) {
+      assertQuery(knowledgeResult.error, "Knowledge");
+      assertQuery(studentsResult.error, "生徒");
+      const knowledge = (knowledgeResult.data ?? []) as RawKnowledge[];
+      const students = (studentsResult.data ?? []) as RawStudent[];
+      knowledgeCount = knowledge.length;
+      generatedTopics = buildTopics({ blocks, plans, knowledge, students, report });
+      radar = await loadRadar({ supabase, userId, generatedTopics, now });
+    }
+
+    const insights = buildInsights(report, generatedTopics, knowledgeCount);
+    return {
+      insights,
+      radar,
+      nextActions: buildNextActions({ brief: primaryData.brief, insights, report }),
+    } satisfies DashboardSecondaryData;
+  });
+
+  return { primary, secondary };
 }
 
 function buildBrief({
@@ -494,7 +588,7 @@ function buildTopics({
   plans: RawPlan[];
   knowledge: RawKnowledge[];
   students: RawStudent[];
-  report: ReportData;
+  report: DashboardReportData;
 }): GeneratedRadarTopic[] {
   const usageByBlock = new Map(report.blocks.mostUsed.map((row) => [row.id, row.usedCount]));
   const signals: RadarTopicSignal[] = [];
@@ -522,7 +616,7 @@ function buildTopics({
   return generateRadarTopics(signals, 4);
 }
 
-function buildInsights(report: ReportData, topics: GeneratedRadarTopic[], knowledgeCount: number): TeachingInsight[] {
+function buildInsights(report: DashboardReportData, topics: GeneratedRadarTopic[], knowledgeCount: number): TeachingInsight[] {
   const confirmedPlanned = report.execution.asPlanned + report.execution.adjusted + report.execution.skipped + report.execution.replaced;
   return buildTeachingInsights({
     topBlocks: report.blocks.mostUsed.map((row) => ({ id: row.id, name: row.name, usedCount: row.usedCount })),
@@ -551,6 +645,17 @@ function buildInsights(report: ReportData, topics: GeneratedRadarTopic[], knowle
       ? { label: topics.find((topic) => topic.evidence.knowledgeSignals > 0)!.labelJa, documentCount: knowledgeCount }
       : null,
   });
+}
+
+function disabledRadarState(): DashboardData["radar"] {
+  return {
+    status: "disabled",
+    message: radarStatusMessage("disabled", false),
+    lastUpdatedLabel: "未取得",
+    items: [],
+    topics: [],
+    monthlyEstimatedCostUsd: 0,
+  };
 }
 
 async function loadRadar({
@@ -713,7 +818,7 @@ function buildNextActions({
 }: {
   brief: DashboardData["brief"];
   insights: TeachingInsight[];
-  report: ReportData;
+  report: DashboardReportData;
 }): DashboardData["nextActions"] {
   const actions: DashboardData["nextActions"] = [];
   if (!brief.nextLesson) {
@@ -838,5 +943,26 @@ function emptyDashboard(now: Date, calendarFrame: CalendarFrame, error: string):
     radar: { status: "failed", message: "ホームの一部を読み込めませんでした。主要機能への操作は利用できます。", lastUpdatedLabel: "未取得", items: [], topics: [], monthlyEstimatedCostUsd: 0 },
     nextActions: [{ id: "schedule", title: "次のレッスンを置く", detail: "予定を登録して準備を始められます。", href: "/schedules/new", label: "予定を登録" }],
     error,
+  };
+}
+
+function dashboardPrimaryFallback(now: Date, calendarFrame: CalendarFrame, error: string): DashboardPrimaryData {
+  const empty = emptyDashboard(now, calendarFrame, error);
+  return {
+    greeting: empty.greeting,
+    todayLabel: empty.todayLabel,
+    calendar: empty.calendar,
+    brief: empty.brief,
+    error: empty.error,
+  };
+}
+
+function dashboardSecondaryFallback(now: Date, calendarFrame: CalendarFrame, error: string): DashboardSecondaryData {
+  const empty = emptyDashboard(now, calendarFrame, error);
+  return {
+    insights: empty.insights,
+    radar: process.env.RADAR_EXTERNAL_FETCH_ENABLED === "true" ? empty.radar : disabledRadarState(),
+    nextActions: empty.nextActions,
+    error: empty.error,
   };
 }

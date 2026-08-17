@@ -27,7 +27,7 @@ import {
   type ReportPeriodKey,
   type ReportViewKey,
 } from "@/lib/reports";
-import { getTeachingReviewState, type TeachingReviewState } from "@/lib/ai-review/queries";
+import { getTeachingReviewState } from "@/lib/ai-review/queries";
 import type { ReviewScopeSelection } from "@/lib/ai-review/types";
 
 type ReportSearchParams = {
@@ -74,7 +74,9 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const period = normalizeReportPeriod(params.period);
   const reviewSelection = parseReviewSelection(params);
   const [report, reviewState] = await Promise.all([
-    getReportData({ period, from: params.from, to: params.to, format: params.format, plan: params.plan, place: params.place, includeCoverage: view === "coverage" }),
+    view === "ai_review"
+      ? Promise.resolve(null)
+      : getReportData({ period, from: params.from, to: params.to, format: params.format, plan: params.plan, place: params.place, includeCoverage: view === "coverage" }),
     view === "ai_review" ? getTeachingReviewState(reviewSelection) : Promise.resolve(null),
   ]);
 
@@ -90,6 +92,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
             <Link
               key={item.key}
               href={buildReportHref(params, { view: item.key, period })}
+              prefetch={false}
               role="tab"
               aria-selected={view === item.key}
               className={view === item.key ? "inline-flex h-9 items-center rounded-lg bg-[#e6f0e3] px-3 text-[13px] font-semibold text-[#386b46]" : "inline-flex h-9 items-center rounded-lg px-3 text-[13px] font-semibold text-[#626a60] hover:bg-[#f4f1eb]"}
@@ -100,13 +103,13 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         </div>
       </WorkspacePageHeader>
 
-      {view !== "ai_review" ? <WorkspaceToolbar>
+      {report ? <WorkspaceToolbar>
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
           <div>
             <p className="mb-2 text-[12px] font-semibold text-[#656c63]">期間</p>
             <div className="flex flex-wrap gap-2">
               {periods.map((item) => (
-                <Link key={item.key} href={buildReportHref(params, { period: item.key, view })} className={period === item.key ? "inline-flex h-9 items-center rounded-lg bg-[#5d8f68] px-3 text-[13px] font-semibold text-white" : "inline-flex h-9 items-center rounded-lg border border-[#ddd6cc] bg-white px-3 text-[13px] font-semibold text-[#626a60] hover:bg-[#f7f4ef]"}>{item.label}</Link>
+                <Link key={item.key} href={buildReportHref(params, { period: item.key, view })} prefetch={false} className={period === item.key ? "inline-flex h-9 items-center rounded-lg bg-[#5d8f68] px-3 text-[13px] font-semibold text-white" : "inline-flex h-9 items-center rounded-lg border border-[#ddd6cc] bg-white px-3 text-[13px] font-semibold text-[#626a60] hover:bg-[#f7f4ef]"}>{item.label}</Link>
               ))}
             </div>
           </div>
@@ -128,21 +131,21 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           <SelectField label="レッスンプラン" name="plan" value={report.filters.plan} options={[["all", "すべて"], ...report.filters.plans.map((plan) => [plan.id, plan.name] as const)]} />
           <SelectField label="場所" name="place" value={report.filters.place} options={[["all", "すべて"], ...report.filters.places.map((place) => [place, place] as const)]} />
           <button className="h-10 rounded-lg bg-[#5d8f68] px-4 text-[13px] font-semibold text-white">フィルター適用</button>
-          <Link href={buildReportHref({}, { view, period, from: period === "custom" ? params.from : undefined, to: period === "custom" ? params.to : undefined })} className="inline-flex h-10 items-center justify-center rounded-lg border border-[#ddd6cc] bg-white px-4 text-[13px] font-semibold text-[#626a60]">クリア</Link>
+          <Link href={buildReportHref({}, { view, period, from: period === "custom" ? params.from : undefined, to: period === "custom" ? params.to : undefined })} prefetch={false} className="inline-flex h-10 items-center justify-center rounded-lg border border-[#ddd6cc] bg-white px-4 text-[13px] font-semibold text-[#626a60]">クリア</Link>
         </form>
       </WorkspaceToolbar> : null}
 
-      {view !== "ai_review" && report.error ? <div className="rounded-xl border border-[#f0d0ca] bg-[#fff1ed] px-4 py-3 text-[13px] font-medium leading-6 text-[#a65348]">{report.error}</div> : null}
+      {report?.error ? <div className="rounded-xl border border-[#f0d0ca] bg-[#fff1ed] px-4 py-3 text-[13px] font-medium leading-6 text-[#a65348]">{report.error}</div> : null}
 
-      {view !== "ai_review" && !report.error && !report.hasAnyData ? <WorkspaceEmptyState title="この条件で集計できるデータがありません" description="期間または共通フィルターを変更してください。全登録生徒の属性は生徒タブから確認できます。" /> : null}
-      {view === "ai_review" || !report.error ? <ReportView view={view} report={report} reviewState={reviewState} /> : null}
-      {view !== "ai_review" && view !== "coverage" && !report.error ? <DataQuality report={report} /> : null}
+      {report && !report.error && !report.hasAnyData ? <WorkspaceEmptyState title="この条件で集計できるデータがありません" description="期間または共通フィルターを変更してください。全登録生徒の属性は生徒タブから確認できます。" /> : null}
+      {view === "ai_review" && reviewState ? <AiTeachingReviewView state={reviewState} /> : null}
+      {report && !report.error ? <ReportView view={view} report={report} /> : null}
+      {report && view !== "coverage" && !report.error ? <DataQuality report={report} /> : null}
     </div>
   );
 }
 
-function ReportView({ view, report, reviewState }: { view: ReportViewKey; report: ReportData; reviewState: TeachingReviewState | null }) {
-  if (view === "ai_review" && reviewState) return <AiTeachingReviewView state={reviewState} />;
+function ReportView({ view, report }: { view: ReportViewKey; report: ReportData }) {
   if (view === "coverage") return <LessonCoverageView report={report.coverage} />;
   if (view === "attendance") return <AttendanceView report={report} />;
   if (view === "students") return <StudentsView report={report} />;
