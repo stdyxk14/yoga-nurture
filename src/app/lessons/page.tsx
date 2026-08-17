@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { duplicateLessonPlanAction } from "@/app/lessons/lesson-plan-actions";
 import { Input } from "@/components/ui/input";
+import { RecentLessonCoverage } from "@/components/yoga/recent-lesson-coverage";
 import { ScheduleClosureDialog } from "@/components/yoga/schedule-closure-dialog";
 import {
   WorkspaceAction,
@@ -27,7 +28,9 @@ import {
 } from "@/components/yoga/workspace-kit";
 import { getBlockAnalysis, getBlockCategories, getBlocks, getBlockTags, type BlockCategory, type DbBlockTemplate } from "@/lib/blocks";
 import { getLessonPlanSummaries, type DbLessonPlan } from "@/lib/lesson-plans";
+import { emptyLessonCoverageReport } from "@/lib/lesson-coverage";
 import { getLessonRecords, type DbLessonRecord, type LessonRecordDiffSummary } from "@/lib/lesson-records";
+import { getLessonCoverageForSchedules } from "@/lib/reports";
 import { getScheduleSummaries, type DbSchedule } from "@/lib/schedules";
 
 type LessonTab = "schedule" | "plans" | "blocks" | "records" | "analysis";
@@ -88,9 +91,16 @@ export default async function LessonsPage({ searchParams }: { searchParams: Prom
   let categories: BlockCategory[] = [];
   let tags: string[] = [];
   let records: DbLessonRecord[] = [];
+  let recentCoverage = emptyLessonCoverageReport();
 
   if (activeTab === "schedule") {
     schedules = await schedulesPromise;
+    const coverageScheduleIds = [...schedules]
+      .filter((schedule) => schedule.hasCompletedRecord && !schedule.activeClosure)
+      .sort((left, right) => right.startsAt.localeCompare(left.startsAt))
+      .slice(0, 8)
+      .map((schedule) => schedule.id);
+    recentCoverage = await getLessonCoverageForSchedules(coverageScheduleIds);
   } else if (activeTab === "plans") {
     [schedules, plans] = await Promise.all([schedulesPromise, getLessonPlanSummaries()]);
   } else if (activeTab === "blocks") {
@@ -138,7 +148,7 @@ export default async function LessonsPage({ searchParams }: { searchParams: Prom
         </div>
       </WorkspacePageHeader>
 
-      {activeTab === "schedule" ? <ScheduleWorkspace schedules={schedules} params={params} now={now} /> : null}
+      {activeTab === "schedule" ? <ScheduleWorkspace schedules={schedules} recentCoverage={recentCoverage} params={params} now={now} /> : null}
       {activeTab === "records" ? <RecordsWorkspace records={records} params={params} now={now} /> : null}
       {activeTab === "plans" ? <PlansWorkspace plans={plans} params={params} /> : null}
       {activeTab === "blocks" ? <BlocksWorkspace blocks={blocks} blockLibrary={blockLibrary} categories={categories} tags={tags} params={params} /> : null}
@@ -147,7 +157,7 @@ export default async function LessonsPage({ searchParams }: { searchParams: Prom
   );
 }
 
-function ScheduleWorkspace({ schedules, params, now }: { schedules: DbSchedule[]; params: SearchParams; now: number }) {
+function ScheduleWorkspace({ schedules, recentCoverage, params, now }: { schedules: DbSchedule[]; recentCoverage: ReturnType<typeof emptyLessonCoverageReport>; params: SearchParams; now: number }) {
   const quickFilter = params.status === "record_pending"
     ? "record_pending"
     : params.status === "closed"
@@ -211,7 +221,13 @@ function ScheduleWorkspace({ schedules, params, now }: { schedules: DbSchedule[]
 
       <ScheduleGroup title="記録待ち" description="実施後記録が未完了のレッスン。古い順です。" schedules={waiting} kind="waiting" />
       <ScheduleGroup title="今後の予定" description="これから実施するレッスン。近い順です。" schedules={future} kind="future" />
-      <MonthlyThemeFlow schedules={schedules} pastSchedules={past} now={now} />
+      <WorkspaceSection
+        title="直近レッスン・カバレッジ"
+        description="完了済み・未クローズの直近8レッスンで、実施した身体領域と指導テーマを振り返ります。"
+        action={<Link href="/reports?view=coverage" className="text-[12px] font-semibold text-[#477050] hover:underline">詳しいカバレッジマップを見る</Link>}
+      >
+        <RecentLessonCoverage report={recentCoverage} />
+      </WorkspaceSection>
       <PastScheduleGroups schedules={past} />
     </div>
   );
@@ -223,54 +239,6 @@ function ScheduleGroup({ title, description, schedules, kind }: { title: string;
   return (
     <WorkspaceSection title={title} description={description}>
       {schedules.length ? <ScheduleList schedules={schedules} kind={kind} /> : <WorkspaceEmptyState title={`${title}はありません`} description="現在の検索・フィルター条件に該当する予定はありません。" />}
-    </WorkspaceSection>
-  );
-}
-
-function MonthlyThemeFlow({ schedules, pastSchedules, now }: { schedules: DbSchedule[]; pastSchedules: DbSchedule[]; now: number }) {
-  const completed = schedules.filter((schedule) => schedule.hasCompletedRecord && !schedule.activeClosure);
-  const pastMonthKeys = new Set(pastSchedules.map((schedule) => tokyoMonthKey(schedule.startsAt)));
-  const months = recentTokyoMonthKeys(now).map((monthKey) => {
-    const lessons = completed.filter((schedule) => tokyoMonthKey(schedule.startsAt) === monthKey);
-    const counts = new Map<string, number>();
-    for (const lesson of lessons) {
-      const theme = lessonTheme(lesson);
-      counts.set(theme, (counts.get(theme) ?? 0) + 1);
-    }
-    const themes = Array.from(counts, ([name, count]) => ({ name, count, color: themeColor(name) }))
-      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "ja"));
-    return { monthKey, lessons, themes };
-  });
-
-  return (
-    <WorkspaceSection title="月別テーマの流れ" description="今月から2か月前まで、実施済みレッスンのテーマ構成を振り返ります。クローズ済みは集計しません。">
-      <div className="grid gap-3 lg:grid-cols-3">
-        {months.map((month) => (
-          <article key={month.monthKey} className="rounded-xl border border-[#e4ded4] bg-white/86 p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div><h3 className="text-[16px] font-semibold text-[#34453a]">{formatMonthHeading(month.monthKey)}</h3><p className="mt-1 text-[12px] text-[#747b71]">実施 {month.lessons.length}件</p></div>
-              {pastMonthKeys.has(month.monthKey)
-                ? <Link href={`#past-${month.monthKey}`} className="text-[11px] font-semibold text-[#52765a] hover:underline">過去予定へ</Link>
-                : <span className="text-[11px] font-medium text-[#92978f]">該当予定なし</span>}
-            </div>
-            <div className="mt-4 flex h-3 overflow-hidden rounded-full bg-[#eeeae3]" aria-label={`${formatMonthHeading(month.monthKey)}のテーマ構成`}>
-              {month.themes.map((theme) => (
-                <span key={theme.name} className={theme.color.bar} style={{ width: `${(theme.count / Math.max(month.lessons.length, 1)) * 100}%` }} title={`${theme.name} ${theme.count}回`} />
-              ))}
-            </div>
-            {month.themes.length ? (
-              <ol className="mt-4 space-y-2">
-                {month.themes.slice(0, 3).map((theme) => (
-                  <li key={theme.name} className="flex items-center justify-between gap-3 text-[12px]">
-                    <span className={`inline-flex min-w-0 items-center gap-2 rounded-full px-2.5 py-1 font-medium ${theme.color.chip}`}><span className={`h-2 w-2 shrink-0 rounded-full ${theme.color.dot}`} /><span className="truncate">{theme.name}</span></span>
-                    <span className="shrink-0 font-semibold text-[#596159]">{theme.count}回</span>
-                  </li>
-                ))}
-              </ol>
-            ) : <p className="mt-4 text-[12px] text-[#7a8178]">実施済みレッスンはありません。</p>}
-          </article>
-        ))}
-      </div>
     </WorkspaceSection>
   );
 }
@@ -316,15 +284,6 @@ function ScheduleList({ schedules, kind }: { schedules: DbSchedule[]; kind: Sche
     </>
   );
 }
-
-const themeColors = [
-  { bar: "bg-[#6f9a76]", chip: "bg-[#e7f0e4] text-[#48694f]", dot: "bg-[#6f9a76]" },
-  { bar: "bg-[#8b7fb2]", chip: "bg-[#ece8f5] text-[#655a8b]", dot: "bg-[#8b7fb2]" },
-  { bar: "bg-[#c49a5a]", chip: "bg-[#f5ead8] text-[#7d6037]", dot: "bg-[#c49a5a]" },
-  { bar: "bg-[#c47b68]", chip: "bg-[#f7e5df] text-[#8a5548]", dot: "bg-[#c47b68]" },
-  { bar: "bg-[#6f99a5]", chip: "bg-[#e4eef1] text-[#4f7079]", dot: "bg-[#6f99a5]" },
-  { bar: "bg-[#8f9a62]", chip: "bg-[#eef0df] text-[#66703f]", dot: "bg-[#8f9a62]" },
-] as const;
 
 function ScheduleRow({ schedule, kind }: { schedule: DbSchedule; kind: ScheduleGroupKind }) {
   return (
@@ -778,14 +737,6 @@ function filterBlockLibrary(blocks: DbBlockTemplate[], params: SearchParams) {
 }
 
 async function getCurrentTimestamp() { return Date.now(); }
-function recentTokyoMonthKeys(now: number) {
-  const current = tokyoMonthKey(new Date(now).toISOString());
-  const [year, month] = current.split("-").map(Number);
-  return [0, 1, 2].map((offset) => {
-    const date = new Date(Date.UTC(year, month - 1 - offset, 1));
-    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
-  });
-}
 function tokyoMonthKey(value: string) {
   const parts = new Intl.DateTimeFormat("en", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit" }).formatToParts(new Date(value));
   const year = parts.find((part) => part.type === "year")?.value ?? "0000";
@@ -795,21 +746,6 @@ function tokyoMonthKey(value: string) {
 function formatMonthHeading(monthKey: string) {
   const [year, month] = monthKey.split("-").map(Number);
   return Number.isFinite(year) && Number.isFinite(month) ? `${year}年${month}月` : "日付不明";
-}
-function lessonTheme(schedule: DbSchedule) {
-  return schedule.lessonPlanThemeSnapshot.trim()
-    || schedule.lessonPlanTheme.trim()
-    || schedule.lessonPlanNameSnapshot.trim()
-    || (schedule.lessonPlanId ? schedule.lessonPlanName.trim() : "")
-    || "テーマ未設定";
-}
-function themeColor(theme: string) {
-  let hash = 2166136261;
-  for (let index = 0; index < theme.length; index += 1) {
-    hash ^= theme.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return themeColors[(hash >>> 0) % themeColors.length];
 }
 function normalizeTab(value?: string): LessonTab { return value === "plans" || value === "blocks" || value === "records" || value === "analysis" ? value : "schedule"; }
 function isRecordPending(schedule: DbSchedule, now: number) { return !schedule.activeClosure && (schedule.status === "record_pending" || (Date.parse(schedule.startsAt) < now && schedule.status !== "recorded")); }

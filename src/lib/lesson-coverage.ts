@@ -196,6 +196,14 @@ export type LessonCoverageReport = {
   unclassifiedBlocks: LessonCoverageUnclassifiedBlock[];
 };
 
+export type RecentLessonCoverageSummary = {
+  lessonCount: number;
+  mostUsed: Array<LessonCoverageDefinition & { occurrenceCount: number }>;
+  absent: LessonCoverageDefinition[];
+  consecutive: Array<LessonCoverageDefinition & { lessonCount: number }>;
+  unclassifiedCount: number;
+};
+
 export function classifyLessonCoverage(source: LessonCoverageTextSource): LessonCoverageKey[] {
   const normalized = normalizeCoverageText([
     source.displayNameSnapshot,
@@ -336,6 +344,31 @@ export function emptyLessonCoverageReport(): LessonCoverageReport {
     occurrences: [],
     trends: { recentLessonCount: 0, absentRecent: [], consecutive: [], mostUsed: [], timingSparse: [] },
     unclassifiedBlocks: [],
+  };
+}
+
+export function summarizeRecentLessonCoverage(report: LessonCoverageReport, lessonLimit = 5): RecentLessonCoverageSummary {
+  const normalizedLimit = Math.max(0, lessonLimit);
+  const recentLessons = normalizedLimit ? report.lessons.slice(-normalizedLimit) : [];
+  const knownDefinitions = report.categoryDefinitions.filter((definition) => definition.key !== "unclassified");
+  const counts = new Map(knownDefinitions.map((definition) => [
+    definition.key,
+    recentLessons.reduce((total, lesson) => total + lesson.counts[definition.key], 0),
+  ]));
+  const highestCount = Math.max(0, ...counts.values());
+
+  return {
+    lessonCount: recentLessons.length,
+    mostUsed: highestCount
+      ? knownDefinitions
+        .filter((definition) => counts.get(definition.key) === highestCount)
+        .map((definition) => ({ ...definition, occurrenceCount: highestCount }))
+      : [],
+    absent: recentLessons.length
+      ? knownDefinitions.filter((definition) => counts.get(definition.key) === 0)
+      : [],
+    consecutive: report.trends.consecutive,
+    unclassifiedCount: report.occurrences.filter((occurrence) => occurrence.coverageKeys.includes("unclassified")).length,
   };
 }
 

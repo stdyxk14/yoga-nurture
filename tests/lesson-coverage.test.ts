@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   buildLessonCoverage,
   classifyLessonCoverage,
+  summarizeRecentLessonCoverage,
   type LessonCoverageSourceItem,
   type LessonCoverageSourceLesson,
 } from "../src/lib/lesson-coverage.ts";
@@ -100,4 +101,25 @@ test("coverage heatmaps keep the latest twelve lessons and aggregate months with
   assert.equal(report.months[0].counts.neck_shoulders, 13);
   assert.equal(report.occurrences.filter((item) => item.blockTemplateId === "same-block").length, 13);
   assert.equal(report.trends.consecutive.find((row) => row.key === "neck_shoulders")?.lessonCount, 13);
+});
+
+test("recent coverage summary uses the latest five lessons and keeps unclassified occurrences", () => {
+  const report = buildLessonCoverage([
+    coverageLesson("1", "2026-08-01", [coverageItem("breath-1", { displayNameSnapshot: "呼吸法" })]),
+    coverageLesson("2", "2026-08-02", [coverageItem("breath-2", { displayNameSnapshot: "呼吸法" })]),
+    coverageLesson("3", "2026-08-03", [coverageItem("shoulder-3", { displayNameSnapshot: "肩まわり" })]),
+    coverageLesson("4", "2026-08-04", [coverageItem("shoulder-4", { displayNameSnapshot: "肩まわり" })]),
+    coverageLesson("5", "2026-08-05", [
+      coverageItem("shoulder-5", { displayNameSnapshot: "肩まわり" }),
+      coverageItem("unclassified-5", { displayNameSnapshot: "独自シークエンス" }),
+    ]),
+    coverageLesson("6", "2026-08-06", [coverageItem("shoulder-6", { displayNameSnapshot: "肩まわり" })]),
+  ]);
+  const recent = summarizeRecentLessonCoverage(report);
+
+  assert.equal(recent.lessonCount, 5);
+  assert.deepEqual(recent.mostUsed.map((row) => [row.key, row.occurrenceCount]), [["neck_shoulders", 4]]);
+  assert.equal(recent.absent.some((row) => row.key === "balance"), true);
+  assert.equal(recent.consecutive.find((row) => row.key === "neck_shoulders")?.lessonCount, 4);
+  assert.equal(recent.unclassifiedCount, 1);
 });

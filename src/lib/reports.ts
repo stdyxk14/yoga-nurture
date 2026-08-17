@@ -318,6 +318,8 @@ const closureReasonLabels: Record<string, string> = {
   other: "その他",
 };
 
+const coverageRecordSelect = "id,schedule_id,lesson_plan_id,lesson_name,record_date,schedule:schedules(id,starts_at,ends_at,status,place,format,lesson_plan_id,lesson_plan_name_snapshot,lesson_plan_duration_minutes_snapshot,lesson_plan:lesson_plans(id,name,duration_minutes),schedule_closures(id,reason_code,revoked_at)),lesson_record_students(student_id,attendance_status),lesson_record_blocks(id,sort_order,block_template_id,schedule_plan_item_id,item_source,display_name_snapshot,category_name_snapshot,subcategory_name_snapshot,purpose_snapshot,tags_snapshot,planned_duration_minutes,done,actual_duration_minutes,reaction,improvement_memo,change_type,change_reason_codes,change_reason_note,actual_content_note,replaces_schedule_plan_item_id,block:block_templates(id,name,purpose,category:block_categories(name),subcategory:block_subcategories(name),block_template_tags(tag:block_tags(name))))";
+
 export function normalizeReportPeriod(value?: string | null): ReportPeriodKey {
   return value === "week" || value === "month" || value === "3months" || value === "half" || value === "year" || value === "custom" ? value : "3months";
 }
@@ -393,10 +395,24 @@ export async function getReportData(query: ReportQuery): Promise<ReportData> {
   }
 }
 
+export async function getLessonCoverageForSchedules(scheduleIds: string[]): Promise<LessonCoverageReport> {
+  const uniqueScheduleIds = Array.from(new Set(scheduleIds)).slice(0, 8);
+  if (!uniqueScheduleIds.length) return emptyLessonCoverageReport();
+
+  const { supabase } = await requireUserId();
+  const { data, error } = await supabase
+    .from("lesson_records")
+    .select(coverageRecordSelect)
+    .in("schedule_id", uniqueScheduleIds);
+
+  if (error) throw new Error(`カバレッジデータを取得できませんでした: ${error.message}`);
+  return buildLessonCoverage(((data ?? []) as unknown as RawRecord[]).map(toCoverageSourceLesson));
+}
+
 async function fetchReportData(query: ReportQuery, period: ReportPeriod): Promise<ReportData> {
   const { supabase } = await requireUserId();
   const recordSelect = query.includeCoverage
-    ? "id,schedule_id,lesson_plan_id,lesson_name,record_date,schedule:schedules(id,starts_at,ends_at,status,place,format,lesson_plan_id,lesson_plan_name_snapshot,lesson_plan_duration_minutes_snapshot,lesson_plan:lesson_plans(id,name,duration_minutes),schedule_closures(id,reason_code,revoked_at)),lesson_record_students(student_id,attendance_status),lesson_record_blocks(id,sort_order,block_template_id,schedule_plan_item_id,item_source,display_name_snapshot,category_name_snapshot,subcategory_name_snapshot,purpose_snapshot,tags_snapshot,planned_duration_minutes,done,actual_duration_minutes,reaction,improvement_memo,change_type,change_reason_codes,change_reason_note,actual_content_note,replaces_schedule_plan_item_id,block:block_templates(id,name,purpose,category:block_categories(name),subcategory:block_subcategories(name),block_template_tags(tag:block_tags(name))))"
+    ? coverageRecordSelect
     : "id,schedule_id,lesson_plan_id,lesson_name,record_date,schedule:schedules(id,starts_at,ends_at,place,format,lesson_plan_id,lesson_plan_name_snapshot,lesson_plan_duration_minutes_snapshot,lesson_plan:lesson_plans(id,name,duration_minutes),schedule_closures(id,reason_code,revoked_at)),lesson_record_students(student_id,attendance_status),lesson_record_blocks(id,block_template_id,schedule_plan_item_id,item_source,display_name_snapshot,category_name_snapshot,planned_duration_minutes,done,actual_duration_minutes,reaction,improvement_memo,change_type,change_reason_codes,change_reason_note,actual_content_note,replaces_schedule_plan_item_id,block:block_templates(id,name,category:block_categories(name)))";
   const [studentsResult, schedulesResult, recordsResult, plansResult, blocksResult, optionsResult] = await Promise.all([
     supabase.from("students").select("id,age_group,gender,created_at").eq("archived", false),
@@ -445,15 +461,7 @@ async function fetchReportData(query: ReportQuery, period: ReportPeriod): Promis
   const blockRows = buildBlockRows(current.items, blocks);
   const execution = buildExecutionSummary(current);
   const coverage = query.includeCoverage
-    ? buildLessonCoverage(current.records.map((record) => ({
-      lessonRecordId: record.id,
-      scheduleId: record.schedule_id,
-      lessonName: record.lesson_name,
-      dateIso: recordDateIso(record),
-      scheduleStatus: record.schedule?.status ?? null,
-      closed: hasActiveClosure(record.schedule),
-      items: (record.lesson_record_blocks ?? []).map(toCoverageSourceItem),
-    })))
+    ? buildLessonCoverage(current.records.map(toCoverageSourceLesson))
     : emptyLessonCoverageReport();
   const planRows = buildPlanRows(current, plans);
   const attendance = buildAttendanceReport(current.attendance, period);
@@ -887,6 +895,17 @@ function isConfirmedPlanned(item: Pick<RawRecordItem, "item_source" | "change_ty
 function isExecutedAdded(item: Pick<RawRecordItem, "change_type" | "done">) { return item.change_type === "added" && item.done === true; }
 function isExecutedItem(item: Pick<RawRecordItem, "item_source" | "change_type" | "done">) { return item.done === true && !(item.item_source === "planned" && item.change_type === "replaced"); }
 function isActualItem(item: Pick<RawRecordItem, "item_source" | "change_type" | "done" | "actual_duration_minutes">) { return isExecutedItem(item) && item.actual_duration_minutes != null; }
+function toCoverageSourceLesson(record: RawRecord) {
+  return {
+    lessonRecordId: record.id,
+    scheduleId: record.schedule_id,
+    lessonName: record.lesson_name,
+    dateIso: recordDateIso(record),
+    scheduleStatus: record.schedule?.status ?? null,
+    closed: hasActiveClosure(record.schedule),
+    items: (record.lesson_record_blocks ?? []).map(toCoverageSourceItem),
+  };
+}
 function toCoverageSourceItem(item: RawRecordItem): LessonCoverageSourceItem {
   return {
     id: item.id,
