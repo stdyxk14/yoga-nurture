@@ -25,6 +25,7 @@ export type DailySuggestionItem = {
   includesInference: boolean;
   evidenceCount: number;
   evidenceRefs: AiReviewReference[];
+  references: AiReviewReferenceIndex | null;
   draftPayload: DailyDraftPayload;
   status: "pending" | "accepted" | "held" | "dismissed" | "saved";
   savedPlanId: string | null;
@@ -74,7 +75,7 @@ export async function getDailySuggestionState(): Promise<DailySuggestionState> {
       .maybeSingle(),
     supabase
       .from("ai_daily_suggestions")
-      .select("id,run_id,suggestion_date,rank,suggestion_type,title,summary,rationale,confidence,includes_inference,evidence_count,evidence_refs,draft_payload,status,saved_plan_id,saved_block_template_id,saved_at,created_at,run:ai_daily_runs!inner(prompt_version)")
+      .select("id,run_id,suggestion_date,rank,suggestion_type,title,summary,rationale,confidence,includes_inference,evidence_count,evidence_refs,draft_payload,status,saved_plan_id,saved_block_template_id,saved_at,created_at,run:ai_daily_runs!inner(prompt_version,reference_index)")
       .eq("user_id", userId)
       .eq("run.prompt_version", dailySuggestionPromptVersion)
       .order("created_at", { ascending: false })
@@ -123,6 +124,7 @@ type SuggestionRow = {
   includes_inference: boolean;
   evidence_count: number;
   evidence_refs: AiReviewReference[];
+  run: { reference_index?: unknown } | Array<{ reference_index?: unknown }> | null;
   draft_payload: DailyDraftPayload;
   status: DailySuggestionItem["status"];
   saved_plan_id: string | null;
@@ -145,6 +147,7 @@ function mapSuggestion(row: SuggestionRow): DailySuggestionItem {
     includesInference: row.includes_inference,
     evidenceCount: row.evidence_count,
     evidenceRefs: row.evidence_refs ?? [],
+    references: referenceIndexFromRun(row.run),
     draftPayload: row.draft_payload ?? { kind: "none" },
     status: row.status,
     savedPlanId: row.saved_plan_id,
@@ -152,6 +155,12 @@ function mapSuggestion(row: SuggestionRow): DailySuggestionItem {
     savedAt: row.saved_at,
     createdAt: row.created_at,
   };
+}
+
+function referenceIndexFromRun(run: SuggestionRow["run"]): AiReviewReferenceIndex | null {
+  const relation = Array.isArray(run) ? run[0] : run;
+  const value = relation?.reference_index;
+  return value && typeof value === "object" && !Array.isArray(value) ? value as AiReviewReferenceIndex : null;
 }
 
 function maintenanceCandidates(value: unknown): MaintenanceCandidate[] {
