@@ -120,8 +120,14 @@ function DesktopSidebar({ pathname, compact, onSearch }: { pathname: string; com
               )}
             >
               <Icon className="h-5 w-5 shrink-0" strokeWidth={1.7} aria-hidden="true" />
-              <span className={cn(compact && "xl:hidden")}>{item.shortLabel}</span>
-              {compact ? <span className="hidden xl:inline">{item.label}</span> : <span>{item.label}</span>}
+              {compact ? (
+                <>
+                  <span className="xl:hidden">{item.shortLabel}</span>
+                  <span className="hidden xl:inline">{item.label}</span>
+                </>
+              ) : (
+                <span>{item.label}</span>
+              )}
             </Link>
           );
         })}
