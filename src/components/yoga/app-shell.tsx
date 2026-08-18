@@ -115,7 +115,7 @@ function DesktopSidebar({ pathname, compact, onSearch }: { pathname: string; com
                 "flex rounded-xl font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6f9a76] focus-visible:ring-offset-2",
                 compact
                   ? "min-h-14 flex-col items-center justify-center gap-1 px-1 text-[12px] xl:min-h-11 xl:flex-row xl:justify-start xl:gap-3 xl:px-3 xl:text-[14px]"
-                  : "h-11 items-center gap-3 px-3 text-[14px]",
+                  : "h-11 items-center gap-3 px-3 text-[14px] whitespace-nowrap",
                 active ? "bg-[#5d8f68] text-white shadow-[0_5px_14px_rgba(64,113,77,0.16)]" : "text-[#4c514b] hover:bg-[#eef4eb] hover:text-[#386f4a]",
               )}
             >
