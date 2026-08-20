@@ -78,58 +78,77 @@ export function LessonPlanPrintDocument({ plan, schedule }: Props) {
 
         {schedule ? (
           <section className="print-participants mt-10 border-t-[10px] border-[#eee8dc] pt-10 print:mt-0 print:border-t-0 print:pt-0">
-            <div className="mb-5 border-b border-[#293225] pb-4">
-              <p className="text-[12px] font-extrabold tracking-[0.22em] text-[#5d956d]">PARTICIPANTS</p>
-              <h2 className="mt-2 text-[25px] font-black leading-tight text-[#20231e] print:text-[20pt]">参加生徒情報・過去の観察記録</h2>
-              <p className="mt-1 max-w-[720px] text-[12.5px] font-semibold leading-5 text-[#606a5e]">
+            <div className="participant-section-heading mb-4 border-b border-[#293225] pb-3">
+              <p className="participant-section-kicker text-[10.5px] font-extrabold tracking-[0.22em] text-[#5d956d]">PARTICIPANTS</p>
+              <h2 className="participant-section-title mt-1.5 text-[21px] font-black leading-tight text-[#20231e] print:text-[14pt]">参加生徒情報・過去の観察記録</h2>
+              <p className="participant-section-description mt-1 max-w-[720px] text-[11.5px] font-semibold leading-[1.5] text-[#606a5e]">
                 対象予定より前に完了したレッスンのうち、実際に参加した生徒の保存済み記録です。
               </p>
             </div>
 
             {participantItems.length ? (
-              <div className="space-y-6">
+              <div className="participant-student-list">
                 {participantItems.map((student) => (
-                  <article key={student.id} className="participant-print-card border border-[#d7d0c5] p-4">
-                    <header className="participant-student-header flex flex-wrap items-baseline justify-between gap-2 border-b border-[#cfc7ba] pb-2">
-                      <h3 className="text-[17px] font-black text-[#20231e]">{student.name}</h3>
-                      <p className="shrink-0 text-[11.5px] font-extrabold text-[#5d956d]">過去受講回数 {student.lessonCount}回</p>
-                    </header>
+                  <section key={student.id} className="participant-student-section mt-7 border-t border-[#cfc7ba] pt-5 first:mt-0 first:border-t-0 first:pt-0">
+                    <div className="participant-overview bg-[#f7f5ef] px-3.5 py-3">
+                      <header className="participant-overview-heading flex flex-wrap items-baseline justify-between gap-2 border-b border-[#d8d1c6] pb-2">
+                        <h3 className="participant-overview-name text-[16px] font-black text-[#20231e]">{student.name}</h3>
+                        <p className="participant-overview-count shrink-0 text-[11px] font-extrabold text-[#5d956d]">過去受講回数 {student.lessonCount}回</p>
+                      </header>
 
-                    <dl className="participant-profile mt-3 grid gap-2 text-[11.5px] leading-5">
-                      <PrintDefinition label="ヨガ・その他経験" value={student.experience} />
-                      <PrintDefinition label="ケガなどの注意点" value={student.caution || "未登録"} />
-                      <PrintDefinition label="その他メモ" value={student.memo} />
-                    </dl>
-
-                    <div className="participant-profile mt-3 border-l-4 border-[#b35d3f] pl-3 text-[11.5px] leading-5">
-                      <p className="font-black text-[#9b4d33]">未完了の次回フォロー</p>
-                      {student.followUps.length ? (
-                        <div className="mt-1.5 space-y-2">
-                          {student.followUps.map((followUp) => (
-                            <div key={`${student.id}-${followUp.date}-${followUp.text}`}>
-                              <p className="whitespace-pre-wrap break-words font-semibold text-[#20231e]">{followUp.text}</p>
-                              {followUp.personalMemo ? <p className="mt-0.5 whitespace-pre-wrap break-words text-[#606a5e]">個別メモ：{followUp.personalMemo}</p> : null}
-                              <p className="mt-0.5 text-[10.5px] text-[#6b7468]">{followUp.date} / {followUp.lessonName}</p>
-                            </div>
-                          ))}
+                      <dl className="participant-profile mt-2.5 grid gap-1.5 text-[11px] leading-[1.55]">
+                        <PrintDefinition label="ヨガ・その他経験" value={student.experience} />
+                        <PrintDefinition label="ケガなどの注意点" value={student.caution || "未登録"} />
+                        <PrintDefinition label="その他メモ" value={student.memo} />
+                        <div className="participant-follow-ups grid grid-cols-[116px_minmax(0,1fr)] gap-2 border-t border-[#e0d8cd] pt-2">
+                          <dt className="font-black text-[#9b4d33]">未完了の次回フォロー</dt>
+                          <dd className="min-w-0">
+                            {student.followUps.length ? (
+                              <div className="space-y-1.5">
+                                {student.followUps.map((followUp) => (
+                                  <div key={`${student.id}-${followUp.date}-${followUp.text}`}>
+                                    <p className="whitespace-pre-wrap break-words font-semibold text-[#20231e]">{followUp.text}</p>
+                                    {followUp.personalMemo ? <p className="mt-0.5 whitespace-pre-wrap break-words text-[#606a5e]">個別メモ：{followUp.personalMemo}</p> : null}
+                                    <p className="mt-0.5 text-[10px] text-[#6b7468]">{followUp.date} / {followUp.lessonName}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : <p className="font-semibold text-[#6b7468]">なし</p>}
+                          </dd>
                         </div>
-                      ) : <p className="mt-1 font-semibold text-[#6b7468]">なし</p>}
+                      </dl>
                     </div>
 
                     {student.observations.length ? (
-                      <>
-                        <div className="participant-history-start mt-4">
-                          <h4 className="participant-timeline-title border-b border-[#ddd5ca] pb-1.5 text-[12px] font-black text-[#374431]">過去の観察記録</h4>
-                          <ParticipantObservation observation={student.observations[0]} />
-                        </div>
-                        {student.observations.slice(1).map((observation) => (
-                          <ParticipantObservation key={observation.lessonRecordId} observation={observation} />
-                        ))}
-                      </>
+                      <table className="participant-history-table mt-3 w-full table-fixed border-collapse text-left">
+                        <colgroup>
+                          <col className="w-[30%]" />
+                          <col />
+                        </colgroup>
+                        <thead>
+                          <tr className="participant-history-identity border-y border-[#bfc9ba] bg-[#edf2e9]">
+                            <th colSpan={2} className="px-3 py-2 font-normal">
+                              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                                <span className="participant-history-name font-black text-[#20231e]">{student.name}</span>
+                                <span className="participant-history-caption font-extrabold text-[#4f7355]">過去受講回数 {student.lessonCount}回 ・ 過去の観察記録</span>
+                              </div>
+                            </th>
+                          </tr>
+                          <tr className="participant-history-columns border-b border-[#cfc7ba] bg-[#f8f7f2] text-[#4d584a]">
+                            <th scope="col" className="px-3 py-1.5 font-black">日付・レッスン名</th>
+                            <th scope="col" className="px-3 py-1.5 font-black">観察内容</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {student.observations.map((observation) => (
+                            <ParticipantObservationRow key={observation.lessonRecordId} observation={observation} />
+                          ))}
+                        </tbody>
+                      </table>
                     ) : (
-                      <p className="mt-4 border-t border-[#e7e0d6] pt-3 text-[11.5px] font-semibold text-[#6b7468]">過去の観察メモはありません</p>
+                      <p className="participant-empty-history mt-3 border-y border-[#ddd5ca] bg-[#fbfaf7] px-3 py-2.5 text-[11px] font-semibold text-[#6b7468]">過去の観察メモはありません</p>
                     )}
-                  </article>
+                  </section>
                 ))}
               </div>
             ) : (
@@ -138,7 +157,7 @@ export function LessonPlanPrintDocument({ plan, schedule }: Props) {
           </section>
         ) : null}
 
-        <section className={schedule ? "print-toc mt-10 border-t-[10px] border-[#eee8dc] pt-10 print:mt-0 print:border-t-0 print:pt-0" : "print-toc"}>
+        <section className={schedule ? "print-toc print-toc-after-participants mt-10 border-t-[10px] border-[#eee8dc] pt-10 print:mt-0 print:border-t-0 print:pt-0" : "print-toc"}>
           <div className="mb-5 flex items-end justify-between gap-6 border-b border-[#293225] pb-4">
             <div>
               <p className="text-[12px] font-extrabold tracking-[0.22em] text-[#5d956d]">YOGA NURTURE</p>
@@ -230,35 +249,35 @@ function PrintDefinition({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ParticipantObservation({ observation }: { observation: ScheduleParticipantObservation }) {
+function ParticipantObservationRow({ observation }: { observation: ScheduleParticipantObservation }) {
   return (
-    <section className="participant-observation mt-3 border-l-2 border-[#8eae91] pl-3 text-[11.5px] leading-5">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <div>
-          <p className="font-black text-[#20231e]">{observation.dateLabel}</p>
-          <p className="font-semibold text-[#566052]">{observation.lessonName}</p>
-        </div>
+    <tr className="participant-observation-row border-b border-[#ddd5ca] align-top text-[11px] leading-[1.55]">
+      <td className="participant-observation-meta px-3 py-2.5 align-top">
+        <p className="font-black text-[#20231e]">{observation.dateLabel}</p>
+        <p className="mt-0.5 whitespace-pre-wrap break-words font-semibold text-[#566052]">{observation.lessonName}</p>
         {observation.scheduleId ? (
-          <Link href={`/lessons/${observation.scheduleId}/record`} className="text-[10.5px] font-extrabold text-[#4f7b58] underline underline-offset-2 print:hidden">
+          <Link href={`/lessons/${observation.scheduleId}/record`} className="mt-1.5 inline-block text-[10px] font-extrabold text-[#4f7b58] underline underline-offset-2 print:hidden">
             実施後記録を見る
           </Link>
         ) : null}
-      </div>
-      <dl className="mt-2 grid gap-2">
-        {observation.condition ? <ObservationField label="今日の様子" value={observation.condition} /> : null}
-        {observation.memo ? <ObservationField label="個別メモ" value={observation.memo} /> : null}
-        {observation.nextFollow ? <ObservationField label="次回フォロー" value={observation.nextFollow} /> : null}
-        {observation.followUpStatus ? <ObservationField label="フォロー状態" value={getFollowUpStatusLabel(observation.followUpStatus)} /> : null}
-      </dl>
-    </section>
+      </td>
+      <td className="px-3 py-2.5 align-top">
+        <dl className="participant-observation-fields grid gap-1.5">
+          {observation.condition ? <ObservationField label="今日の様子" value={observation.condition} /> : null}
+          {observation.memo ? <ObservationField label="個別メモ" value={observation.memo} /> : null}
+          {observation.nextFollow ? <ObservationField label="次回フォロー" value={observation.nextFollow} /> : null}
+          {observation.followUpStatus ? <ObservationField label="フォロー状態" value={getFollowUpStatusLabel(observation.followUpStatus)} /> : null}
+        </dl>
+      </td>
+    </tr>
   );
 }
 
 function ObservationField({ label, value }: { label: string; value: string }) {
   return (
-    <div className="grid grid-cols-[92px_minmax(0,1fr)] gap-2">
+    <div className="grid grid-cols-[88px_minmax(0,1fr)] gap-2">
       <dt className="font-black text-[#4d584a]">{label}</dt>
-      <dd className="whitespace-pre-wrap break-words font-semibold text-[#20231e]">{value}</dd>
+      <dd className="whitespace-pre-wrap break-words font-semibold text-[#20231e] [overflow-wrap:anywhere]">{value}</dd>
     </div>
   );
 }
@@ -328,18 +347,14 @@ function PrintStyles() {
           min-height: auto;
         }
 
-        .print-participants {
-          break-before: page;
-          page-break-before: always;
+        .print-toc {
           break-after: page;
           page-break-after: always;
         }
 
-        .print-toc {
+        .print-toc-after-participants {
           break-before: page;
           page-break-before: always;
-          break-after: page;
-          page-break-after: always;
         }
 
         .print-toc-list {
@@ -380,24 +395,105 @@ function PrintStyles() {
           page-break-inside: avoid;
         }
 
-        .participant-print-card {
-          break-inside: auto;
-          page-break-inside: auto;
-          font-size: 9.4pt !important;
+        .participant-section-kicker {
+          font-size: 8.5pt !important;
+        }
+
+        .participant-section-title {
+          font-size: 14pt !important;
+        }
+
+        .participant-section-description {
+          font-size: 8.8pt !important;
           line-height: 1.45 !important;
         }
 
-        .participant-student-header,
-        .participant-profile,
-        .participant-timeline-title {
+        .participant-student-list {
+          display: block;
+        }
+
+        .participant-student-section {
+          break-inside: auto;
+          page-break-inside: auto;
+        }
+
+        .participant-student-section + .participant-student-section {
+          margin-top: 8mm;
+          padding-top: 5mm;
+        }
+
+        .participant-overview {
+          break-inside: avoid;
+          page-break-inside: avoid;
+          break-after: avoid-page;
+          page-break-after: avoid;
+        }
+
+        .participant-overview-name,
+        .participant-history-name {
+          font-size: 12pt !important;
+        }
+
+        .participant-overview-count,
+        .participant-history-caption {
+          font-size: 8.8pt !important;
+        }
+
+        .participant-profile {
+          font-size: 9.2pt !important;
+          line-height: 1.48 !important;
+        }
+
+        .participant-profile dt,
+        .participant-observation-fields dt {
+          font-size: 8.7pt !important;
+        }
+
+        .participant-profile dd,
+        .participant-observation-fields dd {
+          font-size: 9.2pt !important;
+        }
+
+        .participant-history-table {
+          width: 100%;
+          border-collapse: collapse;
+          break-before: avoid-page;
+          page-break-before: avoid;
+          break-inside: auto;
+          page-break-inside: auto;
+        }
+
+        .participant-history-table thead {
+          display: table-header-group !important;
+          break-inside: avoid;
+          page-break-inside: avoid;
           break-after: avoid;
           page-break-after: avoid;
         }
 
-        .participant-history-start,
-        .participant-observation {
+        .participant-history-columns th {
+          font-size: 8.7pt !important;
+          line-height: 1.35 !important;
+        }
+
+        .participant-observation-row {
           break-inside: avoid;
           page-break-inside: avoid;
+        }
+
+        .participant-observation-row td {
+          font-size: 9.2pt !important;
+          line-height: 1.5 !important;
+        }
+
+        .participant-observation-meta {
+          font-size: 8.8pt !important;
+        }
+
+        .participant-empty-history {
+          break-inside: avoid;
+          page-break-inside: avoid;
+          font-size: 9.2pt !important;
         }
 
         .script-text {
