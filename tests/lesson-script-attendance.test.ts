@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   calculatePastAttendanceCounts,
   filterPresentScriptParticipants,
+  getPastLessonAttendanceEntries,
   type LessonScriptAttendanceRow,
 } from "../src/lib/lesson-script-attendance.ts";
 
@@ -72,6 +73,24 @@ test("a completed target lesson is excluded from its own script and included in 
     calculatePastAttendanceCounts(rows, { id: "schedule-0820", startsAt: "2026-08-20T10:00:00+09:00" }).get("student-a"),
     1,
   );
+});
+
+test("lesson script history reuses the same attendance and timeline eligibility as the count", () => {
+  const rows: LessonScriptAttendanceRow[] = [
+    row({ recordId: "record-current", scheduleId: target.id, startsAt: target.startsAt }),
+    row({ recordId: "record-prior", scheduleId: "schedule-0810", startsAt: "2026-08-10T10:00:00+09:00" }),
+    row({ recordId: "record-draft", scheduleId: "schedule-0811", startsAt: "2026-08-11T10:00:00+09:00", status: "record_pending" }),
+    row({ recordId: "record-closed", scheduleId: "schedule-0812", startsAt: "2026-08-12T10:00:00+09:00", closed: true }),
+    row({ recordId: "record-cancelled", scheduleId: "schedule-0813", startsAt: "2026-08-13T10:00:00+09:00", attendanceStatus: "cancelled" }),
+    row({ recordId: "record-no-show", scheduleId: "schedule-0814", startsAt: "2026-08-14T10:00:00+09:00", attendanceStatus: "no_show" }),
+    row({ recordId: "record-future", scheduleId: "schedule-0820", startsAt: "2026-08-20T10:00:00+09:00" }),
+    row({ recordId: "legacy-prior", scheduleId: null, recordDate: "2026-08-14" }),
+    row({ recordId: "legacy-same-day", scheduleId: null, recordDate: "2026-08-15" }),
+  ];
+
+  const entries = getPastLessonAttendanceEntries(rows, target);
+  assert.deepEqual(entries.map((entry) => entry.row.record?.id), ["record-prior", "legacy-prior"]);
+  assert.deepEqual(entries.map((entry) => entry.dateIso), ["2026-08-10T10:00:00+09:00", "2026-08-14T00:00:00+09:00"]);
 });
 
 test("lesson scripts show only participants whose current schedule status is present", () => {

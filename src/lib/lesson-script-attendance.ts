@@ -21,44 +21,60 @@ export type LessonScriptTargetSchedule = {
   startsAt: string;
 };
 
-export function calculatePastAttendanceCounts(
-  rows: readonly LessonScriptAttendanceRow[],
+export type PastLessonAttendanceEntry<T extends LessonScriptAttendanceRow = LessonScriptAttendanceRow> = {
+  row: T;
+  lessonKey: string;
+  dateIso: string;
+};
+
+export function getPastLessonAttendanceEntries<T extends LessonScriptAttendanceRow>(
+  rows: readonly T[],
   target: LessonScriptTargetSchedule,
-) {
+): PastLessonAttendanceEntry<T>[] {
   const targetStartsAt = Date.parse(target.startsAt);
   const targetDate = tokyoDateKey(target.startsAt);
-  if (!Number.isFinite(targetStartsAt) || !targetDate) return new Map<string, number>();
+  if (!Number.isFinite(targetStartsAt) || !targetDate) return [];
 
-  const lessonsByStudent = new Map<string, Set<string>>();
+  const entries: PastLessonAttendanceEntry<T>[] = [];
 
   for (const row of rows) {
     if (row.attendanceStatus !== "present" || !row.studentId || !row.record?.id) continue;
 
     const { record } = row;
-    let lessonKey: string;
-
     if (record.scheduleId) {
       const schedule = record.schedule;
       if (
-        !schedule ||
-        schedule.id !== record.scheduleId ||
-        schedule.id === target.id ||
-        schedule.status !== "recorded" ||
-        schedule.hasActiveClosure ||
-        !schedule.startsAt
+        !schedule
+        || schedule.id !== record.scheduleId
+        || schedule.id === target.id
+        || schedule.status !== "recorded"
+        || schedule.hasActiveClosure
+        || !schedule.startsAt
       ) {
         continue;
       }
 
       const startsAt = Date.parse(schedule.startsAt);
       if (!Number.isFinite(startsAt) || startsAt >= targetStartsAt) continue;
-      lessonKey = `schedule:${schedule.id}`;
-    } else {
-      const recordDate = record.recordDate?.slice(0, 10) ?? "";
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(recordDate) || recordDate >= targetDate) continue;
-      lessonKey = `legacy:${record.id}`;
+      entries.push({ row, lessonKey: `schedule:${schedule.id}`, dateIso: schedule.startsAt });
+      continue;
     }
 
+    const recordDate = record.recordDate?.slice(0, 10) ?? "";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(recordDate) || recordDate >= targetDate) continue;
+    entries.push({ row, lessonKey: `legacy:${record.id}`, dateIso: `${recordDate}T00:00:00+09:00` });
+  }
+
+  return entries;
+}
+
+export function calculatePastAttendanceCounts(
+  rows: readonly LessonScriptAttendanceRow[],
+  target: LessonScriptTargetSchedule,
+) {
+  const lessonsByStudent = new Map<string, Set<string>>();
+
+  for (const { row, lessonKey } of getPastLessonAttendanceEntries(rows, target)) {
     const lessons = lessonsByStudent.get(row.studentId) ?? new Set<string>();
     lessons.add(lessonKey);
     lessonsByStudent.set(row.studentId, lessons);

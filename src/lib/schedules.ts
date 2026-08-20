@@ -3,11 +3,12 @@ import { formatJapaneseDate } from "@/lib/date-format";
 import { requireUserId } from "@/lib/students";
 import { getFormatLabel, type DbLessonPlan } from "@/lib/lesson-plans";
 import { toGenderCode, toGenderLabel } from "@/lib/student-fields";
-import type { StudentRecord } from "@/components/yoga/records";
+import type { FollowUpStatus, StudentRecord } from "@/components/yoga/records";
 import type { RequestSupabaseClient } from "@/lib/supabase/server";
 import {
   calculatePastAttendanceCounts,
   filterPresentScriptParticipants,
+  getPastLessonAttendanceEntries,
   type LessonScriptAttendanceRow,
 } from "@/lib/lesson-script-attendance";
 import {
@@ -20,6 +21,18 @@ export type { ScheduleClosure, ScheduleClosureReasonCode } from "@/lib/schedule-
 
 export type ScheduleStatus = "scheduled" | "preparing" | "prepared" | "record_pending" | "recorded";
 
+export type ScheduleParticipantObservation = {
+  lessonRecordId: string;
+  scheduleId: string | null;
+  dateIso: string;
+  dateLabel: string;
+  lessonName: string;
+  condition: string;
+  memo: string;
+  nextFollow: string;
+  followUpStatus?: FollowUpStatus | null;
+};
+
 export type ScheduleParticipant = StudentRecord & {
   participantId: string;
   attendanceStatus: "present" | "cancelled" | "no_show";
@@ -30,6 +43,7 @@ export type ScheduleParticipant = StudentRecord & {
     lessonName: string;
     date: string;
   }>;
+  pastObservations: ScheduleParticipantObservation[];
 };
 
 export type DbSchedule = {
@@ -167,6 +181,7 @@ function mapParticipant(row: RawParticipant): ScheduleParticipant | null {
     attendanceStatus: row.attendance_status,
     attendanceLabel: getAttendanceLabel(row.attendance_status),
     pendingFollowUps: [],
+    pastObservations: [],
   };
 }
 
@@ -308,6 +323,7 @@ export async function getScheduleSummaries() {
 type RawParticipantRecordInsight = {
   student_id: string;
   attendance_status: "present" | "cancelled" | "no_show" | null;
+  condition: string | null;
   memo: string | null;
   next_follow: string | null;
   follow_up_status?: "none" | "pending" | "completed" | "dismissed" | null;
@@ -334,6 +350,7 @@ async function enrichScheduleParticipants(supabase: RequestSupabaseClient, sched
     .select(`
       student_id,
       attendance_status,
+      condition,
       memo,
       next_follow,
       follow_up_status,
@@ -355,6 +372,7 @@ async function enrichScheduleParticipants(supabase: RequestSupabaseClient, sched
       .select(`
         student_id,
         attendance_status,
+        condition,
         memo,
         next_follow,
         record:lesson_records(
@@ -388,9 +406,10 @@ async function enrichScheduleParticipants(supabase: RequestSupabaseClient, sched
     }
   }
 
-  const attendanceRows: LessonScriptAttendanceRow[] = rows.map((row) => ({
+  const attendanceRows = rows.map((row) => ({
     studentId: row.student_id,
     attendanceStatus: row.attendance_status,
+    source: row,
     record: row.record
       ? {
           id: row.record.id,
@@ -406,16 +425,45 @@ async function enrichScheduleParticipants(supabase: RequestSupabaseClient, sched
             : null,
         }
       : null,
-  }));
+  })) satisfies Array<LessonScriptAttendanceRow & { source: RawParticipantRecordInsight }>;
 
   return schedules.map((schedule) => {
     const attendedCountByStudent = calculatePastAttendanceCounts(attendanceRows, schedule);
+    const observationsByStudent = new Map<string, ScheduleParticipantObservation[]>();
+
+    for (const { row: attendanceRow, dateIso } of getPastLessonAttendanceEntries(attendanceRows, schedule)) {
+      const row = attendanceRow.source;
+      const condition = row.condition?.trim() ?? "";
+      const memo = row.memo?.trim() ?? "";
+      const nextFollow = row.next_follow?.trim() ?? "";
+      if (!condition && !memo && !nextFollow) continue;
+
+      const observations = observationsByStudent.get(row.student_id) ?? [];
+      observations.push({
+        lessonRecordId: row.record!.id,
+        scheduleId: row.record!.schedule_id,
+        dateIso,
+        dateLabel: formatJapaneseDate(new Date(dateIso)),
+        lessonName: row.record!.lesson_name?.trim() || "レッスン",
+        condition,
+        memo,
+        nextFollow,
+        followUpStatus: row.follow_up_status,
+      });
+      observationsByStudent.set(row.student_id, observations);
+    }
+
+    for (const observations of observationsByStudent.values()) {
+      observations.sort((a, b) => b.dateIso.localeCompare(a.dateIso));
+    }
+
     return {
       ...schedule,
       participants: schedule.participants.map((student) => ({
         ...student,
         linkedLessonCount: attendedCountByStudent.get(student.id) ?? 0,
         pendingFollowUps: (followUpsByStudent.get(student.id) ?? []).slice(0, 3),
+        pastObservations: observationsByStudent.get(student.id) ?? [],
       })),
     };
   });
