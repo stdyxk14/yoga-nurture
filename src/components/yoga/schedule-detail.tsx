@@ -55,7 +55,7 @@ export function ScheduleDetail({ schedule, error }: { schedule: DbSchedule; erro
         ) : !schedule.lessonPlanId ? (
           <WorkspaceAction icon={FileText} disabled title="予定を編集してレッスンプランを設定してください">実施後記録（プラン設定が必要）</WorkspaceAction>
         ) : (
-          <WorkspaceAction href={`/lessons/${schedule.id}/record`} icon={FileText} variant="primary">実施後記録</WorkspaceAction>
+          <WorkspaceAction href={`/lessons/${schedule.id}/record`} icon={FileText} variant="primary">{schedule.hasCompletedRecord ? "実施後記録詳細" : "実施後記録"}</WorkspaceAction>
         )}
         <WorkspaceAction href={`/schedules/${schedule.id}/edit`} icon={Pencil}>編集</WorkspaceAction>
         <ScheduleClosureDialog

@@ -1,7 +1,8 @@
+import { LessonRecordDetail } from "@/components/yoga/lesson-record-detail";
 import { LessonRecordForm } from "@/components/yoga/lesson-record-form";
 import { getLessonRecordAiAvailabilityState, getLessonRecordAiSuggestionState } from "@/lib/ai-suggestions";
 import { isUuid } from "@/lib/ids";
-import { getLessonRecordFormData } from "@/lib/lesson-records";
+import { getLessonRecordDetailData, getLessonRecordFormData } from "@/lib/lesson-records";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { WorkspaceFeedback, WorkspacePageHeader, WorkspacePanel } from "@/components/yoga/workspace-kit";
@@ -13,11 +14,16 @@ export default async function LessonRecordPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ saved?: string }>;
+  searchParams: Promise<{ edit?: string; saved?: string }>;
 }) {
   const { id } = await params;
-  const { saved } = await searchParams;
+  const { edit, saved } = await searchParams;
   if (!isUuid(id)) notFound();
+
+  if (edit !== "1") {
+    const detailData = await getLessonRecordDetailData(id);
+    if (detailData) return <LessonRecordDetail data={detailData} />;
+  }
 
   const data = await getLessonRecordFormData(id);
   if (data.schedule?.activeClosure) {

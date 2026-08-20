@@ -359,7 +359,7 @@ function ScheduleActions({ schedule, kind }: { schedule: DbSchedule; kind: Sched
         <div className="mt-2 flex flex-wrap justify-end gap-1.5 rounded-lg border border-[#e2dbd1] bg-[#fbfaf7] p-2">
           <Link href={`/schedules/${schedule.id}`} className="secondary-row-action">詳細</Link>
           {schedule.lessonPlanId ? <Link href={`/schedules/${schedule.id}/script`} className="secondary-row-action">原稿</Link> : <span className="secondary-row-action opacity-50">原稿なし</span>}
-          {!schedule.activeClosure && schedule.lessonPlanId ? <Link href={`/lessons/${schedule.id}/record`} className="secondary-row-action">実施後記録</Link> : null}
+          {!schedule.activeClosure && schedule.lessonPlanId ? <Link href={`/lessons/${schedule.id}/record`} className="secondary-row-action">{schedule.hasCompletedRecord ? "実施後記録詳細" : "実施後記録"}</Link> : null}
           <Link href={`/schedules/${schedule.id}/edit`} className="secondary-row-action">編集</Link>
           {!schedule.activeClosure && !schedule.hasCompletedRecord ? <ScheduleClosureDialog scheduleId={schedule.id} activeClosure={null} hasDraftRecord={schedule.hasDraftRecord} disabled={false} /> : null}
         </div>
@@ -438,7 +438,7 @@ function DiffSummary({ summary }: { summary: LessonRecordDiffSummary }) {
 function RecordActions({ record }: { record: DbLessonRecord }) {
   return (
     <div className="flex flex-wrap justify-end gap-2">
-      {record.scheduleId ? <Link href={`/lessons/${record.scheduleId}/record`} className="inline-flex h-9 items-center rounded-lg bg-[#5d8f68] px-3 text-[12px] font-semibold text-white">記録を見る／編集</Link> : <span className="text-[12px] text-[#7b8178]">予定未連携</span>}
+      {record.scheduleId ? <Link href={`/lessons/${record.scheduleId}/record`} className="inline-flex h-9 items-center rounded-lg bg-[#5d8f68] px-3 text-[12px] font-semibold text-white">{record.status === "completed" ? "詳細を見る" : "記録を続ける"}</Link> : <span className="text-[12px] text-[#7b8178]">予定未連携</span>}
       {record.lessonPlanId ? <Link href={`/lessons/${record.lessonPlanId}`} className="secondary-row-action">使用プラン</Link> : null}
       {record.scheduleId ? <Link href={`/schedules/${record.scheduleId}`} className="secondary-row-action">予定詳細</Link> : null}
     </div>

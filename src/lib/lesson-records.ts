@@ -9,7 +9,12 @@ import {
   type BlockCategory,
   type DbBlockTemplate,
 } from "@/lib/blocks";
-import type { LessonRecordChangeReasonCode, LessonRecordChangeType } from "@/lib/lesson-record-flow";
+import {
+  summarizeLessonExecution,
+  type LessonExecutionSummary,
+  type LessonRecordChangeReasonCode,
+  type LessonRecordChangeType,
+} from "@/lib/lesson-record-flow";
 import type { RequestSupabaseClient } from "@/lib/supabase/server";
 
 export type LessonRecordStatus = "draft" | "completed";
@@ -74,6 +79,73 @@ export type LessonRecordFormData = {
   students: LessonRecordStudentFormItem[];
   blockLibrary: DbBlockTemplate[];
   blockCategories: BlockCategory[];
+};
+
+export type LessonRecordDetailBlock = {
+  id: string;
+  schedulePlanItemId: string | null;
+  blockTemplateId: string | null;
+  sortOrder: number;
+  itemSource: LessonRecordItemSource;
+  name: string;
+  majorCategory: string;
+  minorCategory: string;
+  plannedMinutes: number | null;
+  changeType: LessonRecordChangeType | null;
+  changeReasonCodes: LessonRecordChangeReasonCode[];
+  changeReasonNote: string;
+  actualContentNote: string;
+  replacesSchedulePlanItemId: string | null;
+  done: boolean | null;
+  actualMinutes: number | null;
+  reaction: BlockReactionCode | null;
+  teacherMemo: string;
+  improvementMemo: string;
+  useAgain: boolean | null;
+  scriptRevision: string;
+};
+
+export type LessonRecordDetailStudent = {
+  id: string;
+  studentId: string;
+  name: string;
+  attendanceStatus: StudentAttendanceCode;
+  condition: string;
+  memo: string;
+  nextFollow: string;
+  followUpStatus?: FollowUpStatus | null;
+};
+
+export type LessonRecordDetailData = {
+  schedule: {
+    id: string;
+    lessonName: string;
+    dateLabel: string;
+    startTimeLabel: string;
+    endTimeLabel: string;
+    place: string;
+    lessonPlanId: string | null;
+    lessonPlanName: string;
+  };
+  record: {
+    id: string;
+    overallMemo: string;
+    overallReaction: string;
+    improvementPoints: string;
+    status: "completed";
+    statusLabel: string;
+    updatedAt: string;
+    updatedAtLabel: string;
+  };
+  blocks: LessonRecordDetailBlock[];
+  students: LessonRecordDetailStudent[];
+  executionSummary: LessonExecutionSummary;
+  diffSummary: LessonRecordDiffSummary;
+  attendanceSummary: {
+    present: number;
+    cancelled: number;
+    noShow: number;
+  };
 };
 
 export type DbLessonRecord = {
@@ -179,6 +251,61 @@ type RawRecordBlock = {
   } | null;
 };
 
+type RawLessonRecordDetailSchedule = {
+  id: string;
+  lesson_plan_id: string | null;
+  lesson_plan_name_snapshot: string | null;
+  lesson_name: string;
+  starts_at: string;
+  ends_at: string;
+  place: string | null;
+  status: string;
+  lesson_plan?: { id: string; name: string | null } | null;
+};
+
+type RawLessonRecordDetailRecord = {
+  id: string;
+  schedule_id: string | null;
+  lesson_plan_id: string | null;
+  lesson_name: string;
+  overall_memo: string | null;
+  student_reaction: string | null;
+  improvement: string | null;
+  updated_at: string;
+};
+
+type RawLessonRecordDetailBlock = {
+  id: string;
+  lesson_record_id: string;
+  schedule_plan_item_id: string | null;
+  block_template_id: string | null;
+  sort_order: number;
+  item_source: LessonRecordItemSource;
+  display_name_snapshot: string;
+  category_name_snapshot: string | null;
+  subcategory_name_snapshot: string | null;
+  planned_duration_minutes: number | null;
+  change_type: LessonRecordChangeType | null;
+  change_reason_codes: LessonRecordChangeReasonCode[] | null;
+  change_reason_note: string | null;
+  actual_content_note: string | null;
+  replaces_schedule_plan_item_id: string | null;
+  done: boolean | null;
+  actual_duration_minutes: number | null;
+  reaction: BlockReactionCode | null;
+  teacher_memo: string | null;
+  improvement_memo: string | null;
+  use_again: boolean | null;
+  script_revision: string | null;
+};
+
+type RawLessonRecordDetailStudent = Pick<
+  RawStudentRecord,
+  "id" | "lesson_record_id" | "student_id" | "attendance_status" | "condition" | "memo" | "next_follow" | "follow_up_status"
+> & {
+  student?: { id: string; name: string } | null;
+};
+
 type RawStudentRecord = {
   id: string;
   lesson_record_id: string;
@@ -274,6 +401,29 @@ function formatDate(value: string | null | undefined) {
   return formatJapaneseDate(new Date(value));
 }
 
+function formatTime(value: string | null | undefined) {
+  if (!value || Number.isNaN(Date.parse(value))) return "未記録";
+  return new Intl.DateTimeFormat("ja-JP", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "Asia/Tokyo",
+  }).format(new Date(value));
+}
+
+function formatUpdatedAt(value: string) {
+  if (Number.isNaN(Date.parse(value))) return "未記録";
+  return new Intl.DateTimeFormat("ja-JP", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "Asia/Tokyo",
+  }).format(new Date(value));
+}
+
 function statusFromSchedule(status?: string | null): LessonRecordStatus {
   return status === "recorded" ? "completed" : "draft";
 }
@@ -343,6 +493,147 @@ export function summarizeLessonRecordDiff(
   }
 
   return summary;
+}
+
+async function getLessonRecordDetailBlockRows(supabase: RequestSupabaseClient, recordId: string) {
+  const { data, error } = await supabase
+    .from("lesson_record_blocks")
+    .select("id,lesson_record_id,schedule_plan_item_id,block_template_id,sort_order,item_source,display_name_snapshot,category_name_snapshot,subcategory_name_snapshot,planned_duration_minutes,change_type,change_reason_codes,change_reason_note,actual_content_note,replaces_schedule_plan_item_id,done,actual_duration_minutes,reaction,teacher_memo,improvement_memo,use_again,script_revision")
+    .eq("lesson_record_id", recordId)
+    .order("sort_order", { ascending: true });
+
+  if (error) throw new Error(`実施後記録のブロックを取得できませんでした: ${error.message}`);
+  return (data ?? []) as RawLessonRecordDetailBlock[];
+}
+
+async function getLessonRecordDetailStudentRows(supabase: RequestSupabaseClient, recordId: string) {
+  const extendedResult = await supabase
+    .from("lesson_record_students")
+    .select("id,lesson_record_id,student_id,attendance_status,condition,memo,next_follow,follow_up_status,student:students(id,name)")
+    .eq("lesson_record_id", recordId)
+    .order("created_at", { ascending: true });
+
+  if (isMissingFollowUpColumn(extendedResult.error)) {
+    const fallbackResult = await supabase
+      .from("lesson_record_students")
+      .select("id,lesson_record_id,student_id,attendance_status,condition,memo,next_follow,student:students(id,name)")
+      .eq("lesson_record_id", recordId)
+      .order("created_at", { ascending: true });
+    if (fallbackResult.error) throw new Error(`実施後記録の生徒情報を取得できませんでした: ${fallbackResult.error.message}`);
+    return (fallbackResult.data ?? []) as unknown as RawLessonRecordDetailStudent[];
+  }
+
+  if (extendedResult.error) throw new Error(`実施後記録の生徒情報を取得できませんでした: ${extendedResult.error.message}`);
+  return (extendedResult.data ?? []) as unknown as RawLessonRecordDetailStudent[];
+}
+
+export async function getLessonRecordDetailData(scheduleId: string): Promise<LessonRecordDetailData | null> {
+  const { supabase } = await requireUserId();
+  const [scheduleResult, recordResult] = await Promise.all([
+    supabase
+      .from("schedules")
+      .select("id,lesson_plan_id,lesson_plan_name_snapshot,lesson_name,starts_at,ends_at,place,status,lesson_plan:lesson_plans(id,name)")
+      .eq("id", scheduleId)
+      .maybeSingle(),
+    supabase
+      .from("lesson_records")
+      .select("id,schedule_id,lesson_plan_id,lesson_name,overall_memo,student_reaction,improvement,updated_at")
+      .eq("schedule_id", scheduleId)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  if (scheduleResult.error) throw new Error(`実施後記録の予定を取得できませんでした: ${scheduleResult.error.message}`);
+  if (recordResult.error) throw new Error(`実施後記録を取得できませんでした: ${recordResult.error.message}`);
+
+  const schedule = scheduleResult.data as unknown as RawLessonRecordDetailSchedule | null;
+  const record = recordResult.data as unknown as RawLessonRecordDetailRecord | null;
+  if (!schedule || schedule.status !== "recorded" || !record) return null;
+
+  const [rawBlocks, rawStudents] = await Promise.all([
+    getLessonRecordDetailBlockRows(supabase, record.id),
+    getLessonRecordDetailStudentRows(supabase, record.id),
+  ]);
+  const blocks: LessonRecordDetailBlock[] = rawBlocks.map((item) => ({
+    id: item.id,
+    schedulePlanItemId: item.schedule_plan_item_id,
+    blockTemplateId: item.block_template_id,
+    sortOrder: item.sort_order,
+    itemSource: item.item_source,
+    name: item.display_name_snapshot || "名称未設定",
+    majorCategory: item.category_name_snapshot || "未分類",
+    minorCategory: item.subcategory_name_snapshot || "未分類",
+    plannedMinutes: item.planned_duration_minutes,
+    changeType: item.change_type,
+    changeReasonCodes: item.change_reason_codes ?? [],
+    changeReasonNote: item.change_reason_note ?? "",
+    actualContentNote: item.actual_content_note ?? "",
+    replacesSchedulePlanItemId: item.replaces_schedule_plan_item_id,
+    done: item.done,
+    actualMinutes: item.actual_duration_minutes,
+    reaction: item.reaction,
+    teacherMemo: item.teacher_memo ?? "",
+    improvementMemo: item.improvement_memo ?? "",
+    useAgain: item.use_again,
+    scriptRevision: item.script_revision ?? "",
+  }));
+  const students: LessonRecordDetailStudent[] = rawStudents.map((item) => ({
+    id: item.id,
+    studentId: item.student_id,
+    name: item.student?.name || "生徒名未登録",
+    attendanceStatus: item.attendance_status,
+    condition: item.condition ?? "",
+    memo: item.memo ?? "",
+    nextFollow: item.next_follow ?? "",
+    followUpStatus: item.follow_up_status,
+  }));
+  const executionSummary = summarizeLessonExecution(blocks.map((item) => ({
+    fieldId: item.id,
+    schedulePlanItemId: item.schedulePlanItemId,
+    itemSource: item.itemSource,
+    sortOrder: item.sortOrder,
+    plannedSortOrder: null,
+    plannedMinutes: item.plannedMinutes ?? 0,
+    actualMinutes: item.actualMinutes,
+    done: item.done,
+    changeType: item.changeType,
+  })));
+  const diffSummary = summarizeLessonRecordDiff(rawBlocks);
+  const attendanceSummary = rawStudents.reduce((summary, student) => {
+    if (student.attendance_status === "present") summary.present += 1;
+    if (student.attendance_status === "cancelled") summary.cancelled += 1;
+    if (student.attendance_status === "no_show") summary.noShow += 1;
+    return summary;
+  }, { present: 0, cancelled: 0, noShow: 0 });
+
+  return {
+    schedule: {
+      id: schedule.id,
+      lessonName: record.lesson_name || schedule.lesson_name,
+      dateLabel: formatDate(schedule.starts_at),
+      startTimeLabel: formatTime(schedule.starts_at),
+      endTimeLabel: formatTime(schedule.ends_at),
+      place: schedule.place ?? "",
+      lessonPlanId: schedule.lesson_plan_id ?? record.lesson_plan_id,
+      lessonPlanName: schedule.lesson_plan_name_snapshot || schedule.lesson_plan?.name || "未設定",
+    },
+    record: {
+      id: record.id,
+      overallMemo: record.overall_memo ?? "",
+      overallReaction: record.student_reaction ?? "",
+      improvementPoints: record.improvement ?? "",
+      status: "completed",
+      statusLabel: "記録済み",
+      updatedAt: record.updated_at,
+      updatedAtLabel: formatUpdatedAt(record.updated_at),
+    },
+    blocks,
+    students,
+    executionSummary,
+    diffSummary,
+    attendanceSummary,
+  };
 }
 
 async function getRecordBySchedule(supabase: RequestSupabaseClient, scheduleId: string) {

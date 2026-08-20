@@ -44,7 +44,7 @@ export async function saveLessonRecordAction(
   revalidatePath(`/lessons/${parsed.scheduleId}/record`);
   revalidatePath(`/schedules/${parsed.scheduleId}`);
   if (parsed.status === "draft") redirect(`/lessons/${parsed.scheduleId}/record?saved=draft`);
-  redirect("/lessons?tab=records");
+  redirect(`/lessons/${parsed.scheduleId}/record`);
 }
 
 export type CreateBlockTemplateFromRecordItemInput = {
