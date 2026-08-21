@@ -333,13 +333,21 @@ export function WorkspaceEmptyState({ title, description, action }: { title: str
   );
 }
 
-export function WorkspaceStatus({ children, tone = "neutral" }: { children: ReactNode; tone?: "green" | "purple" | "coral" | "sand" | "neutral" }) {
-  const className = {
+export function WorkspaceStatus({
+  children,
+  tone = "neutral",
+  className,
+}: {
+  children: ReactNode;
+  tone?: "green" | "purple" | "coral" | "sand" | "neutral";
+  className?: string;
+}) {
+  const toneClassName = {
     green: "border-[#c9dcc6] bg-[#edf5eb] text-[#477b52]",
     purple: "border-[#ddd5ee] bg-[#f3effb] text-[#7568a7]",
     coral: "border-[#f0d0ca] bg-[#fff1ed] text-[#bd5d50]",
     sand: "border-[#ead9bc] bg-[#fff8e9] text-[#8b704c]",
     neutral: "border-[#dedbd4] bg-[#f6f4ef] text-[#666b63]",
   }[tone];
-  return <span className={cn("inline-flex min-h-7 items-center rounded-full border px-2.5 text-[13px] font-medium", className)}>{children}</span>;
+  return <span className={cn("inline-flex min-h-7 items-center rounded-full border px-2.5 text-[13px] font-medium", toneClassName, className)}>{children}</span>;
 }

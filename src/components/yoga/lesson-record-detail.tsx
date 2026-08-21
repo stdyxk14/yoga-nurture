@@ -1,240 +1,277 @@
 import Link from "next/link";
-import { BookOpen, CalendarDays, FileText, Pencil, Printer } from "lucide-react";
+import { AlertTriangle, ArrowRight, BookOpen, CalendarDays, Pencil, Printer } from "lucide-react";
+import { LessonRecordFlowList } from "@/components/yoga/lesson-record-flow-list";
 import {
   WorkspaceAction,
-  WorkspaceActionBar,
   WorkspacePageHeader,
   WorkspacePanel,
   WorkspaceSection,
   WorkspaceStatus,
 } from "@/components/yoga/workspace-kit";
-import { lessonRecordChangeReasons } from "@/lib/lesson-record-flow";
-import type {
-  LessonRecordDetailBlock,
-  LessonRecordDetailData,
-  LessonRecordDetailStudent,
-} from "@/lib/lesson-records";
+import type { LessonRecordDetailData, LessonRecordDetailStudent } from "@/lib/lesson-records";
 import { cn } from "@/lib/utils";
 
+const pageSections = [
+  { href: "#overview", label: "概要" },
+  { href: "#execution-flow", label: "実施フロー" },
+  { href: "#student-records", label: "生徒ごとの記録" },
+  { href: "#reflection", label: "全体の振り返り" },
+] as const;
+
 export function LessonRecordDetail({ data }: { data: LessonRecordDetailData }) {
-  const blockBySchedulePlanItemId = new Map(
-    data.blocks.flatMap((block) => block.schedulePlanItemId ? [[block.schedulePlanItemId, block] as const] : []),
-  );
-  const replacementBySchedulePlanItemId = new Map(
-    data.blocks.flatMap((block) => block.replacesSchedulePlanItemId ? [[block.replacesSchedulePlanItemId, block] as const] : []),
-  );
-  const overview = [
-    { label: "予定ブロック数", value: `${data.executionSummary.plannedCount}件`, tone: "green" as const },
-    { label: "予定どおり", value: `${data.diffSummary.asPlanned}件`, tone: "green" as const },
-    { label: "調整", value: `${data.diffSummary.adjusted}件`, tone: "purple" as const },
-    { label: "スキップ", value: `${data.diffSummary.skipped}件`, tone: "coral" as const },
-    { label: "置き換え", value: `${data.diffSummary.replaced}件`, tone: "sand" as const },
-    { label: "予定外追加", value: `${data.diffSummary.added}件`, tone: "purple" as const },
-    { label: "旧形式／未分類", value: `${data.diffSummary.legacy}件`, tone: "sand" as const },
-    ...(data.diffSummary.unconfirmed > 0
-      ? [{ label: "未確認", value: `${data.diffSummary.unconfirmed}件`, tone: "coral" as const }]
-      : []),
-    { label: "予定合計時間", value: `${data.executionSummary.plannedMinutes}分`, tone: "green" as const },
-    { label: "実施合計時間", value: `${data.executionSummary.actualMinutes}分`, tone: "purple" as const },
-    { label: "参加人数", value: `${data.attendanceSummary.present}名`, tone: "green" as const },
-    { label: "キャンセル人数", value: `${data.attendanceSummary.cancelled}名`, tone: "coral" as const },
-    { label: "無断欠席人数", value: `${data.attendanceSummary.noShow}名`, tone: "purple" as const },
-  ];
+  const executedItemCount = data.blocks.filter((block) => block.done === true).length;
+  const minuteDifference = data.executionSummary.actualMinutes - data.executionSummary.plannedMinutes;
+  const flowBadges = [
+    { label: "予定どおり", value: data.diffSummary.asPlanned, tone: "green" as const },
+    { label: "調整", value: data.diffSummary.adjusted, tone: "purple" as const },
+    { label: "スキップ", value: data.diffSummary.skipped, tone: "coral" as const },
+    { label: "置き換え", value: data.diffSummary.replaced, tone: "sand" as const },
+    { label: "予定外追加", value: data.diffSummary.added, tone: "purple" as const },
+  ].filter((item) => item.value > 0);
+  const reflections = {
+    overall: data.record.overallMemo.trim(),
+    reaction: data.record.overallReaction.trim(),
+    improvement: data.record.improvementPoints.trim(),
+  };
+  const hasReflection = Boolean(reflections.overall || reflections.reaction || reflections.improvement);
 
   return (
     <div className="min-w-0 space-y-4 overflow-x-clip">
       <WorkspacePageHeader
-        eyebrow="LESSON RECORD / READ ONLY"
-        title="実施後記録詳細"
-        description={data.schedule.lessonName}
+        title="実施後記録"
         backLink={{ href: "/lessons?tab=records", label: "レッスンカルテへ戻る" }}
         meta={(
           <>
-            <WorkspaceStatus tone="green">{data.record.statusLabel}</WorkspaceStatus>
-            <WorkspaceStatus tone="neutral">読み取り専用</WorkspaceStatus>
-            <WorkspaceStatus tone="sand">{data.schedule.dateLabel}</WorkspaceStatus>
+            <WorkspaceStatus tone="green" className="whitespace-nowrap">{data.record.statusLabel}</WorkspaceStatus>
+            <span className="text-[12px]">保存済みの記録です</span>
           </>
         )}
-      />
-
-      <WorkspaceActionBar sticky={false}>
-        <WorkspaceAction href={`/lessons/${data.schedule.id}/record?edit=1`} icon={Pencil} variant="primary">記録を編集</WorkspaceAction>
-        <WorkspaceAction href={`/schedules/${data.schedule.id}`} icon={CalendarDays}>予定詳細</WorkspaceAction>
-        {data.schedule.lessonPlanId ? <WorkspaceAction href={`/schedules/${data.schedule.id}/script`} icon={Printer}>原稿を見る</WorkspaceAction> : null}
-        {data.schedule.lessonPlanId ? <WorkspaceAction href={`/lessons/${data.schedule.lessonPlanId}`} icon={BookOpen}>使用プランを見る</WorkspaceAction> : null}
-        <WorkspaceAction href="/lessons?tab=records" icon={FileText} variant="ghost">レッスンカルテへ戻る</WorkspaceAction>
-      </WorkspaceActionBar>
-
-      <WorkspacePanel>
-        <WorkspaceSection title="記録情報" description="保存済みの実施後記録を読み取り専用で表示しています。">
-          <dl className="grid min-w-0 gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-4">
-            <DetailField label="レッスン名" value={data.schedule.lessonName} />
-            <DetailField label="実施日" value={data.schedule.dateLabel} />
-            <DetailField label="開始・終了時間" value={`${data.schedule.startTimeLabel}–${data.schedule.endTimeLabel}`} />
-            <DetailField label="場所" value={data.schedule.place || "未設定"} />
-            <DetailField label="使用プラン" value={data.schedule.lessonPlanName} />
-            <DetailField label="記録ステータス" value={data.record.statusLabel} />
-            <DetailField label="最終更新日時" value={data.record.updatedAtLabel} />
-          </dl>
-        </WorkspaceSection>
-      </WorkspacePanel>
-
-      <WorkspacePanel>
-        <WorkspaceSection title="概要" description="予定との差分、時間、出欠を保存済みデータから集計しています。">
-          <div className="grid min-w-0 grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
-            {overview.map((item) => <OverviewMetric key={item.label} {...item} />)}
+        actions={(
+          <div className="flex max-w-full flex-wrap gap-2 lg:max-w-[480px] lg:justify-end">
+            <WorkspaceAction href={`/lessons/${data.schedule.id}/record?edit=1`} icon={Pencil} variant="primary" className="whitespace-nowrap">記録を編集</WorkspaceAction>
+            <WorkspaceAction href={`/schedules/${data.schedule.id}`} icon={CalendarDays} className="whitespace-nowrap">予定詳細</WorkspaceAction>
+            {data.schedule.lessonPlanId ? <WorkspaceAction href={`/schedules/${data.schedule.id}/script`} icon={Printer} className="whitespace-nowrap">原稿を見る</WorkspaceAction> : null}
+            {data.schedule.lessonPlanId ? <WorkspaceAction href={`/lessons/${data.schedule.lessonPlanId}`} icon={BookOpen} className="whitespace-nowrap">使用プランを見る</WorkspaceAction> : null}
           </div>
-        </WorkspaceSection>
-      </WorkspacePanel>
-
-      <WorkspacePanel>
-        <WorkspaceSection title="STEP 1 実施フロー" description="保存時のスナップショットを、実際の実施順で表示しています。">
-          {data.blocks.length ? (
-            <div className="grid min-w-0 gap-3">
-              {data.blocks.map((block, index) => (
-                <ExecutionBlock
-                  key={block.id}
-                  block={block}
-                  index={index}
-                  replacement={block.schedulePlanItemId ? replacementBySchedulePlanItemId.get(block.schedulePlanItemId) : undefined}
-                  replacementSource={block.replacesSchedulePlanItemId ? blockBySchedulePlanItemId.get(block.replacesSchedulePlanItemId) : undefined}
-                />
-              ))}
-            </div>
-          ) : <EmptyRecord text="実施フローの保存内容はありません" />}
-        </WorkspaceSection>
-      </WorkspacePanel>
-
-      <WorkspacePanel>
-        <WorkspaceSection title="STEP 2 生徒ごとの記録" description="記録時に保存された生徒と出欠・観察内容です。">
-          {data.students.length ? (
-            <div className="grid min-w-0 gap-3 lg:grid-cols-2">
-              {data.students.map((student) => <StudentRecordCard key={student.id} student={student} />)}
-            </div>
-          ) : <EmptyRecord text="生徒ごとの保存内容はありません" />}
-        </WorkspaceSection>
-      </WorkspacePanel>
-
-      <WorkspacePanel>
-        <WorkspaceSection title="STEP 3 全体の振り返り" description="入力された振り返りを、そのまま表示しています。">
-          <div className="grid min-w-0 gap-3 xl:grid-cols-3">
-            <ReflectionCard title="全体メモ" value={data.record.overallMemo} />
-            <ReflectionCard title="生徒の反応・観察" value={data.record.overallReaction} />
-            <ReflectionCard title="次回への改善ポイント" value={data.record.improvementPoints} />
-          </div>
-        </WorkspaceSection>
-      </WorkspacePanel>
-    </div>
-  );
-}
-
-function OverviewMetric({ label, value, tone }: { label: string; value: string; tone: "green" | "purple" | "coral" | "sand" }) {
-  const valueClass = {
-    green: "text-[#477b52]",
-    purple: "text-[#7568a7]",
-    coral: "text-[#bd5d50]",
-    sand: "text-[#8b704c]",
-  }[tone];
-  return (
-    <div className="min-w-0 rounded-lg border border-[var(--yn-border)] bg-[#fbfaf7] px-3 py-2.5">
-      <p className="text-[12px] leading-5 text-[var(--yn-text-muted)]">{label}</p>
-      <p className={cn("mt-0.5 text-[20px] font-semibold", valueClass)}>{value}</p>
-    </div>
-  );
-}
-
-function ExecutionBlock({
-  block,
-  index,
-  replacement,
-  replacementSource,
-}: {
-  block: LessonRecordDetailBlock;
-  index: number;
-  replacement?: LessonRecordDetailBlock;
-  replacementSource?: LessonRecordDetailBlock;
-}) {
-  const visuallySkipped = block.changeType === "skipped" || block.changeType === "replaced" || block.done === false;
-  const reasonLabels = block.changeReasonCodes.map((code) => lessonRecordChangeReasons.find((reason) => reason.code === code)?.label ?? code);
-
-  return (
-    <article className={cn("min-w-0 overflow-hidden rounded-lg border", visuallySkipped ? "border-[#d8d9d4] bg-[#f4f4f1]" : "border-[#dce3d9] bg-white")}>
-      <div className="grid min-w-0 gap-3 p-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="inline-flex min-h-7 min-w-7 items-center justify-center rounded-md bg-[#eaf1e7] px-1.5 text-[13px] font-semibold text-[#456d4c]">{index + 1}</span>
-            <WorkspaceStatus tone={sourceTone(block.itemSource)}>{sourceLabel(block.itemSource)}</WorkspaceStatus>
-            <WorkspaceStatus tone={changeTone(block.changeType)}>{changeLabel(block.changeType)}</WorkspaceStatus>
-            <WorkspaceStatus tone={executionTone(block.done)}>{executionLabel(block.done)}</WorkspaceStatus>
-          </div>
-          {block.blockTemplateId ? (
-            <Link href={`/blocks/${block.blockTemplateId}`} className={cn("mt-2 block break-words text-[16px] font-semibold leading-6 text-[var(--yn-text)] hover:text-[var(--yn-primary-strong)] hover:underline", visuallySkipped && "text-[#666d65] line-through")}>
-              {block.name}
-            </Link>
-          ) : <h3 className={cn("mt-2 break-words text-[16px] font-semibold leading-6 text-[var(--yn-text)]", visuallySkipped && "text-[#666d65] line-through")}>{block.name}</h3>}
-          <p className="mt-0.5 break-words text-[13px] leading-5 text-[var(--yn-text-muted)]">{block.majorCategory} / {block.minorCategory}</p>
-        </div>
-        <dl className="grid grid-cols-2 gap-2 text-right md:min-w-[210px]">
-          <CompactField label="予定時間" value={block.plannedMinutes === null ? "未入力" : `${block.plannedMinutes}分`} />
-          <CompactField label="実際の時間" value={block.actualMinutes === null ? "未入力" : `${block.actualMinutes}分`} />
+        )}
+      >
+        <dl className="grid min-w-0 gap-x-5 gap-y-3 sm:grid-cols-2 xl:grid-cols-[minmax(210px,1.35fr)_repeat(5,minmax(0,1fr))]">
+          <HeaderDetailField label="レッスン名" value={data.schedule.lessonName} className="sm:col-span-2 xl:col-span-1" prominent />
+          <HeaderDetailField label="実施日" value={data.schedule.dateLabel} />
+          <HeaderDetailField label="時間" value={`${data.schedule.startTimeLabel}–${data.schedule.endTimeLabel}`} />
+          <HeaderDetailField label="場所" value={data.schedule.place || "未設定"} />
+          <HeaderDetailField label="使用プラン" value={data.schedule.lessonPlanName} />
+          <HeaderDetailField label="最終更新" value={data.record.updatedAtLabel} />
         </dl>
+      </WorkspacePageHeader>
+
+      <div id="overview" className="scroll-mt-20">
+        <WorkspacePanel as="div">
+          <WorkspaceSection title="概要" description="実施フロー、時間、出欠を保存済みデータから集計しています。">
+            <div className="grid min-w-0 gap-3 lg:grid-cols-[1.45fr_0.9fr_1fr]">
+              <OverviewGroup title="実施フロー">
+                <div className="grid grid-cols-2 gap-4">
+                  <OverviewNumber label="予定ブロック数" value={`${data.executionSummary.plannedCount}件`} tone="green" />
+                  <OverviewNumber label="実施された項目数" value={`${executedItemCount}件`} tone="purple" />
+                </div>
+                {flowBadges.length ? (
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {flowBadges.map((item) => (
+                      <WorkspaceStatus key={item.label} tone={item.tone} className="min-h-6 whitespace-nowrap px-2 text-[12px]">
+                        {item.label} {item.value}
+                      </WorkspaceStatus>
+                    ))}
+                  </div>
+                ) : null}
+                {data.diffSummary.legacy > 0 || data.diffSummary.unconfirmed > 0 ? (
+                  <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-[#fff6e8] px-2.5 py-2 text-[12px] font-medium text-[#8b704c]">
+                    <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    {data.diffSummary.legacy > 0 ? <span>旧形式／未分類 {data.diffSummary.legacy}件</span> : null}
+                    {data.diffSummary.unconfirmed > 0 ? <span>未確認 {data.diffSummary.unconfirmed}件</span> : null}
+                  </div>
+                ) : null}
+              </OverviewGroup>
+
+              <OverviewGroup title="時間">
+                <div className="flex items-end justify-between gap-2">
+                  <OverviewNumber label="予定" value={`${data.executionSummary.plannedMinutes}分`} tone="green" />
+                  <ArrowRight className="mb-1 h-5 w-5 shrink-0 text-[#9aa098]" aria-hidden="true" />
+                  <OverviewNumber label="実施" value={`${data.executionSummary.actualMinutes}分`} tone="purple" align="right" />
+                </div>
+                <p className={cn(
+                  "mt-3 inline-flex rounded-full px-2.5 py-1 text-[12px] font-semibold",
+                  minuteDifference === 0
+                    ? "bg-[#f0f1ed] text-[#697068]"
+                    : minuteDifference > 0
+                      ? "bg-[#f1edfa] text-[#7568a7]"
+                      : "bg-[#fff1ed] text-[#bd5d50]",
+                )}>
+                  {formatMinuteDifference(minuteDifference)}
+                </p>
+              </OverviewGroup>
+
+              <OverviewGroup title="出欠">
+                <dl className="grid grid-cols-3 gap-2">
+                  <AttendanceMetric label="参加" value={data.attendanceSummary.present} tone="green" />
+                  <AttendanceMetric label="キャンセル" value={data.attendanceSummary.cancelled} tone="coral" />
+                  <AttendanceMetric label="無断欠席" value={data.attendanceSummary.noShow} tone="purple" />
+                </dl>
+              </OverviewGroup>
+            </div>
+          </WorkspaceSection>
+        </WorkspacePanel>
       </div>
 
-      {replacement || replacementSource ? (
-        <div className="mx-3 mb-3 rounded-lg border border-[#ddd5ee] bg-[#f7f3fc] px-3 py-2 text-[13px] leading-5 text-[#665c94]">
-          {replacementSource ? <p><span className="font-semibold">置き換え元：</span>{replacementSource.name}</p> : null}
-          {replacement ? <p><span className="font-semibold">置き換え先：</span>{replacement.name}</p> : null}
+      <nav aria-label="ページ内ナビゲーション" className="sticky top-3 z-20 rounded-xl border border-[var(--yn-border)] bg-[#fffdf9]/95 px-2.5 py-2 shadow-[0_5px_18px_rgba(66,60,48,0.07)] backdrop-blur">
+        <div className="flex flex-wrap gap-1">
+          {pageSections.map((section) => (
+            <a
+              key={section.href}
+              href={section.href}
+              className="inline-flex min-h-8 items-center rounded-lg px-2.5 text-[12px] font-semibold text-[#5b6659] transition hover:bg-[#edf4ea] hover:text-[#356540] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--yn-focus)]"
+            >
+              {section.label}
+            </a>
+          ))}
         </div>
-      ) : null}
+      </nav>
 
-      <details className="group border-t border-[#e5e8e1] bg-white/80">
-        <summary className="cursor-pointer list-none px-3 py-2.5 text-[13px] font-semibold text-[#4e7454] marker:hidden group-open:border-b group-open:border-[#e5e8e1]">
-          保存内容をすべて表示
-        </summary>
-        <dl className="grid min-w-0 gap-3 p-3 md:grid-cols-2 xl:grid-cols-3">
-          <DetailField label="変更理由" value={reasonLabels.length ? reasonLabels.join("、") : "記録なし"} />
-          <DetailField label="変更理由メモ" value={block.changeReasonNote || "記録なし"} />
-          <DetailField label="実際に行った内容" value={block.actualContentNote || "記録なし"} />
-          <DetailField label="生徒の反応" value={reactionLabel(block.reaction)} />
-          <DetailField label="講師メモ" value={block.teacherMemo || "記録なし"} />
-          <DetailField label="改善メモ" value={block.improvementMemo || "記録なし"} />
-          <DetailField label="また使いたいか" value={useAgainLabel(block.useAgain)} />
-          <DetailField label="誘導セリフの修正案" value={block.scriptRevision || "記録なし"} />
-        </dl>
-      </details>
-    </article>
+      <div id="execution-flow" className="scroll-mt-20">
+        <WorkspacePanel as="div">
+          <WorkspaceSection title="STEP 1 実施フロー" description="保存時のスナップショットを、実際の実施順で表示しています。">
+            {data.blocks.length ? <LessonRecordFlowList blocks={data.blocks} /> : <EmptyRecord text="実施フローの保存内容はありません" />}
+          </WorkspaceSection>
+        </WorkspacePanel>
+      </div>
+
+      <div id="student-records" className="scroll-mt-20">
+        <WorkspacePanel as="div">
+          <WorkspaceSection title="STEP 2 生徒ごとの記録" description="記録時に保存された生徒と出欠・観察内容です。">
+            {data.students.length ? (
+              <div className="grid min-w-0 gap-3 lg:grid-cols-2">
+                {data.students.map((student) => <StudentRecordCard key={student.id} student={student} />)}
+              </div>
+            ) : <EmptyRecord text="生徒ごとの保存内容はありません" />}
+          </WorkspaceSection>
+        </WorkspacePanel>
+      </div>
+
+      <div id="reflection" className="scroll-mt-20">
+        <WorkspacePanel as="div">
+          <WorkspaceSection title="STEP 3 全体の振り返り" description="入力された振り返りを、そのまま表示しています。">
+            {hasReflection ? (
+              <div className="grid min-w-0 gap-3 xl:grid-cols-2">
+                {reflections.overall ? <ReflectionBlock title="全体メモ" value={data.record.overallMemo} className="xl:col-span-2" /> : null}
+                {reflections.reaction ? <ReflectionBlock title="生徒の反応・観察" value={data.record.overallReaction} /> : null}
+                {reflections.improvement ? <ReflectionBlock title="次回への改善ポイント" value={data.record.improvementPoints} /> : null}
+              </div>
+            ) : <EmptyRecord text="全体の振り返りは記録されていません" />}
+          </WorkspaceSection>
+        </WorkspacePanel>
+      </div>
+    </div>
+  );
+}
+
+function HeaderDetailField({
+  label,
+  value,
+  className,
+  prominent = false,
+}: {
+  label: string;
+  value: string;
+  className?: string;
+  prominent?: boolean;
+}) {
+  return (
+    <div className={cn("min-w-0", className)}>
+      <dt className="text-[11px] font-medium text-[var(--yn-text-muted)]">{label}</dt>
+      <dd className={cn(
+        "mt-0.5 break-words font-semibold text-[var(--yn-text)] [overflow-wrap:anywhere]",
+        prominent ? "text-[17px] leading-6" : "text-[13px] leading-5",
+      )}>{value}</dd>
+    </div>
+  );
+}
+
+function OverviewGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="min-w-0 rounded-lg bg-[#f8f7f2] px-3.5 py-3">
+      <h3 className="text-[13px] font-semibold text-[#4d594c]">{title}</h3>
+      <div className="mt-2.5">{children}</div>
+    </section>
+  );
+}
+
+function OverviewNumber({
+  label,
+  value,
+  tone,
+  align = "left",
+}: {
+  label: string;
+  value: string;
+  tone: "green" | "purple";
+  align?: "left" | "right";
+}) {
+  return (
+    <div className={cn("min-w-0", align === "right" && "text-right")}>
+      <p className="text-[11px] text-[var(--yn-text-muted)]">{label}</p>
+      <p className={cn("mt-0.5 text-[24px] font-semibold tracking-[-0.025em]", tone === "green" ? "text-[#477b52]" : "text-[#7568a7]")}>{value}</p>
+    </div>
+  );
+}
+
+function AttendanceMetric({ label, value, tone }: { label: string; value: number; tone: "green" | "purple" | "coral" }) {
+  const colorClass = tone === "green" ? "text-[#477b52]" : tone === "coral" ? "text-[#bd5d50]" : "text-[#7568a7]";
+  return (
+    <div className="min-w-0 text-center">
+      <dt className="text-[11px] leading-4 text-[var(--yn-text-muted)]">{label}</dt>
+      <dd className={cn("mt-1 text-[20px] font-semibold", value === 0 ? "text-[#92978f]" : colorClass)}>{value}<span className="ml-0.5 text-[11px] font-medium">名</span></dd>
+    </div>
   );
 }
 
 function StudentRecordCard({ student }: { student: LessonRecordDetailStudent }) {
   const hasNotes = Boolean(student.condition.trim() || student.memo.trim() || student.nextFollow.trim());
+  const showFollowStatus = Boolean(student.followUpStatus && student.followUpStatus !== "none");
   const attendanceTone = student.attendanceStatus === "present" ? "green" : student.attendanceStatus === "cancelled" ? "coral" : "purple";
   return (
     <article className={cn(
-      "min-w-0 rounded-lg border p-3",
-      student.attendanceStatus === "present" ? "border-[#dbe4d8] bg-white" : student.attendanceStatus === "cancelled" ? "border-[#ecd5cf] bg-[#fff8f5]" : "border-[#ddd6eb] bg-[#faf8fd]",
+      "min-w-0 rounded-lg border px-3.5 py-3",
+      student.attendanceStatus === "present"
+        ? "border-[#dbe4d8] bg-white"
+        : student.attendanceStatus === "cancelled"
+          ? "border-[#ecd5cf] bg-[#fff8f5]"
+          : "border-[#ddd6eb] bg-[#faf8fd]",
     )}>
-      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--yn-border-subtle)] pb-2.5">
+      <header className="flex flex-wrap items-center gap-2 border-b border-[var(--yn-border-subtle)] pb-2.5">
         <Link href={`/students/${student.studentId}`} className="break-words text-[15px] font-semibold text-[var(--yn-text)] hover:text-[var(--yn-primary-strong)] hover:underline">{student.name}</Link>
-        <WorkspaceStatus tone={attendanceTone}>{attendanceLabel(student.attendanceStatus)}</WorkspaceStatus>
+        <WorkspaceStatus tone={attendanceTone} className="min-h-6 whitespace-nowrap px-2 text-[12px]">{attendanceLabel(student.attendanceStatus)}</WorkspaceStatus>
       </header>
-      {hasNotes || student.followUpStatus ? (
+      {hasNotes || showFollowStatus ? (
         <dl className="mt-3 grid min-w-0 gap-3">
           {student.condition ? <DetailField label="今日の様子" value={student.condition} /> : null}
           {student.memo ? <DetailField label="個別メモ" value={student.memo} /> : null}
           {student.nextFollow ? <DetailField label="次回フォロー" value={student.nextFollow} /> : null}
-          {student.followUpStatus ? <DetailField label="フォロー状態" value={followUpStatusLabel(student.followUpStatus)} /> : null}
+          {showFollowStatus ? (
+            <div className="flex flex-wrap items-center gap-2 text-[12px] text-[var(--yn-text-muted)]">
+              <dt>フォロー</dt>
+              <dd><WorkspaceStatus tone={followUpTone(student.followUpStatus)} className="min-h-6 whitespace-nowrap px-2 text-[12px]">{followUpStatusLabel(student.followUpStatus)}</WorkspaceStatus></dd>
+            </div>
+          ) : null}
         </dl>
-      ) : <p className="mt-3 text-[13px] text-[var(--yn-text-muted)]">記録なし</p>}
+      ) : <p className="mt-3 text-[13px] text-[var(--yn-text-muted)]">追加記録なし</p>}
     </article>
   );
 }
 
-function ReflectionCard({ title, value }: { title: string; value: string }) {
+function ReflectionBlock({ title, value, className }: { title: string; value: string; className?: string }) {
   return (
-    <article className="min-w-0 rounded-lg border border-[var(--yn-border)] bg-[#fbfaf7] p-3.5">
+    <article className={cn("min-w-0 rounded-lg bg-[#fbfaf7] px-4 py-3.5", className)}>
       <h3 className="text-[13px] font-semibold text-[#4d5b4c]">{title}</h3>
-      <p className="mt-2 whitespace-pre-wrap break-words text-[14px] leading-6 text-[var(--yn-text)] [overflow-wrap:anywhere]">{value || "記録なし"}</p>
+      <p className="mt-2 whitespace-pre-wrap break-words text-[14px] leading-6 text-[var(--yn-text)] [overflow-wrap:anywhere]">{value}</p>
     </article>
   );
 }
@@ -248,66 +285,13 @@ function DetailField({ label, value }: { label: string; value: string }) {
   );
 }
 
-function CompactField({ label, value }: { label: string; value: string }) {
-  return <div><dt className="text-[11px] text-[var(--yn-text-muted)]">{label}</dt><dd className="mt-0.5 text-[14px] font-semibold text-[var(--yn-text)]">{value}</dd></div>;
-}
-
 function EmptyRecord({ text }: { text: string }) {
   return <p className="rounded-lg border border-dashed border-[#d2dbcf] bg-[#f8faf6] px-4 py-5 text-center text-[13px] text-[var(--yn-text-muted)]">{text}</p>;
 }
 
-function sourceLabel(source: LessonRecordDetailBlock["itemSource"]) {
-  if (source === "library") return "ライブラリ追加";
-  if (source === "improvised") return "即興追加";
-  return "予定内";
-}
-
-function sourceTone(source: LessonRecordDetailBlock["itemSource"]): "green" | "purple" | "neutral" {
-  if (source === "library") return "green";
-  if (source === "improvised") return "purple";
-  return "neutral";
-}
-
-function changeLabel(changeType: LessonRecordDetailBlock["changeType"]) {
-  if (changeType === "as_planned") return "予定どおり";
-  if (changeType === "adjusted") return "調整";
-  if (changeType === "skipped") return "スキップ";
-  if (changeType === "replaced") return "置き換え";
-  if (changeType === "added") return "追加";
-  return "旧形式／未分類";
-}
-
-function changeTone(changeType: LessonRecordDetailBlock["changeType"]): "green" | "purple" | "coral" | "sand" | "neutral" {
-  if (changeType === "as_planned") return "green";
-  if (changeType === "adjusted" || changeType === "added") return "purple";
-  if (changeType === "skipped") return "coral";
-  if (changeType === "replaced") return "sand";
-  return "neutral";
-}
-
-function executionLabel(done: boolean | null) {
-  if (done === true) return "実施済み";
-  if (done === false) return "未実施";
-  return "未確認";
-}
-
-function executionTone(done: boolean | null): "green" | "coral" | "neutral" {
-  if (done === true) return "green";
-  if (done === false) return "coral";
-  return "neutral";
-}
-
-function reactionLabel(reaction: LessonRecordDetailBlock["reaction"]) {
-  if (reaction === "good") return "良かった";
-  if (reaction === "neutral") return "普通";
-  if (reaction === "poor") return "いまひとつ";
-  return "未評価";
-}
-
-function useAgainLabel(value: boolean | null) {
-  if (value === true) return "次回も使いたい";
-  if (value === false) return "今回は使わない";
-  return "未選択";
+function formatMinuteDifference(value: number) {
+  if (value === 0) return "差なし";
+  return `${value > 0 ? "+" : ""}${value}分`;
 }
 
 function attendanceLabel(status: LessonRecordDetailStudent["attendanceStatus"]) {
@@ -316,9 +300,15 @@ function attendanceLabel(status: LessonRecordDetailStudent["attendanceStatus"]) 
   return "出席";
 }
 
-function followUpStatusLabel(status: NonNullable<LessonRecordDetailStudent["followUpStatus"]>) {
+function followUpStatusLabel(status: LessonRecordDetailStudent["followUpStatus"]) {
   if (status === "pending") return "未完了";
   if (status === "completed") return "確認済み";
   if (status === "dismissed") return "見送り";
   return "フォローなし";
+}
+
+function followUpTone(status: LessonRecordDetailStudent["followUpStatus"]): "green" | "sand" | "neutral" {
+  if (status === "pending") return "sand";
+  if (status === "completed") return "green";
+  return "neutral";
 }

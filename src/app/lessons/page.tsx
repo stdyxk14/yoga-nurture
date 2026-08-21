@@ -400,7 +400,7 @@ function RecordsWorkspace({ records, params, now }: { records: DbLessonRecord[];
         {filtered.length ? (
           <WorkspaceTableContainer>
             <table className="w-full min-w-[980px] border-collapse text-left text-[14px]">
-              <thead className="bg-[#f5f3ee] text-[12px] font-semibold text-[#666d63]"><tr><TableHead>実施日</TableHead><TableHead>レッスン名</TableHead><TableHead>使用プラン</TableHead><TableHead>参加</TableHead><TableHead>記録状態</TableHead><TableHead>差分サマリー</TableHead><TableHead className="text-right">操作</TableHead></tr></thead>
+              <thead className="bg-[#f5f3ee] text-[12px] font-semibold text-[#666d63]"><tr><TableHead>実施日</TableHead><TableHead>レッスン名</TableHead><TableHead>使用プラン</TableHead><TableHead>参加</TableHead><TableHead className="w-24 min-w-24 text-center">状態</TableHead><TableHead>差分サマリー</TableHead><TableHead className="text-right">操作</TableHead></tr></thead>
               <tbody className="divide-y divide-[#ece5db]">
                 {filtered.map((record) => (
                   <tr key={record.id} className="hover:bg-[#fafcf8]">
@@ -408,7 +408,7 @@ function RecordsWorkspace({ records, params, now }: { records: DbLessonRecord[];
                     <TableCell className="font-semibold">{record.lessonName}</TableCell>
                     <TableCell>{record.lessonPlanName}</TableCell>
                     <TableCell>{record.participantCount}名</TableCell>
-                    <TableCell><WorkspaceStatus tone={record.status === "completed" ? "green" : "sand"}>{record.statusLabel}</WorkspaceStatus></TableCell>
+                    <TableCell className="w-24 min-w-24 whitespace-nowrap text-center"><WorkspaceStatus tone={record.status === "completed" ? "green" : "sand"} className="min-w-[76px] justify-center whitespace-nowrap">{record.statusLabel}</WorkspaceStatus></TableCell>
                     <TableCell><DiffSummary summary={record.diffSummary} /></TableCell>
                     <TableCell className="text-right"><RecordActions record={record} /></TableCell>
                   </tr>
