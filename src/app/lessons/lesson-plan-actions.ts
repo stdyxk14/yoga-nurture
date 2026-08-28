@@ -11,6 +11,14 @@ type BlockDurationRow = {
   duration_minutes: number;
 };
 
+type ExistingPlanBlockRow = {
+  id: string;
+  block_template_id: string;
+  planned_duration_minutes: number | null;
+  script_override: string | null;
+  cautions_override: string | null;
+};
+
 async function getBlockDurations(supabase: RequestSupabaseClient, blockIds: string[]) {
   const { data, error } = await supabase
     .from("block_templates")
@@ -28,12 +36,37 @@ async function getBlockDurations(supabase: RequestSupabaseClient, blockIds: stri
   return durationById;
 }
 
-function buildPlanBlockPayload(blockIds: string[], durationById: Map<string, number>) {
-  return blockIds.map((blockId, index) => ({
-    block_template_id: blockId,
-    sort_order: index,
-    planned_duration_minutes: durationById.get(blockId) ?? 0,
-  }));
+async function getExistingPlanBlocks(supabase: RequestSupabaseClient, planId: string, planBlockIds: string[]) {
+  const ids = Array.from(new Set(planBlockIds.filter(Boolean)));
+  if (!ids.length) return new Map<string, ExistingPlanBlockRow>();
+
+  const { data, error } = await supabase
+    .from("lesson_plan_blocks")
+    .select("id,block_template_id,planned_duration_minutes,script_override,cautions_override")
+    .eq("lesson_plan_id", planId)
+    .in("id", ids);
+
+  if (error) throw new Error(`既存のプラン構成を確認できませんでした: ${error.message}`);
+  return new Map(((data ?? []) as ExistingPlanBlockRow[]).map((row) => [row.id, row]));
+}
+
+function buildPlanBlockPayload(
+  blockIds: string[],
+  durationById: Map<string, number>,
+  planBlockIds: string[] = [],
+  existingById = new Map<string, ExistingPlanBlockRow>(),
+) {
+  return blockIds.map((blockId, index) => {
+    const existing = existingById.get(planBlockIds[index]);
+    const retained = existing?.block_template_id === blockId ? existing : null;
+    return {
+      block_template_id: blockId,
+      sort_order: index,
+      planned_duration_minutes: retained?.planned_duration_minutes ?? durationById.get(blockId) ?? 0,
+      script_override: retained?.script_override ?? null,
+      cautions_override: retained?.cautions_override ?? null,
+    };
+  });
 }
 
 export async function createLessonPlanAction(
@@ -79,6 +112,7 @@ export async function updateLessonPlanAction(
   try {
     const { supabase } = await createMutationContext();
     const durationById = await getBlockDurations(supabase, parsed.blockIds);
+    const existingById = await getExistingPlanBlocks(supabase, planId, parsed.planBlockIds);
     const { error } = await supabase.rpc("save_lesson_plan", {
       p_plan_id: planId,
       p_name: parsed.payload.name,
@@ -86,7 +120,7 @@ export async function updateLessonPlanAction(
       p_format: parsed.payload.format,
       p_memo: parsed.payload.memo,
       p_status: parsed.payload.status,
-      p_blocks: buildPlanBlockPayload(parsed.blockIds, durationById),
+      p_blocks: buildPlanBlockPayload(parsed.blockIds, durationById, parsed.planBlockIds, existingById),
     });
 
     if (error) return { error: formatRpcError(error, "レッスンプランを更新できませんでした") };
@@ -96,6 +130,11 @@ export async function updateLessonPlanAction(
 
   revalidatePath("/lessons");
   revalidatePath(`/lessons/${planId}`);
+  revalidatePath(`/lessons/${planId}/script`);
+  revalidatePath("/schedules/[id]", "page");
+  revalidatePath("/schedules/[id]/script", "page");
+  revalidatePath("/schedules/[id]/script/print", "page");
+  revalidatePath("/dashboard");
   redirect(`/lessons/${planId}`);
 }
 

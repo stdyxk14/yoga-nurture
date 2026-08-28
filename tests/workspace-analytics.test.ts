@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { calculateGoodRate } from "../src/lib/blocks";
 import { summarizeLessonRecordDiff } from "../src/lib/lesson-records";
+import { getLessonPlanPayload } from "../src/lib/lesson-plans";
 import { calculateClosureMetrics, calculatePlannedChangeRate, getReportPeriodNavigation, normalizeReportView, resolveReportPeriod } from "../src/lib/reports";
 import { calculateStudentPortfolio, getStudentPayload, matchesStudentFilter } from "../src/lib/students";
 
@@ -102,6 +103,28 @@ test("Tokyo date boundaries determine the current report period", () => {
   const result = resolveReportPeriod({ period: "week", now: new Date("2026-08-23T15:30:00Z") });
   assert.equal(result.period?.startDate, "2026-08-24");
   assert.equal(result.period?.endDate, "2026-08-30");
+});
+
+test("lesson plan payload keeps occurrence ids aligned with duplicate blocks", () => {
+  const formData = new FormData();
+  formData.set("name", "重複ブロックのプラン");
+  formData.set("format", "group");
+  formData.set("status", "ready");
+  formData.append("block_ids", "11111111-1111-1111-1111-111111111111");
+  formData.append("plan_block_ids", "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+  formData.append("block_ids", "11111111-1111-1111-1111-111111111111");
+  formData.append("plan_block_ids", "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+
+  const result = getLessonPlanPayload(formData);
+  assert.ok("payload" in result);
+  assert.deepEqual(result.blockIds, [
+    "11111111-1111-1111-1111-111111111111",
+    "11111111-1111-1111-1111-111111111111",
+  ]);
+  assert.deepEqual(result.planBlockIds, [
+    "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+    "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+  ]);
 });
 
 test("planned change rate excludes unconfirmed and legacy unclassified items", () => {

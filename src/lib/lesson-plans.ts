@@ -123,10 +123,13 @@ export function getLessonPlanPayload(formData: FormData) {
   const place = String(formData.get("place") ?? "").trim();
   const format = String(formData.get("format") ?? "group") as DbLessonPlan["format"];
   const status = String(formData.get("status") ?? "draft") as LessonPlanStatus;
-  const blockIds = formData
-    .getAll("block_ids")
-    .map((value) => String(value))
-    .filter(Boolean);
+  const submittedBlockIds = formData.getAll("block_ids").map((value) => String(value));
+  const submittedPlanBlockIds = formData.getAll("plan_block_ids").map((value) => String(value));
+  const submittedBlocks = submittedBlockIds
+    .map((blockId, index) => ({ blockId, planBlockId: submittedPlanBlockIds[index] ?? "" }))
+    .filter((item) => item.blockId);
+  const blockIds = submittedBlocks.map((item) => item.blockId);
+  const planBlockIds = submittedBlocks.map((item) => item.planBlockId);
   const tags = normalizeTags(formData.get("tags"));
 
   if (!name) return { error: "レッスンプラン名を入力してください。" };
@@ -144,6 +147,7 @@ export function getLessonPlanPayload(formData: FormData) {
     },
     tags,
     blockIds,
+    planBlockIds,
   };
 }
 

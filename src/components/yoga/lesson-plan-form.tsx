@@ -266,7 +266,10 @@ export function LessonPlanForm({ mode, blocks, categories, tags, initialPlan, in
           backLink={{ href: initialPlan ? `/lessons/${initialPlan.id}` : "/lessons?tab=plans", label: initialPlan ? "レッスンプラン詳細へ戻る" : "レッスンプラン一覧へ戻る" }}
         />
         {selectedBlocks.map((block, index) => (
-          <input key={`${block.id}-${index}`} type="hidden" name="block_ids" value={block.id} />
+          <span key={`${block.id}-${index}`}>
+            <input type="hidden" name="block_ids" value={block.id} />
+            <input type="hidden" name="plan_block_ids" value={"planBlockId" in block && typeof block.planBlockId === "string" ? block.planBlockId : ""} />
+          </span>
         ))}
       <div className="grid gap-3 min-[960px]:grid-cols-[210px_minmax(360px,1fr)_240px] lg:grid-cols-[220px_minmax(0,1fr)_250px] xl:grid-cols-[250px_minmax(0,1fr)_280px] 2xl:grid-cols-[280px_minmax(0,1fr)_320px]">
         <div className="space-y-4 min-[960px]:sticky min-[960px]:top-4 min-[960px]:max-h-[calc(100dvh-2rem)] min-[960px]:self-start min-[960px]:overflow-y-auto">
