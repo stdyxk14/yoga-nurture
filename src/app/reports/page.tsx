@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { AiTeachingReviewView } from "@/components/yoga/ai-teaching-review-view";
 import { CompactEmptyState, DonutMetric, SegmentedMetricBar, type MetricSegment } from "@/components/yoga/data-visuals";
 import { LessonCoverageView } from "@/components/yoga/lesson-coverage-view";
@@ -15,6 +15,7 @@ import {
 } from "@/components/yoga/workspace-kit";
 import {
   getReportData,
+  getReportPeriodNavigation,
   normalizeReportPeriod,
   normalizeReportView,
   type AttendanceBreakdownRow,
@@ -33,6 +34,7 @@ import type { ReviewScopeSelection } from "@/lib/ai-review/types";
 type ReportSearchParams = {
   view?: string;
   period?: string;
+  anchor?: string;
   from?: string;
   to?: string;
   format?: string;
@@ -57,13 +59,21 @@ const reportViews: Array<{ key: ReportViewKey; label: string }> = [
   { key: "closures", label: "クローズ" },
 ];
 const periods: Array<{ key: ReportPeriodKey; label: string }> = [
-  { key: "week", label: "今週" },
-  { key: "month", label: "今月" },
+  { key: "week", label: "週" },
+  { key: "month", label: "月" },
   { key: "3months", label: "3か月" },
   { key: "half", label: "半年" },
   { key: "year", label: "1年" },
   { key: "custom", label: "カスタム" },
 ];
+const periodNavigationLabels: Record<ReportPeriodKey, { previous: string; next: string }> = {
+  week: { previous: "前の週", next: "次の週" },
+  month: { previous: "前の月", next: "次の月" },
+  "3months": { previous: "前の3か月", next: "次の3か月" },
+  half: { previous: "前の半年", next: "次の半年" },
+  year: { previous: "前年", next: "翌年" },
+  custom: { previous: "前の期間", next: "次の期間" },
+};
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -76,9 +86,10 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const [report, reviewState] = await Promise.all([
     view === "ai_review"
       ? Promise.resolve(null)
-      : getReportData({ period, from: params.from, to: params.to, format: params.format, plan: params.plan, place: params.place, includeCoverage: view === "coverage" }),
+      : getReportData({ period, anchor: params.anchor, from: params.from, to: params.to, format: params.format, plan: params.plan, place: params.place, includeCoverage: view === "coverage" }),
     view === "ai_review" ? getTeachingReviewState(reviewSelection) : Promise.resolve(null),
   ]);
+  const periodNavigation = report ? getReportPeriodNavigation(report.period) : null;
 
   return (
     <div className="mx-auto w-full max-w-[1560px] space-y-5">
@@ -103,35 +114,56 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         </div>
       </WorkspacePageHeader>
 
-      {report ? <WorkspaceToolbar>
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
-          <div>
-            <p className="mb-2 text-[12px] font-semibold text-[#656c63]">期間</p>
-            <div className="flex flex-wrap gap-2">
-              {periods.map((item) => (
-                <Link key={item.key} href={buildReportHref(params, { period: item.key, view })} prefetch={false} className={period === item.key ? "inline-flex h-9 items-center rounded-lg bg-[#5d8f68] px-3 text-[13px] font-semibold text-white" : "inline-flex h-9 items-center rounded-lg border border-[#ddd6cc] bg-white px-3 text-[13px] font-semibold text-[#626a60] hover:bg-[#f7f4ef]"}>{item.label}</Link>
-              ))}
+      {report && periodNavigation ? <WorkspaceToolbar>
+        <div>
+          <p className="mb-2 text-[12px] font-semibold text-[#656c63]">期間</p>
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <div className="flex flex-wrap gap-1.5" aria-label="期間種類">
+              {periods.map((item) => {
+                const patch = item.key === period
+                  ? { period: item.key, view }
+                  : item.key === "custom"
+                    ? { period: item.key, view, anchor: undefined, from: report.period.startDate, to: report.period.endDate }
+                    : { period: item.key, view, anchor: undefined, from: undefined, to: undefined };
+                return <Link key={item.key} href={buildReportHref(params, patch)} prefetch={false} className={period === item.key ? "inline-flex h-9 items-center rounded-lg bg-[#5d8f68] px-3 text-[13px] font-semibold text-white" : "inline-flex h-9 items-center rounded-lg border border-[#ddd6cc] bg-white px-3 text-[13px] font-semibold text-[#626a60] hover:bg-[#f7f4ef]"}>{item.label}</Link>;
+              })}
             </div>
+            <Link href={buildReportHref(params, { period, view, ...periodNavigation.previous })} prefetch={false} aria-label={periodNavigationLabels[period].previous} className="inline-flex h-9 items-center gap-1 whitespace-nowrap rounded-lg border border-[#ddd6cc] bg-white px-2.5 text-[13px] font-semibold text-[#626a60] hover:bg-[#f7f4ef]">
+              <ChevronLeft className="h-4 w-4" aria-hidden="true" />{periodNavigationLabels[period].previous}
+            </Link>
+            <div className="inline-flex min-h-10 min-w-0 max-w-full items-center gap-2 rounded-lg border border-[#ddd6cc] bg-white px-3 text-[13px] font-medium text-[#4c534b]" aria-live="polite">
+              <CalendarDays className="h-4 w-4 shrink-0 text-[#5d8f68]" aria-hidden="true" />
+              <span className="font-semibold text-[#386b46]">{periodNavigation.positionLabel}</span>
+              <span className="whitespace-nowrap">{formatDate(report.period.startDate)} – {formatDate(report.period.endDate)}</span>
+            </div>
+            <Link href={buildReportHref(params, { period, view, ...periodNavigation.next })} prefetch={false} aria-label={periodNavigationLabels[period].next} className="inline-flex h-9 items-center gap-1 whitespace-nowrap rounded-lg border border-[#ddd6cc] bg-white px-2.5 text-[13px] font-semibold text-[#626a60] hover:bg-[#f7f4ef]">
+              {periodNavigationLabels[period].next}<ChevronRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+            <Link href={buildReportHref(params, { period, view, anchor: periodNavigation.current.anchor, from: periodNavigation.current.from, to: periodNavigation.current.to })} prefetch={false} aria-current={periodNavigation.isCurrent ? "date" : undefined} className={periodNavigation.isCurrent ? "inline-flex h-9 items-center whitespace-nowrap rounded-lg bg-[#f1eee8] px-3 text-[13px] font-semibold text-[#777d74]" : "inline-flex h-9 items-center whitespace-nowrap rounded-lg border border-[#c8d7c5] bg-[#f6faf5] px-3 text-[13px] font-semibold text-[#4f8058] hover:bg-[#edf5eb]"}>
+              現在の期間へ戻る
+            </Link>
+            <Link href={`${buildReportHref(params, { period: "custom", view, anchor: undefined, from: report.period.startDate, to: report.period.endDate })}#report-custom-dates`} prefetch={false} className="inline-flex h-9 items-center whitespace-nowrap rounded-lg px-2 text-[13px] font-semibold text-[#5d7562] hover:bg-[#f4f1eb]">
+              日付を直接指定
+            </Link>
           </div>
-          <div className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[#ddd6cc] bg-white px-3 text-[13px] font-medium text-[#4c534b]"><CalendarDays className="h-4 w-4 text-[#5d8f68]" />{formatDate(report.period.startDate)} – {formatDate(report.period.endDate)}</div>
         </div>
 
         {period === "custom" ? (
-          <form action="/reports" className="mt-4 grid gap-3 border-t border-[#ece5db] pt-4 sm:grid-cols-[minmax(150px,220px)_minmax(150px,220px)_auto] sm:items-end">
+          <form id="report-custom-dates" action="/reports" className="mt-4 grid scroll-mt-24 gap-3 border-t border-[#ece5db] pt-4 sm:grid-cols-[minmax(150px,220px)_minmax(150px,220px)_auto] sm:items-end">
             <input type="hidden" name="view" value={view} /><input type="hidden" name="period" value="custom" /><input type="hidden" name="format" value={params.format ?? "all"} /><input type="hidden" name="plan" value={params.plan ?? "all"} /><input type="hidden" name="place" value={params.place ?? "all"} />
-            <DateField label="開始日" name="from" value={params.from} /><DateField label="終了日" name="to" value={params.to} />
+            <DateField label="開始日" name="from" value={report.period.startDate} /><DateField label="終了日" name="to" value={report.period.endDate} />
             <button className="h-10 rounded-lg bg-[#5d8f68] px-4 text-[13px] font-semibold text-white">この期間で集計</button>
           </form>
         ) : null}
 
         <form action="/reports" className="mt-4 grid gap-3 border-t border-[#ece5db] pt-4 md:grid-cols-3 xl:grid-cols-[repeat(3,minmax(160px,1fr))_auto_auto] xl:items-end">
           <input type="hidden" name="view" value={view} /><input type="hidden" name="period" value={period} />
-          {period === "custom" ? <><input type="hidden" name="from" value={params.from ?? ""} /><input type="hidden" name="to" value={params.to ?? ""} /></> : null}
+          {period === "custom" ? <><input type="hidden" name="from" value={report.period.startDate} /><input type="hidden" name="to" value={report.period.endDate} /></> : <input type="hidden" name="anchor" value={params.anchor ?? ""} />}
           <SelectField label="形式" name="format" value={report.filters.format} options={[["all", "すべて"], ["group", "グループ"], ["personal", "パーソナル"], ["online", "オンライン"]]} />
           <SelectField label="レッスンプラン" name="plan" value={report.filters.plan} options={[["all", "すべて"], ...report.filters.plans.map((plan) => [plan.id, plan.name] as const)]} />
           <SelectField label="場所" name="place" value={report.filters.place} options={[["all", "すべて"], ...report.filters.places.map((place) => [place, place] as const)]} />
           <button className="h-10 rounded-lg bg-[#5d8f68] px-4 text-[13px] font-semibold text-white">フィルター適用</button>
-          <Link href={buildReportHref({}, { view, period, from: period === "custom" ? params.from : undefined, to: period === "custom" ? params.to : undefined })} prefetch={false} className="inline-flex h-10 items-center justify-center rounded-lg border border-[#ddd6cc] bg-white px-4 text-[13px] font-semibold text-[#626a60]">クリア</Link>
+          <Link href={buildReportHref({}, { view, period, anchor: period === "custom" || periodNavigation.isCurrent ? undefined : report.period.startDate, from: period === "custom" ? report.period.startDate : undefined, to: period === "custom" ? report.period.endDate : undefined })} prefetch={false} className="inline-flex h-10 items-center justify-center rounded-lg border border-[#ddd6cc] bg-white px-4 text-[13px] font-semibold text-[#626a60]">クリア</Link>
         </form>
       </WorkspaceToolbar> : null}
 
@@ -565,7 +597,12 @@ function buildReportHref(current: ReportSearchParams, patch: Partial<ReportSearc
   const period = normalizeReportPeriod(values.period);
   query.set("view", view);
   query.set("period", period);
-  if (period === "custom") { if (values.from) query.set("from", values.from); if (values.to) query.set("to", values.to); }
+  if (period === "custom") {
+    if (values.from) query.set("from", values.from);
+    if (values.to) query.set("to", values.to);
+  } else if (isDateKey(values.anchor)) {
+    query.set("anchor", values.anchor);
+  }
   if (values.format && values.format !== "all") query.set("format", values.format);
   if (values.plan && values.plan !== "all") query.set("plan", values.plan);
   if (values.place && values.place !== "all") query.set("place", values.place);
@@ -589,3 +626,4 @@ function comparisonText(value: ComparisonValue, points = false) { if (value.prev
 function formatSampledMinutes(value: number | null, sample: number) { return value == null ? "データ不足" : `${value}分（${sample}件）`; }
 function formatDate(value: string) { if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return value || "未指定"; return new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "numeric", day: "numeric", timeZone: "Asia/Tokyo" }).format(new Date(`${value}T00:00:00+09:00`)); }
 function formatDateFromIso(value: string) { return new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "numeric", day: "numeric", timeZone: "Asia/Tokyo" }).format(new Date(value)); }
+function isDateKey(value?: string): value is string { if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false; const [year, month, day] = value.split("-").map(Number); const date = new Date(Date.UTC(year, month - 1, day)); return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day; }

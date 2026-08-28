@@ -12,6 +12,7 @@ export type ReportViewKey = "ai_review" | "overview" | "coverage" | "attendance"
 
 export type ReportQuery = {
   period: ReportPeriodKey;
+  anchor?: string;
   from?: string;
   to?: string;
   format?: string;
@@ -32,6 +33,14 @@ export type ReportPeriod = {
   previousEndDate: string;
   previousStartIso: string;
   previousEndExclusiveIso: string;
+};
+
+export type ReportPeriodNavigation = {
+  previous: { anchor?: string; from?: string; to?: string };
+  next: { anchor?: string; from?: string; to?: string };
+  current: { anchor?: string; from?: string; to?: string };
+  isCurrent: boolean;
+  positionLabel: string;
 };
 
 export type RatioRow = { label: string; count: number; percent: number };
@@ -338,7 +347,7 @@ export function normalizeReportView(value?: string | null): ReportViewKey {
   return value === "ai_review" || value === "overview" || value === "coverage" || value === "attendance" || value === "students" || value === "plans" || value === "blocks" || value === "execution" || value === "closures" ? value : "overview";
 }
 
-export function resolveReportPeriod({ period, from, to, now = new Date() }: Pick<ReportQuery, "period" | "from" | "to" | "now">): { period: ReportPeriod | null; error?: string } {
+export function resolveReportPeriod({ period, anchor, from, to, now = new Date() }: Pick<ReportQuery, "period" | "anchor" | "from" | "to" | "now">): { period: ReportPeriod | null; error?: string } {
   const today = tokyoDateString(now);
   let startDate = today;
   let endDate = today;
@@ -349,32 +358,16 @@ export function resolveReportPeriod({ period, from, to, now = new Date() }: Pick
     if (from > to) return { period: null, error: "開始日は終了日以前の日付を指定してください。" };
     startDate = from;
     endDate = to;
-  } else if (period === "week") {
-    const day = new Date(`${today}T00:00:00Z`).getUTCDay();
-    startDate = addDays(today, -(day === 0 ? 6 : day - 1));
-  } else if (period === "month") {
-    startDate = `${today.slice(0, 7)}-01`;
-  } else if (period === "3months") {
-    startDate = addMonthsClamped(today, -3);
-  } else if (period === "half") {
-    startDate = addMonthsClamped(today, -6);
-  } else if (period === "year") {
-    startDate = addMonthsClamped(today, -12);
+  } else {
+    const currentStartDate = currentFixedPeriodStart(period, today);
+    const range = fixedPeriodRange(period, isValidDateString(anchor ?? "") ? anchor! : currentStartDate);
+    startDate = range.startDate;
+    endDate = range.endDate;
   }
 
   const days = dateDiffDays(startDate, endDate) + 1;
-  let previousEndDate = addDays(startDate, -1);
-  let previousStartDate = addDays(previousEndDate, -(days - 1));
-  if (period === "month") {
-    previousStartDate = addMonthsClamped(startDate, -1);
-    previousEndDate = lastDayOfMonth(previousStartDate);
-  } else if (period === "3months") {
-    previousStartDate = addMonthsClamped(startDate, -3);
-  } else if (period === "half") {
-    previousStartDate = addMonthsClamped(startDate, -6);
-  } else if (period === "year") {
-    previousStartDate = addMonthsClamped(startDate, -12);
-  }
+  const previousEndDate = addDays(startDate, -1);
+  const previousStartDate = addDays(previousEndDate, -(days - 1));
   return {
     period: {
       key: period,
@@ -388,6 +381,33 @@ export function resolveReportPeriod({ period, from, to, now = new Date() }: Pick
       previousStartIso: startOfTokyoDay(previousStartDate),
       previousEndExclusiveIso: startOfTokyoDay(addDays(previousEndDate, 1)),
     },
+  };
+}
+
+export function getReportPeriodNavigation(period: ReportPeriod, now = new Date()): ReportPeriodNavigation {
+  const today = tokyoDateString(now);
+  const days = dateDiffDays(period.startDate, period.endDate) + 1;
+
+  if (period.key === "custom") {
+    const currentTo = today;
+    const currentFrom = addDays(currentTo, -(days - 1));
+    return {
+      previous: { from: addDays(period.startDate, -days), to: addDays(period.endDate, -days) },
+      next: { from: addDays(period.startDate, days), to: addDays(period.endDate, days) },
+      current: { from: currentFrom, to: currentTo },
+      isCurrent: period.startDate === currentFrom && period.endDate === currentTo,
+      positionLabel: "カスタム",
+    };
+  }
+
+  const currentStart = currentFixedPeriodStart(period.key, today);
+  const currentRange = fixedPeriodRange(period.key, currentStart);
+  return {
+    previous: { anchor: shiftFixedPeriodAnchor(period.key, period.startDate, -1) },
+    next: { anchor: shiftFixedPeriodAnchor(period.key, period.startDate, 1) },
+    current: {},
+    isCurrent: period.startDate === currentRange.startDate && period.endDate === currentRange.endDate,
+    positionLabel: fixedPeriodPositionLabel(period.key, period.startDate, currentRange.startDate),
   };
 }
 
@@ -471,7 +491,13 @@ export async function getRecentLessonCoverage(limit = 8): Promise<LessonCoverage
 }
 
 export function buildDashboardReportData(source: DashboardReportSource): DashboardReportData {
-  const resolved = resolveReportPeriod({ period: "3months", now: source.now });
+  const dashboardEndDate = tokyoDateString(source.now);
+  const resolved = resolveReportPeriod({
+    period: "custom",
+    from: addMonthsClamped(dashboardEndDate, -3),
+    to: dashboardEndDate,
+    now: source.now,
+  });
   if (!resolved.period) throw new Error("ダッシュボード集計の期間を解決できませんでした。");
 
   const current = buildPeriodDataset(
@@ -1089,3 +1115,78 @@ function lastDayOfMonth(value: string) { const [year, month] = value.split("-").
 function dateDiffDays(from: string, to: string) { return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000); }
 function startOfWeekDate(value: string) { const day = new Date(`${value}T00:00:00Z`).getUTCDay(); return addDays(value, -(day === 0 ? 6 : day - 1)); }
 function formatCompactDate(value: string) { if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return value; const [, month, day] = value.split("-"); return `${Number(month)}/${Number(day)}`; }
+
+function firstDayOfMonth(value: string) { return `${value.slice(0, 7)}-01`; }
+
+function currentFixedPeriodStart(period: Exclude<ReportPeriodKey, "custom">, today: string) {
+  if (period === "week") return startOfWeekDate(today);
+  if (period === "month") return firstDayOfMonth(today);
+  if (period === "3months") return firstDayOfMonth(addMonthsClamped(today, -2));
+  if (period === "half") return firstDayOfMonth(addMonthsClamped(today, -5));
+  return `${today.slice(0, 4)}-01-01`;
+}
+
+function fixedPeriodRange(period: Exclude<ReportPeriodKey, "custom">, anchor: string) {
+  if (period === "week") {
+    const startDate = startOfWeekDate(anchor);
+    return { startDate, endDate: addDays(startDate, 6) };
+  }
+
+  if (period === "year") {
+    const startDate = `${anchor.slice(0, 4)}-01-01`;
+    return { startDate, endDate: `${anchor.slice(0, 4)}-12-31` };
+  }
+
+  const startDate = firstDayOfMonth(anchor);
+  const monthSpan = period === "month" ? 1 : period === "3months" ? 3 : 6;
+  return { startDate, endDate: lastDayOfMonth(addMonthsClamped(startDate, monthSpan - 1)) };
+}
+
+function shiftFixedPeriodAnchor(period: Exclude<ReportPeriodKey, "custom">, startDate: string, direction: -1 | 1) {
+  if (period === "week") return addDays(startDate, 7 * direction);
+  const months = period === "month" ? 1 : period === "3months" ? 3 : period === "half" ? 6 : 12;
+  return addMonthsClamped(startDate, months * direction);
+}
+
+function fixedPeriodPositionLabel(period: Exclude<ReportPeriodKey, "custom">, startDate: string, currentStartDate: string) {
+  if (period === "week") {
+    const offset = Math.round(dateDiffDays(currentStartDate, startDate) / 7);
+    if (offset === 0) return "今週";
+    if (offset === -1) return "先週";
+    if (offset < 0) return `${Math.abs(offset)}週前`;
+    if (offset === 1) return "来週";
+    return `${offset}週後`;
+  }
+
+  if (period === "month") {
+    const offset = monthDifference(currentStartDate, startDate);
+    if (offset === 0) return "今月";
+    if (offset === -1) return "先月";
+    if (offset < 0) return `${Math.abs(offset)}か月前`;
+    if (offset === 1) return "来月";
+    return `${offset}か月後`;
+  }
+
+  if (period === "year") {
+    const offset = Number(startDate.slice(0, 4)) - Number(currentStartDate.slice(0, 4));
+    if (offset === 0) return "今年";
+    if (offset === -1) return "昨年";
+    if (offset < 0) return `${Math.abs(offset)}年前`;
+    if (offset === 1) return "来年";
+    return `${offset}年後`;
+  }
+
+  const label = period === "3months" ? "3か月" : "半年";
+  return startDate === currentStartDate ? `現在の${label}` : `${formatYearMonth(startDate)}からの${label}`;
+}
+
+function monthDifference(from: string, to: string) {
+  const [fromYear, fromMonth] = from.split("-").map(Number);
+  const [toYear, toMonth] = to.split("-").map(Number);
+  return (toYear - fromYear) * 12 + toMonth - fromMonth;
+}
+
+function formatYearMonth(value: string) {
+  const [year, month] = value.split("-").map(Number);
+  return `${year}年${month}月`;
+}

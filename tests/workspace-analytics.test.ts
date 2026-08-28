@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { calculateGoodRate } from "../src/lib/blocks";
 import { summarizeLessonRecordDiff } from "../src/lib/lesson-records";
-import { calculateClosureMetrics, calculatePlannedChangeRate, normalizeReportView, resolveReportPeriod } from "../src/lib/reports";
+import { calculateClosureMetrics, calculatePlannedChangeRate, getReportPeriodNavigation, normalizeReportView, resolveReportPeriod } from "../src/lib/reports";
 import { calculateStudentPortfolio, getStudentPayload, matchesStudentFilter } from "../src/lib/students";
 
 test("reports default to overview while preserving the explicit AI review view", () => {
@@ -43,12 +43,65 @@ test("invalid custom periods return a user-facing validation error", () => {
   assert.match(resolveReportPeriod({ period: "custom", from: "", to: "2026-08-11" }).error ?? "", /入力/);
 });
 
-test("month comparison uses the full previous calendar month", () => {
-  const result = resolveReportPeriod({ period: "month", now: new Date("2026-08-11T03:00:00Z") });
+test("weekly report navigation uses Monday-based Tokyo ranges", () => {
+  const now = new Date("2026-08-28T03:00:00Z");
+  const current = resolveReportPeriod({ period: "week", now });
+  const previous = resolveReportPeriod({ period: "week", anchor: "2026-08-17", now });
+  const twoWeeksAgo = resolveReportPeriod({ period: "week", anchor: "2026-08-10", now });
+
+  assert.deepEqual(current.period && {
+    startDate: current.period.startDate,
+    endDate: current.period.endDate,
+    previousStartDate: current.period.previousStartDate,
+    previousEndDate: current.period.previousEndDate,
+  }, {
+    startDate: "2026-08-24",
+    endDate: "2026-08-30",
+    previousStartDate: "2026-08-17",
+    previousEndDate: "2026-08-23",
+  });
+  assert.equal(previous.period && getReportPeriodNavigation(previous.period, now).positionLabel, "先週");
+  assert.equal(twoWeeksAgo.period && getReportPeriodNavigation(twoWeeksAgo.period, now).positionLabel, "2週前");
+  assert.deepEqual(previous.period && getReportPeriodNavigation(previous.period, now).previous, { anchor: "2026-08-10" });
+});
+
+test("month navigation uses calendar months and equally long comparisons", () => {
+  const now = new Date("2026-08-28T03:00:00Z");
+  const result = resolveReportPeriod({ period: "month", now });
   assert.equal(result.period?.startDate, "2026-08-01");
-  assert.equal(result.period?.endDate, "2026-08-11");
+  assert.equal(result.period?.endDate, "2026-08-31");
   assert.equal(result.period?.previousStartDate, "2026-07-01");
   assert.equal(result.period?.previousEndDate, "2026-07-31");
+
+  const previous = resolveReportPeriod({ period: "month", anchor: "2026-07-31", now });
+  assert.equal(previous.period?.startDate, "2026-07-01");
+  assert.equal(previous.period?.endDate, "2026-07-31");
+  assert.equal(previous.period && getReportPeriodNavigation(previous.period, now).positionLabel, "先月");
+  assert.deepEqual(previous.period && getReportPeriodNavigation(previous.period, now).previous, { anchor: "2026-06-01" });
+});
+
+test("leap-month ranges stay valid while comparisons keep the selected day count", () => {
+  const result = resolveReportPeriod({ period: "month", anchor: "2028-02-29", now: new Date("2028-02-10T03:00:00Z") });
+  assert.equal(result.period?.startDate, "2028-02-01");
+  assert.equal(result.period?.endDate, "2028-02-29");
+  assert.equal(result.period?.previousStartDate, "2028-01-03");
+  assert.equal(result.period?.previousEndDate, "2028-01-31");
+});
+
+test("custom navigation preserves the inclusive number of days and can return to today", () => {
+  const now = new Date("2026-08-11T03:00:00Z");
+  const result = resolveReportPeriod({ period: "custom", from: "2026-07-01", to: "2026-07-03", now });
+  assert.ok(result.period);
+  const navigation = getReportPeriodNavigation(result.period, now);
+  assert.deepEqual(navigation.previous, { from: "2026-06-28", to: "2026-06-30" });
+  assert.deepEqual(navigation.next, { from: "2026-07-04", to: "2026-07-06" });
+  assert.deepEqual(navigation.current, { from: "2026-08-09", to: "2026-08-11" });
+});
+
+test("Tokyo date boundaries determine the current report period", () => {
+  const result = resolveReportPeriod({ period: "week", now: new Date("2026-08-23T15:30:00Z") });
+  assert.equal(result.period?.startDate, "2026-08-24");
+  assert.equal(result.period?.endDate, "2026-08-30");
 });
 
 test("planned change rate excludes unconfirmed and legacy unclassified items", () => {
