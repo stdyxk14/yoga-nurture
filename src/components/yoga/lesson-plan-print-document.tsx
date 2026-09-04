@@ -13,6 +13,7 @@ export function LessonPlanPrintDocument({ plan, schedule }: Props) {
     schedule?.participants.map((student) => ({
       id: student.id,
       name: student.name,
+      kana: student.kana?.trim() || "",
       lessonCount: student.linkedLessonCount ?? 0,
       experience: student.experience?.trim() || "未登録",
       memo: student.memo?.trim() || "未登録",
@@ -92,7 +93,10 @@ export function LessonPlanPrintDocument({ plan, schedule }: Props) {
                   <section key={student.id} className="participant-student-section mt-7 border-t border-[#cfc7ba] pt-5 first:mt-0 first:border-t-0 first:pt-0">
                     <div className="participant-overview bg-[#f7f5ef] px-3.5 py-3">
                       <header className="participant-overview-heading flex flex-wrap items-baseline justify-between gap-2 border-b border-[#d8d1c6] pb-2">
-                        <h3 className="participant-overview-name text-[16px] font-black text-[#20231e]">{student.name}</h3>
+                        <h3 className="participant-overview-name text-[16px] font-black text-[#20231e]">
+                          {student.name}
+                          {student.kana ? <span className="participant-name-kana ml-2 inline-block text-[10.5px] font-bold text-[#606a5e]">（{student.kana}）</span> : null}
+                        </h3>
                         <p className="participant-overview-count shrink-0 text-[11px] font-extrabold text-[#5d956d]">過去受講回数 {student.lessonCount}回</p>
                       </header>
 
@@ -129,7 +133,10 @@ export function LessonPlanPrintDocument({ plan, schedule }: Props) {
                           <tr className="participant-history-identity border-y border-[#bfc9ba] bg-[#edf2e9]">
                             <th colSpan={2} className="px-3 py-2 font-normal">
                               <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                                <span className="participant-history-name font-black text-[#20231e]">{student.name}</span>
+                                <span className="participant-history-name font-black text-[#20231e]">
+                                  {student.name}
+                                  {student.kana ? <span className="participant-name-kana ml-2 inline-block text-[10.5px] font-bold text-[#5f695d]">（{student.kana}）</span> : null}
+                                </span>
                                 <span className="participant-history-caption font-extrabold text-[#4f7355]">過去受講回数 {student.lessonCount}回 ・ 過去の観察記録</span>
                               </div>
                             </th>
@@ -436,6 +443,10 @@ function PrintStyles() {
 
         .participant-overview-count,
         .participant-history-caption {
+          font-size: 8.8pt !important;
+        }
+
+        .participant-name-kana {
           font-size: 8.8pt !important;
         }
 
