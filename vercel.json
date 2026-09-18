@@ -4,7 +4,7 @@
   "crons": [
     {
       "path": "/api/cron/ai-daily-suggestions",
-      "schedule": "0 21 * * *"
+      "schedule": "0 21 * * 0"
     }
   ]
 }
