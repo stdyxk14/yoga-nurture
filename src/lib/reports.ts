@@ -172,7 +172,7 @@ export type ReportData = {
     noShow: number;
     cancelRate: number;
     noShowRate: number;
-    trendGranularity: "day" | "week";
+    trendGranularity: "day";
     trend: TrendRow[];
     byFormat: AttendanceBreakdownRow[];
     byPlace: AttendanceBreakdownRow[];
@@ -590,7 +590,7 @@ async function fetchReportData(query: ReportQuery, period: ReportPeriod): Promis
     ? buildLessonCoverage(current.records.map(toCoverageSourceLesson))
     : emptyLessonCoverageReport();
   const planRows = buildPlanRows(current, plans);
-  const attendance = buildAttendanceReport(current.attendance, period);
+  const attendance = buildAttendanceReport(current.attendance);
   const closures = buildClosureReport(allSchedules, period, commonFilter, query.now ?? new Date());
   const allGender = buildRatioRows(students.map((student) => normalizeGender(student.gender)));
   const allAge = buildRatioRows(students.map((student) => normalizeAge(student.age_group)));
@@ -868,13 +868,11 @@ function buildSummary(current: ReturnType<typeof aggregateCore>, previous: Retur
   };
 }
 
-function buildAttendanceReport(entries: AttendanceEntry[], period: ReportPeriod) {
+function buildAttendanceReport(entries: AttendanceEntry[]) {
   const present = entries.filter((entry) => entry.status === "present").length;
   const cancelled = entries.filter((entry) => entry.status === "cancelled").length;
   const noShow = entries.filter((entry) => entry.status === "no_show").length;
-  const days = dateDiffDays(period.startDate, period.endDate) + 1;
-  const granularity: "day" | "week" = days <= 45 ? "day" : "week";
-  const trend = buildBreakdown(entries, (entry) => granularity === "day" ? tokyoDateString(new Date(entry.dateIso)) : startOfWeekDate(tokyoDateString(new Date(entry.dateIso))))
+  const trend = buildBreakdown(entries, (entry) => tokyoDateString(new Date(entry.dateIso)))
     .map((row) => ({ ...row, key: row.label, label: formatCompactDate(row.label) }));
   return {
     present,
@@ -882,7 +880,7 @@ function buildAttendanceReport(entries: AttendanceEntry[], period: ReportPeriod)
     noShow,
     cancelRate: percent(cancelled, entries.length),
     noShowRate: percent(noShow, entries.length),
-    trendGranularity: granularity,
+    trendGranularity: "day" as const,
     trend,
     byFormat: buildBreakdown(entries, (entry) => formatLabels[entry.format]),
     byPlace: buildBreakdown(entries, (entry) => entry.place || "未設定"),

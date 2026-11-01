@@ -204,7 +204,7 @@ function OverviewView({ report }: { report: ReportData }) {
       <div className="grid min-w-0 gap-4 lg:grid-cols-2 xl:grid-cols-3">
         <VisualPanel
           title="レッスン・参加状況の推移"
-          description={`${report.attendance.trendGranularity === "day" ? "日別" : "週別"}の参加・キャンセル・無断欠席`}
+          description="レッスン日ごとの参加・キャンセル・無断欠席"
           className="order-1 lg:col-span-2"
         >
           <AttendanceTrendChart rows={report.attendance.trend} />
@@ -254,7 +254,7 @@ function AttendanceView({ report }: { report: ReportData }) {
     <div className="space-y-5">
       <AttendanceTotals report={report} />
       <div className="grid min-w-0 gap-4 lg:grid-cols-3">
-        <VisualPanel title={`${report.attendance.trendGranularity === "day" ? "日別" : "週別"}の参加推移`} description="参加・キャンセル・無断欠席の積み上げ" className="lg:col-span-2">
+        <VisualPanel title="レッスン日ごとの参加推移" description="参加・キャンセル・無断欠席の積み上げ" className="lg:col-span-2">
           <AttendanceTrendChart rows={report.attendance.trend} />
         </VisualPanel>
         <VisualPanel title="出席構成" description="期間内の出欠エントリ">
@@ -262,7 +262,7 @@ function AttendanceView({ report }: { report: ReportData }) {
         </VisualPanel>
       </div>
       <WorkspaceSection title="推移の数値詳細" description="グラフと同じ件数を表で確認できます。">
-        <BreakdownTable rows={report.attendance.trend} firstHeader={report.attendance.trendGranularity === "day" ? "日付" : "週"} />
+        <BreakdownTable rows={report.attendance.trend} firstHeader="レッスン日" />
       </WorkspaceSection>
       <div className="grid gap-5 xl:grid-cols-2"><WorkspaceSection title="形式別の参加状況"><BreakdownTable rows={report.attendance.byFormat} firstHeader="形式" /></WorkspaceSection><WorkspaceSection title="場所別の参加状況"><BreakdownTable rows={report.attendance.byPlace} firstHeader="場所" /></WorkspaceSection></div>
     </div>
