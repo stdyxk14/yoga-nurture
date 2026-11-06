@@ -50,6 +50,7 @@ export type ComparisonValue = { previous: number | null; delta: number | null; p
 
 export type ReportSummary = {
   totalLessons: number;
+  closedLessons: number;
   recordedLessons: number;
   recordRate: number;
   totalParticipants: number;
@@ -166,6 +167,7 @@ export type ReportData = {
     places: string[];
   };
   summary: ReportSummary;
+  occupancy: ReturnType<typeof calculateSeatOccupancy>;
   attendance: {
     present: number;
     cancelled: number;
@@ -306,6 +308,7 @@ type AttendanceEntry = {
 
 type PeriodDataset = {
   schedules: RawSchedule[];
+  closedSchedules: RawSchedule[];
   records: RawRecord[];
   lessons: Array<{ key: string; dateIso: string; planId: string | null; planName: string; format: LessonFormat | ""; place: string; plannedMinutes: number | null; record?: RawRecord }>;
   attendance: AttendanceEntry[];
@@ -581,6 +584,8 @@ async function fetchReportData(query: ReportQuery, period: ReportPeriod): Promis
   const currentCore = aggregateCore(current);
   const previousCore = aggregateCore(previous);
   const summary = buildSummary(currentCore, previousCore);
+  const now = query.now ?? new Date();
+  const occupancy = calculateSeatOccupancy(current, now);
   const studentById = new Map(students.map((student) => [student.id, student]));
   const presentStudentIds = Array.from(new Set(current.records.flatMap((record) => record.lesson_record_students ?? []).filter((entry) => entry.attendance_status === "present").map((entry) => entry.student_id)));
   const periodStudents = presentStudentIds.map((id) => studentById.get(id)).filter((student): student is RawStudent => Boolean(student));
@@ -591,7 +596,7 @@ async function fetchReportData(query: ReportQuery, period: ReportPeriod): Promis
     : emptyLessonCoverageReport();
   const planRows = buildPlanRows(current, plans);
   const attendance = buildAttendanceReport(current.attendance);
-  const closures = buildClosureReport(allSchedules, period, commonFilter, query.now ?? new Date());
+  const closures = buildClosureReport(allSchedules, period, commonFilter, now);
   const allGender = buildRatioRows(students.map((student) => normalizeGender(student.gender)));
   const allAge = buildRatioRows(students.map((student) => normalizeAge(student.age_group)));
   const participantGender = buildRatioRows(periodStudents.map((student) => normalizeGender(student.gender)));
@@ -603,7 +608,7 @@ async function fetchReportData(query: ReportQuery, period: ReportPeriod): Promis
   ], (row) => row.id).sort((a, b) => a.name.localeCompare(b.name, "ja"));
   const places = Array.from(new Set(options.map((row) => row.place?.trim()).filter((value): value is string => Boolean(value)))).sort((a, b) => a.localeCompare(b, "ja"));
   const dataQuality = {
-    lessons: summary.totalLessons,
+    lessons: currentCore.totalLessons,
     recordedLessons: summary.recordedLessons,
     recordRate: summary.recordRate,
     unevaluatedBlocks: current.items.filter((item) => isExecutedItem(item) && item.reaction == null).length,
@@ -613,9 +618,10 @@ async function fetchReportData(query: ReportQuery, period: ReportPeriod): Promis
 
   const data: ReportData = {
     period,
-    hasAnyData: Boolean(current.lessons.length || current.records.length || students.length),
+    hasAnyData: Boolean(summary.totalLessons || students.length),
     filters: { format: query.format ?? "all", plan: query.plan ?? "all", place: query.place ?? "all", plans: optionPlans, places },
     summary,
+    occupancy,
     attendance,
     students: {
       all: { total: students.length, genderRows: allGender, ageRows: allAge },
@@ -662,7 +668,9 @@ function buildPeriodDataset(
     const timestamp = Date.parse(value);
     return Number.isFinite(timestamp) && timestamp >= startTime && timestamp < endExclusiveTime;
   };
-  const scheduleRows = schedules.filter((schedule) => !hasActiveClosure(schedule) && isWithinPeriod(schedule.starts_at) && filter({ format: schedule.format ?? "", planId: schedule.lesson_plan_id, place: schedule.place ?? "" }));
+  const periodSchedules = schedules.filter((schedule) => isWithinPeriod(schedule.starts_at) && filter({ format: schedule.format ?? "", planId: schedule.lesson_plan_id, place: schedule.place ?? "" }));
+  const scheduleRows = periodSchedules.filter((schedule) => !hasActiveClosure(schedule));
+  const closedSchedules = periodSchedules.filter(hasActiveClosure);
   const scheduleById = new Map(scheduleRows.map((schedule) => [schedule.id, schedule]));
   const recordRows = records.filter((record) => {
     const dateIso = recordDateIso(record);
@@ -709,7 +717,19 @@ function buildPeriodDataset(
     }
   }
   const items = recordRows.flatMap((record) => (record.lesson_record_blocks ?? []).map((item) => ({ ...item, record, dateIso: recordDateIso(record), planId: record.lesson_plan_id ?? record.schedule?.lesson_plan_id ?? null, planName: record.schedule?.lesson_plan_name_snapshot || record.schedule?.lesson_plan?.name || "未設定" })));
-  return { schedules: scheduleRows, records: recordRows, lessons, attendance, items };
+  return { schedules: scheduleRows, closedSchedules, records: recordRows, lessons, attendance, items };
+}
+
+const SEATS_PER_LESSON = 4;
+
+function calculateSeatOccupancy(dataset: PeriodDataset, now: Date) {
+  const past = (schedule: RawSchedule) => Date.parse(schedule.starts_at) < now.getTime();
+  const completed = new Set(dataset.schedules.filter((schedule) => past(schedule) && schedule.status === "recorded").map((schedule) => schedule.id));
+  const held = new Set(dataset.lessons.filter((lesson) => completed.has(lesson.key) && lesson.record?.lesson_record_students != null).map((lesson) => lesson.key));
+  const closed = dataset.closedSchedules.filter(past).length;
+  const seats = (held.size + closed) * SEATS_PER_LESSON;
+  const participants = dataset.attendance.filter((entry) => held.has(entry.lessonKey) && entry.status === "present").length;
+  return { participants, held: held.size, closed, seats, seatsPerLesson: SEATS_PER_LESSON, rate: seats ? round1(participants * 100 / seats) : null };
 }
 
 function aggregateCore(dataset: PeriodDataset) {
@@ -720,10 +740,11 @@ function aggregateCore(dataset: PeriodDataset) {
   const plannedChanges = calculatePlannedChangeRate(dataset.items);
   return {
     totalLessons: dataset.lessons.length,
+    closedLessons: dataset.closedSchedules.length,
     recordedLessons: dataset.lessons.filter((lesson) => Boolean(lesson.record)).length,
     totalParticipants: present.length,
     uniqueStudents: new Set(present.map((entry) => entry.studentId)).size,
-    cancelCount: cancelled,
+    cancelCount: cancelled + noShow,
     noShowCount: noShow,
     attendanceTotal,
     confirmedPlanned: plannedChanges.denominator,
@@ -839,6 +860,8 @@ export function calculatePlannedChangeRate(items: Array<{ item_source: string; c
 }
 
 function buildSummary(current: ReturnType<typeof aggregateCore>, previous: ReturnType<typeof aggregateCore>): ReportSummary {
+  const totalLessons = current.totalLessons + current.closedLessons;
+  const previousTotalLessons = previous.totalLessons + previous.closedLessons;
   const recordRate = percent(current.recordedLessons, current.totalLessons);
   const previousRecordRate = previous.totalLessons ? percent(previous.recordedLessons, previous.totalLessons) : null;
   const cancelRate = percent(current.cancelCount, current.attendanceTotal);
@@ -846,7 +869,8 @@ function buildSummary(current: ReturnType<typeof aggregateCore>, previous: Retur
   const changeRate = current.confirmedPlanned ? percent(current.changed, current.confirmedPlanned) : null;
   const previousChangeRate = previous.confirmedPlanned ? percent(previous.changed, previous.confirmedPlanned) : null;
   return {
-    totalLessons: current.totalLessons,
+    totalLessons,
+    closedLessons: current.closedLessons,
     recordedLessons: current.recordedLessons,
     recordRate,
     totalParticipants: current.totalParticipants,
@@ -858,7 +882,7 @@ function buildSummary(current: ReturnType<typeof aggregateCore>, previous: Retur
     changeRate,
     addedCount: current.added,
     comparisons: {
-      totalLessons: compare(current.totalLessons, previous.totalLessons, previous.totalLessons > 0),
+      totalLessons: compare(totalLessons, previousTotalLessons, previousTotalLessons > 0),
       totalParticipants: compare(current.totalParticipants, previous.totalParticipants, previous.attendanceTotal > 0),
       uniqueStudents: compare(current.uniqueStudents, previous.uniqueStudents, previous.attendanceTotal > 0),
       cancelRate: compare(cancelRate, previousCancelRate, previousCancelRate !== null),
@@ -878,7 +902,7 @@ function buildAttendanceReport(entries: AttendanceEntry[]) {
     present,
     cancelled,
     noShow,
-    cancelRate: percent(cancelled, entries.length),
+    cancelRate: percent(cancelled + noShow, entries.length),
     noShowRate: percent(noShow, entries.length),
     trendGranularity: "day" as const,
     trend,
@@ -909,7 +933,7 @@ function buildPlanRows(dataset: PeriodDataset, plans: RawPlan[]): PlanReportRow[
       lessonCount: lessons.length,
       participants: presentCount,
       averageParticipants: lessons.length ? round1(presentCount / lessons.length) : 0,
-      cancelRate: percent(attendance.filter((entry) => entry.status === "cancelled").length, attendance.length),
+      cancelRate: percent(attendance.filter((entry) => entry.status === "cancelled" || entry.status === "no_show").length, attendance.length),
       averagePlannedMinutes: plannedMinutes.length ? round1(average(plannedMinutes)) : null,
       plannedMinutesSample: plannedMinutes.length,
       averageActualMinutes: actualMinutes.length ? round1(average(actualMinutes)) : null,
@@ -1077,7 +1101,8 @@ function emptyReport(query: ReportQuery, error: string, resolved?: ReportPeriod)
     error,
     hasAnyData: false,
     filters: { format: query.format ?? "all", plan: query.plan ?? "all", place: query.place ?? "all", plans: [], places: [] },
-    summary: { totalLessons: 0, recordedLessons: 0, recordRate: 0, totalParticipants: 0, uniqueStudents: 0, cancelCount: 0, cancelRate: 0, noShowCount: 0, noShowRate: 0, changeRate: null, addedCount: 0, comparisons: { totalLessons: emptyComparison, totalParticipants: emptyComparison, uniqueStudents: emptyComparison, cancelRate: emptyComparison, recordRate: emptyComparison, changeRate: emptyComparison } },
+    summary: { totalLessons: 0, closedLessons: 0, recordedLessons: 0, recordRate: 0, totalParticipants: 0, uniqueStudents: 0, cancelCount: 0, cancelRate: 0, noShowCount: 0, noShowRate: 0, changeRate: null, addedCount: 0, comparisons: { totalLessons: emptyComparison, totalParticipants: emptyComparison, uniqueStudents: emptyComparison, cancelRate: emptyComparison, recordRate: emptyComparison, changeRate: emptyComparison } },
+    occupancy: { participants: 0, held: 0, closed: 0, seats: 0, seatsPerLesson: SEATS_PER_LESSON, rate: null },
     attendance: { present: 0, cancelled: 0, noShow: 0, cancelRate: 0, noShowRate: 0, trendGranularity: "day", trend: [], byFormat: [], byPlace: [] },
     students: { all: { total: 0, genderRows: [], ageRows: [] }, participants: { total: 0, genderRows: [], ageRows: [], newEquivalentCount: 0 } },
     plans: [],

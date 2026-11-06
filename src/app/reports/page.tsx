@@ -192,19 +192,24 @@ function OverviewView({ report }: { report: ReportData }) {
   const summary = report.summary;
   return (
     <div className="space-y-5">
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-6">
-        <WorkspaceSummaryCard label="総レッスン数" value={`${summary.totalLessons}件`} detail={`記録済み ${summary.recordedLessons}件・${comparisonText(summary.comparisons.totalLessons)}`} href="/lessons" />
-        <WorkspaceSummaryCard label="実施後記録率" value={`${summary.recordRate}%`} detail={comparisonText(summary.comparisons.recordRate, true)} tone="green" href="/lessons?tab=records" />
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
+        <WorkspaceSummaryCard label="総レッスン数" value={`${summary.totalLessons}件`} detail={`うちクローズ ${summary.closedLessons}件・${comparisonText(summary.comparisons.totalLessons)}`} href="/lessons" />
+        <WorkspaceSummaryCard
+          label="座席稼働率"
+          value={report.occupancy.rate === null ? "対象なし" : `${report.occupancy.rate.toFixed(1)}%`}
+          detail={`実参加 ${report.occupancy.participants}人／${report.occupancy.seats}席（開催確定${report.occupancy.held}回＋クローズ${report.occupancy.closed}回、各${report.occupancy.seatsPerLesson}席）`}
+        />
+        <WorkspaceSummaryCard label="実施後記録率" value={`${summary.recordRate}%`} detail={`記録済み ${summary.recordedLessons}件（クローズ除く）・${comparisonText(summary.comparisons.recordRate, true)}`} tone="green" href="/lessons?tab=records" />
         <WorkspaceSummaryCard label="延べ参加人数" value={`${summary.totalParticipants}名`} detail={comparisonText(summary.comparisons.totalParticipants)} tone="purple" />
         <WorkspaceSummaryCard label="ユニーク参加者" value={`${summary.uniqueStudents}名`} detail={comparisonText(summary.comparisons.uniqueStudents)} />
-        <WorkspaceSummaryCard label="キャンセル率" value={`${summary.cancelRate}%`} detail={`${summary.cancelCount}件・${comparisonText(summary.comparisons.cancelRate, true)}`} tone="coral" />
+        <WorkspaceSummaryCard label="キャンセル率" value={`${summary.cancelRate}%`} detail={`${summary.cancelCount}件（うち無断${summary.noShowCount}件）・${comparisonText(summary.comparisons.cancelRate, true)}`} tone="coral" />
         <WorkspaceSummaryCard label="予定変更率" value={summary.changeRate == null ? "データ不足" : `${summary.changeRate}%`} detail={`${summary.addedCount}件の追加・${comparisonText(summary.comparisons.changeRate, true)}`} tone="sand" href="/lessons?tab=records&diff=1" />
       </section>
 
       <div className="grid min-w-0 gap-4 lg:grid-cols-2 xl:grid-cols-3">
         <VisualPanel
           title="レッスン・参加状況の推移"
-          description="レッスン日ごとの参加・キャンセル・無断欠席"
+          description="レッスン日ごとの参加・通常キャンセル・無断欠席"
           className="order-1 lg:col-span-2"
         >
           <AttendanceTrendChart rows={report.attendance.trend} />
@@ -254,7 +259,7 @@ function AttendanceView({ report }: { report: ReportData }) {
     <div className="space-y-5">
       <AttendanceTotals report={report} />
       <div className="grid min-w-0 gap-4 lg:grid-cols-3">
-        <VisualPanel title="レッスン日ごとの参加推移" description="参加・キャンセル・無断欠席の積み上げ" className="lg:col-span-2">
+        <VisualPanel title="レッスン日ごとの参加推移" description="参加・通常キャンセル・無断欠席の積み上げ" className="lg:col-span-2">
           <AttendanceTrendChart rows={report.attendance.trend} />
         </VisualPanel>
         <VisualPanel title="出席構成" description="期間内の出欠エントリ">
@@ -290,7 +295,7 @@ function PlansView({ report }: { report: ReportData }) {
         <PlanUsageVisual plans={report.plans} />
       </VisualPanel>
       <WorkspaceSection title="プラン別の実績" description="時間は算出できたレッスンだけを母数にし、件数を併記します。">
-        {report.plans.length ? <WorkspaceTableContainer><table className="w-full min-w-[1180px] border-collapse text-left text-[13px]"><thead className="bg-[#f5f3ee] text-[12px] font-semibold text-[#666d63]"><tr><TableHead>プラン</TableHead><TableHead>実施回数</TableHead><TableHead>延べ参加</TableHead><TableHead>平均参加</TableHead><TableHead>キャンセル率</TableHead><TableHead>平均予定時間</TableHead><TableHead>平均実施時間</TableHead><TableHead>予定変更率</TableHead><TableHead>よく追加</TableHead><TableHead>最終実施日</TableHead></tr></thead><tbody className="divide-y divide-[#ece5db]">{report.plans.map((plan) => <PlanRow key={`${plan.id}-${plan.name}`} plan={plan} />)}</tbody></table></WorkspaceTableContainer> : <WorkspaceEmptyState title="プラン別データがありません" description="この期間・フィルター条件で対象となるレッスンがありません。" />}
+        {report.plans.length ? <WorkspaceTableContainer><table className="w-full min-w-[1180px] border-collapse text-left text-[13px]"><thead className="bg-[#f5f3ee] text-[12px] font-semibold text-[#666d63]"><tr><TableHead>プラン</TableHead><TableHead>実施回数</TableHead><TableHead>延べ参加</TableHead><TableHead>平均参加</TableHead><TableHead>キャンセル率（無断含む）</TableHead><TableHead>平均予定時間</TableHead><TableHead>平均実施時間</TableHead><TableHead>予定変更率</TableHead><TableHead>よく追加</TableHead><TableHead>最終実施日</TableHead></tr></thead><tbody className="divide-y divide-[#ece5db]">{report.plans.map((plan) => <PlanRow key={`${plan.id}-${plan.name}`} plan={plan} />)}</tbody></table></WorkspaceTableContainer> : <WorkspaceEmptyState title="プラン別データがありません" description="この期間・フィルター条件で対象となるレッスンがありません。" />}
       </WorkspaceSection>
     </div>
   );
@@ -374,7 +379,7 @@ function ClosuresView({ report }: { report: ReportData }) {
 }
 
 function AttendanceTotals({ report }: { report: ReportData }) {
-  return <div className="space-y-2"><section className="grid grid-cols-2 gap-3 lg:grid-cols-5"><WorkspaceSummaryCard label="参加" value={`${report.attendance.present}件`} /><WorkspaceSummaryCard label="キャンセル" value={`${report.attendance.cancelled}件`} tone="coral" /><WorkspaceSummaryCard label="無断欠席" value={`${report.attendance.noShow}件`} tone="purple" /><WorkspaceSummaryCard label="キャンセル率" value={`${report.attendance.cancelRate}%`} tone="coral" /><WorkspaceSummaryCard label="無断欠席率" value={`${report.attendance.noShowRate}%`} tone="purple" /></section><p className="text-[12px] leading-5 text-[#737a70]">率の分母：期間内の出欠エントリ。実施後記録がある予定は記録側を優先し、二重計上しません。</p></div>;
+  return <div className="space-y-2"><section className="grid grid-cols-2 gap-3 lg:grid-cols-5"><WorkspaceSummaryCard label="参加" value={`${report.attendance.present}件`} /><WorkspaceSummaryCard label="キャンセル合計" value={`${report.summary.cancelCount}件`} tone="coral" /><WorkspaceSummaryCard label="うち無断欠席" value={`${report.attendance.noShow}件`} tone="purple" /><WorkspaceSummaryCard label="キャンセル率" value={`${report.attendance.cancelRate}%`} tone="coral" /><WorkspaceSummaryCard label="無断欠席率" value={`${report.attendance.noShowRate}%`} tone="purple" /></section><p className="text-[12px] leading-5 text-[#737a70]">キャンセル合計・キャンセル率には無断欠席を含みます。率の分母：期間内の出欠エントリ。実施後記録がある予定は記録側を優先し、二重計上しません。</p></div>;
 }
 
 function ExecutionTotals({ report, compact = false }: { report: ReportData; compact?: boolean }) {
@@ -410,7 +415,7 @@ function AttendanceTrendChart({ rows }: { rows: AttendanceBreakdownRow[] }) {
     <figure className="min-w-0">
       <figcaption className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-medium text-[#677067]">
         <ChartLegend color="#6f9875" label={`参加 ${totals.present}件`} />
-        <ChartLegend color="#d88a77" label={`キャンセル ${totals.cancelled}件`} />
+        <ChartLegend color="#d88a77" label={`通常キャンセル ${totals.cancelled}件`} />
         <ChartLegend color="#8578b2" label={`無断欠席 ${totals.noShow}件`} />
       </figcaption>
       <div className="max-w-full overflow-x-auto pb-1">
@@ -418,7 +423,7 @@ function AttendanceTrendChart({ rows }: { rows: AttendanceBreakdownRow[] }) {
           {rows.map((row, index) => {
             const height = row.total ? Math.max(5, (row.total / max) * 100) : 0;
             return (
-              <div key={`${row.label}-${index}`} className="flex h-full min-w-[38px] flex-1 flex-col items-center justify-end" title={`${row.label}: 参加${row.present}件、キャンセル${row.cancelled}件、無断欠席${row.noShow}件`}>
+              <div key={`${row.label}-${index}`} className="flex h-full min-w-[38px] flex-1 flex-col items-center justify-end" title={`${row.label}: 参加${row.present}件、通常キャンセル${row.cancelled}件、無断欠席${row.noShow}件`}>
                 <span className="mb-1 text-[10px] font-semibold text-[#596159]">{row.total}</span>
                 <div className="flex h-[126px] w-full max-w-[42px] items-end rounded-t bg-[#f0eee8]">
                   <div className="flex w-full flex-col-reverse overflow-hidden rounded-t" style={{ height: `${height}%` }} role="img" aria-label={`${row.label} 合計${row.total}件`}>
@@ -529,7 +534,7 @@ function ClosureCompositionVisual({ report }: { report: ReportData }) {
 function attendanceSegments(report: ReportData): MetricSegment[] {
   return [
     { label: "参加", value: report.attendance.present, color: "#6f9875" },
-    { label: "キャンセル", value: report.attendance.cancelled, color: "#d88a77" },
+    { label: "通常キャンセル", value: report.attendance.cancelled, color: "#d88a77" },
     { label: "無断欠席", value: report.attendance.noShow, color: "#8578b2" },
   ];
 }
@@ -576,12 +581,12 @@ function RankedList({ title, rows, linkType }: { title: string; rows: RankedText
 }
 
 function BreakdownTable({ rows, firstHeader }: { rows: AttendanceBreakdownRow[]; firstHeader: string }) {
-  return rows.length ? <WorkspaceTableContainer><table className="w-full min-w-[520px] border-collapse text-left text-[13px]"><thead className="bg-[#f5f3ee] text-[12px] font-semibold text-[#666d63]"><tr><TableHead>{firstHeader}</TableHead><TableHead>参加</TableHead><TableHead>キャンセル</TableHead><TableHead>無断欠席</TableHead><TableHead>合計</TableHead></tr></thead><tbody className="divide-y divide-[#ece5db]">{rows.map((row) => <tr key={row.label}><TableCell>{row.label}</TableCell><TableCell>{row.present}件</TableCell><TableCell>{row.cancelled}件</TableCell><TableCell>{row.noShow}件</TableCell><TableCell>{row.total}件</TableCell></tr>)}</tbody></table></WorkspaceTableContainer> : <WorkspaceEmptyState title="内訳データがありません" description="期間内に対象となる出欠記録がありません。" />;
+  return rows.length ? <WorkspaceTableContainer><table className="w-full min-w-[520px] border-collapse text-left text-[13px]"><thead className="bg-[#f5f3ee] text-[12px] font-semibold text-[#666d63]"><tr><TableHead>{firstHeader}</TableHead><TableHead>参加</TableHead><TableHead>キャンセル合計</TableHead><TableHead>うち無断欠席</TableHead><TableHead>合計</TableHead></tr></thead><tbody className="divide-y divide-[#ece5db]">{rows.map((row) => <tr key={row.label}><TableCell>{row.label}</TableCell><TableCell>{row.present}件</TableCell><TableCell>{row.cancelled + row.noShow}件</TableCell><TableCell>{row.noShow}件</TableCell><TableCell>{row.total}件</TableCell></tr>)}</tbody></table></WorkspaceTableContainer> : <WorkspaceEmptyState title="内訳データがありません" description="期間内に対象となる出欠記録がありません。" />;
 }
 
 function DataQuality({ report }: { report: ReportData }) {
   const quality = report.dataQuality;
-  return <WorkspaceSection title="データの状態" description="エラーではなく、今回の分析結果を読むときの信頼度の目安です。"><div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6"><QualityItem label="期間内レッスン" value={`${quality.lessons}件`} /><QualityItem label="実施後記録済み" value={`${quality.recordedLessons}件`} /><QualityItem label="記録率" value={`${quality.recordRate}%`} /><QualityItem label="未評価ブロック" value={`${quality.unevaluatedBlocks}件`} /><QualityItem label="差分未分類の旧項目" value={`${quality.legacyUnclassifiedItems}件`} /><QualityItem label="実際時間が未入力" value={`${quality.missingActualMinutes}件`} /></div></WorkspaceSection>;
+  return <WorkspaceSection title="データの状態" description="エラーではなく、今回の分析結果を読むときの信頼度の目安です。"><div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6"><QualityItem label="記録対象レッスン" value={`${quality.lessons}件`} /><QualityItem label="実施後記録済み" value={`${quality.recordedLessons}件`} /><QualityItem label="記録率" value={`${quality.recordRate}%`} /><QualityItem label="未評価ブロック" value={`${quality.unevaluatedBlocks}件`} /><QualityItem label="差分未分類の旧項目" value={`${quality.legacyUnclassifiedItems}件`} /><QualityItem label="実際時間が未入力" value={`${quality.missingActualMinutes}件`} /></div></WorkspaceSection>;
 }
 
 function QualityItem({ label, value }: { label: string; value: string }) { return <div className="rounded-xl border border-[#e6ded3] bg-[#faf8f3] p-3"><p className="text-[12px] text-[#737a70]">{label}</p><p className="mt-1 text-[18px] font-semibold text-[#465047]">{value}</p></div>; }
