@@ -54,6 +54,7 @@ export function ScheduleForm({ plans, students, initialPlanId, initialDate, sche
       : "";
   const [selectedPlanId, setSelectedPlanId] = useState(initialSelectedPlanId);
   const selectedPlan = useMemo(() => plans.find((plan) => plan.id === selectedPlanId), [plans, selectedPlanId]);
+  const [lessonName, setLessonName] = useState(schedule?.customLessonName ?? "");
   const defaultDate = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(new Date());
   const startsAt = schedule ? toTokyoInputValues(schedule.startsAt) : null;
   const endsAt = schedule ? toTokyoInputValues(schedule.endsAt) : null;
@@ -80,7 +81,10 @@ export function ScheduleForm({ plans, students, initialPlanId, initialDate, sche
       </WorkspaceActionBar>
 
       <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.08fr)_minmax(340px,0.92fr)]">
-        <WorkspaceFormSection title="1. 日時・場所" description="開始と終了を分けて登録できます。">
+        <WorkspaceFormSection title="1. レッスン名・日時・場所" description="開始と終了を分けて登録できます。">
+          <WorkspaceField label="レッスン名" hint="この予定だけの名前。空欄ならプラン名を使い、プランも未確定なら「レッスン内容未確定」と表示します。">
+            <Input name="custom_lesson_name" value={lessonName} onChange={(event) => setLessonName(event.target.value)} placeholder={selectedPlan?.name || "例：土曜の朝ヨガ"} className="yn-control" />
+          </WorkspaceField>
           <div className="grid gap-4 sm:grid-cols-2">
             <WorkspaceField label="日付" required>
               <Input name="date" type="date" defaultValue={startsAt?.date ?? normalizeInitialDate(initialDate, defaultDate)} required className="yn-control" />

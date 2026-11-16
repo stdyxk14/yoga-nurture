@@ -18,7 +18,7 @@ function scheduleRpcPayload(scheduleId: string | null, parsed: ReturnType<typeof
   return {
     p_schedule_id: scheduleId,
     p_lesson_plan_id: parsed.payload.lesson_plan_id,
-    p_lesson_name: parsed.payload.lesson_name,
+    p_custom_lesson_name: parsed.payload.custom_lesson_name,
     p_starts_at: parsed.payload.starts_at,
     p_ends_at: parsed.payload.ends_at,
     p_place: parsed.payload.place,
@@ -42,7 +42,7 @@ export async function createScheduleAction(
     const parsed = getSchedulePayload(formData, plans);
     if ("error" in parsed) return { error: parsed.error };
 
-    const { data: scheduleId, error } = await supabase.rpc("save_schedule", scheduleRpcPayload(null, parsed));
+    const { data: scheduleId, error } = await supabase.rpc("save_schedule_with_custom_name", scheduleRpcPayload(null, parsed));
     if (error || !scheduleId) return { error: formatRpcError(error, "予定を保存できませんでした") };
     nextPath = `/schedules/${scheduleId}`;
   } catch (error) {
@@ -68,7 +68,7 @@ export async function updateScheduleAction(
     const parsed = getSchedulePayload(formData, plans);
     if ("error" in parsed) return { error: parsed.error };
 
-    const { error } = await supabase.rpc("save_schedule", scheduleRpcPayload(id, parsed));
+    const { error } = await supabase.rpc("save_schedule_with_custom_name", scheduleRpcPayload(id, parsed));
     if (error) return { error: formatRpcError(error, "予定を更新できませんでした") };
 
     nextPath = `/schedules/${id}`;

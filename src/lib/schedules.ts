@@ -56,6 +56,7 @@ export type DbSchedule = {
   lessonPlanMemoSnapshot: string;
   lessonPlanDurationMinutesSnapshot: number | null;
   lessonName: string;
+  customLessonName?: string | null;
   startsAt: string;
   endsAt: string;
   dateLabel: string;
@@ -92,6 +93,7 @@ type RawSchedule = {
   lesson_plan_memo_snapshot?: string | null;
   lesson_plan_duration_minutes_snapshot?: number | null;
   lesson_name: string;
+  custom_lesson_name?: string | null;
   starts_at: string;
   ends_at: string;
   place: string | null;
@@ -203,6 +205,8 @@ function mapSchedule(row: RawSchedule): DbSchedule {
     lessonPlanMemoSnapshot: row.lesson_plan_memo_snapshot ?? "",
     lessonPlanDurationMinutesSnapshot: row.lesson_plan_duration_minutes_snapshot ?? null,
     lessonName: row.lesson_name,
+    // Preserve historic independent names when opening a schedule created before the override field.
+    customLessonName: row.custom_lesson_name ?? (row.lesson_name !== (row.lesson_plan_name_snapshot || row.lesson_plan?.name || "レッスン内容未確定") ? row.lesson_name : null),
     startsAt: row.starts_at,
     endsAt: row.ends_at,
     dateLabel: start.dateLabel,
@@ -479,6 +483,7 @@ function scheduleSelect(includeNotes: boolean) {
       lesson_plan_memo_snapshot,
       lesson_plan_duration_minutes_snapshot,
       lesson_name,
+      custom_lesson_name,
       starts_at,
       ends_at,
       place,
@@ -577,7 +582,7 @@ export function getSchedulePayload(formData: FormData, plans: DbLessonPlan[]) {
   return {
     payload: {
       lesson_plan_id: plan?.id ?? null,
-      lesson_name: plan?.name ?? "レッスン内容未確定",
+      custom_lesson_name: String(formData.get("custom_lesson_name") ?? "").trim() || null,
       starts_at: startsAt.toISOString(),
       ends_at: endsAt.toISOString(),
       place,
